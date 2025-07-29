@@ -1,5 +1,5 @@
 {
-    "name": "a-kanban-board",
+    "name": "violet-kanban",
     "version": "0.1.0",
     "private": true,
     "description": "A Kanban board application built with Next.js and Radix UI.",
