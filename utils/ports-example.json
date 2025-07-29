@@ -1,0 +1,19 @@
+{
+    "hub": {
+        "listen": [
+            {
+                "address": "127.0.0.1",
+                "family": "IPv4",
+                "port": 4400
+            },
+            {
+                "address": "::1",
+                "family": "IPv6",
+                "port": 4400
+            }
+        ],
+        "name": "hub",
+        "host": "127.0.0.1",
+        "port": 4400
+    }
+}

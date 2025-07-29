@@ -1,0 +1,36 @@
+{
+    "name": "a-kanban-board",
+    "version": "0.1.0",
+    "private": true,
+    "description": "A Kanban board application built with Next.js and Radix UI.",
+    "author": "Avery",
+    "scripts": {
+        "dev": "next dev --turbopack",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint",
+        "fbemu": "firebase emulators:start --import=./app/lib/firebase/firebase-emulator-data --export-on-exit",
+        "fbemu:reset": "rm -rf ./app/lib/firebase/firebase-emulator-data && mkdir ./app/lib/firebase/firebase-emulator-data && firebase emulators:export ./app/lib/firebase/firebase-emulator-data --force",
+        "fbemu:stop": "lsof -t -i:5001 -i:5002 -i:8080 -i:8085 -i:9000 -i:9099 -i:9199 -i:9090 | xargs kill -9",
+        "emulator:ports": "curl localhost:4400/emulators | node ./utils/getPorts.js"
+    },
+    "dependencies": {
+        "@sentry/nextjs": "^9.42.0",
+        "firebase": "^12.0.0",
+        "immer": "^10.1.1",
+        "next": "15.3.5",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "use-immer": "^0.11.0"
+    },
+    "devDependencies": {
+        "@radix-ui/colors": "^3.0.0",
+        "@radix-ui/themes": "^3.2.1",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "radix-ui": "^1.4.2",
+        "typescript": "^5",
+        "zod": "^4.0.8"
+    }
+}
