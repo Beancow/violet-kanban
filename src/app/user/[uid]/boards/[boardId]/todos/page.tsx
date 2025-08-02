@@ -3,7 +3,7 @@
 import { useAppState } from '@/components/AppStateProvider';
 
 export default function UserTodoPage() {
-    const { todos, user } = useAppState();
+    const { todos } = useAppState();
     return (
         <div>
             <h1>User Todo Page</h1>

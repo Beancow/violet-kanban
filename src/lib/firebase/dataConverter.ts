@@ -9,7 +9,7 @@ export const dataConverter = <T>(): FirestoreDataConverter<T> => ({
     toFirestore(data: T): DocumentData {
         // Bit of defensive programming to ensure data is an object and also handle FormData
         if (data instanceof FormData) {
-            let formDataObject: Record<string, any> = {};
+            let formDataObject: Record<string, unknown> = {};
             formDataObject = Object.fromEntries(data.entries());
             return { ...formDataObject };
         }

@@ -10,6 +10,7 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { usePathname, useRouter } from 'next/navigation';
 import { firebaseAuth } from '@/lib/firebase/firebase-config'; // Adjust the import path as needed
 import { Box, Spinner } from '@radix-ui/themes';
+import { getAllOrganizationsAction } from '@/lib/firebase/orgServerActions';
 
 interface AuthContextType {
     user: User | null;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const isAuthPage = pathname === '/user/login';
+    const isOrgPage = pathname.startsWith('/org');
 
     useEffect(() => {
         if (loading) {
@@ -47,8 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/user/login');
         } else if (user && isAuthPage) {
             router.push('/user');
+        } else if (user && !isOrgPage) {
+            const checkOrgs = async () => {
+                const orgs = await getAllOrganizationsAction();
+                if (!orgs.data || orgs.data.length === 0) {
+                    router.push('/org');
+                } else {
+                    router.push('/user');
+                }
+            };
+            checkOrgs();
         }
-    }, [user, loading, pathname, router]);
+    }, [user, loading, pathname, router, isAuthPage, isOrgPage]);
 
     if (loading || (!user && !isAuthPage) || (user && isAuthPage)) {
         return (

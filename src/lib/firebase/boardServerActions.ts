@@ -1,39 +1,24 @@
 import { firebaseGetFirestore } from '@/lib/firebase/firebase-config';
 import { Boards } from '@/types/appState.type';
-import { addDoc, getDocs, collection, getDoc, doc } from 'firebase/firestore';
+import { getDocs, collection, getDoc, doc } from 'firebase/firestore';
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
+import { hasPermission } from './utils/hasPermission';
 
 const db = firebaseGetFirestore();
 
-export async function createBoardAction(data: FormData, uid: string) {
-    const boardCollection = collection(db, `users/${uid}/boards`).withConverter(
-        dataConverter<FormData>()
-    );
-    try {
-        const boardDoc = await addDoc(boardCollection, data);
-        const boardData = boardDoc.withConverter(dataConverter<FormData>());
-
-        return {
-            success: true,
-            data: {
-                message:
-                    'Board created successfully, new Board ID: ' + boardData.id,
-                id: boardData.id,
-            },
-        };
-    } catch (error) {
-        sentry.captureException(error);
-        console.error('Error creating board:', error);
+export async function getBoardAction(orgId: string, boardId: string) {
+    if (!hasPermission(orgId, 'member')) {
         return {
             success: false,
-            error: new Error('Failed to create board', { cause: error }),
+            error: new Error('User does not have permission to view boards'),
         };
     }
-}
 
-export async function getBoardAction(uid: string, boardId: string) {
-    const boardCollectionRef = doc(db, `users/${uid}/boards/${boardId}`);
+    const boardCollectionRef = doc(
+        db,
+        `organizations/${orgId}/boards/${boardId}`
+    );
     try {
         const boardDocs = await getDoc(boardCollectionRef);
         const boardData = boardDocs
@@ -42,7 +27,7 @@ export async function getBoardAction(uid: string, boardId: string) {
 
         if (!boardData) {
             sentry.captureException(
-                new Error(`Board with ID ${boardId} not found for user ${uid}`)
+                new Error(`Board with ID ${boardId} not found in org ${orgId}`)
             );
             return {
                 success: false,
@@ -63,15 +48,25 @@ export async function getBoardAction(uid: string, boardId: string) {
     }
 }
 
-export async function getBoardsAction(uid: string) {
-    const boardsCollection = collection(db, `users/${uid}/boards`);
+export async function getBoardsAction(orgId: string) {
+    if (!hasPermission(orgId, 'member')) {
+        return {
+            success: false,
+            error: new Error('User does not have permission to view boards'),
+        };
+    }
+
+    const boardsCollection = collection(
+        db,
+        `organizations/${orgId}/boards`
+    );
     try {
         const boardsSnapshot = await getDocs(boardsCollection);
         const boardsList: Boards[] = boardsSnapshot.docs.map((doc) =>
             doc.data().withConverter(dataConverter<Boards>())
         );
         sentry.captureMessage(
-            `Fetched ${boardsList.length} boards for user ${uid}`
+            `Fetched ${boardsList.length} boards for org ${orgId}`
         );
         return {
             success: true,

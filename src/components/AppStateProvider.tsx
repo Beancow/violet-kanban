@@ -74,54 +74,7 @@ const testAppState: Omit<
             userId: '1',
         },
     ],
-    organizations: [
-        {
-            id: '1',
-            name: 'Test Organization',
-            type: 'personal',
-            members: [
-                {
-                    id: '1',
-                    name: 'Test Member',
-                    photoURL: 'https://example.com/member.jpg',
-                    updatedAt: new Date(),
-                    createdAt: new Date(),
-                    isAdmin: true,
-                    isOwner: true,
-                },
-            ],
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            data: {
-                companyName: 'Test Company',
-                companyWebsite: 'https://example.com',
-                logoURL: 'https://example.com/logo.jpg',
-            },
-        },
-        {
-            id: '2',
-            name: 'Another Organization',
-            type: 'company',
-            members: [
-                {
-                    id: '2',
-                    name: 'Another Member',
-                    photoURL: 'https://example.com/another-member.jpg',
-                    updatedAt: new Date(),
-                    createdAt: new Date(),
-                    isAdmin: false,
-                    isOwner: false,
-                },
-            ],
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            data: {
-                companyName: 'Another Company',
-                companyWebsite: 'https://another-example.com',
-                logoURL: 'https://another-example.com/logo.jpg',
-            },
-        },
-    ],
+    organizations: [],
 };
 
 type AppState = {
@@ -194,7 +147,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, [loadFromIndexedDB]);
 
     const storeDataToIndexedDB = useCallback(
-        async (keyname: string, data: any) => {
+        async (keyname: string, data: User | Boards[] | Todo[] | Organization[]) => {
             localStorage.setItem(keyname, JSON.stringify(data));
         },
         []
@@ -207,7 +160,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                 name: user.name,
                 email: user.email,
                 photoURL: user.photoURL,
-                currentBoardId: 1752771419502,
+                currentBoardId: '1752771419502',
                 currentOrganizationId: user.currentOrganizationId,
             };
             storeDataToIndexedDB('userData', userData);

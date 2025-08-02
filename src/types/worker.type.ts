@@ -4,6 +4,7 @@ type WorkerMessage =
     | {
           type: 'WORKER_READY';
           timestamp: string;
+          payload?: null;
       }
     | {
           type: 'SYNC_USER_DATA';
@@ -31,7 +32,7 @@ type WorkerMessage =
       }
     | {
           type: 'SYNC_ERROR';
-          payload: any;
+          payload: string;
           timestamp: string;
           error: Error;
       }
@@ -39,11 +40,11 @@ type WorkerMessage =
           type: 'SYNC_RESULT';
           docId: string;
           success: boolean;
-          payload?: any;
+          payload?: Record<string, unknown>;
       }
     | {
           type: 'SYNC_DATA';
-          payload: any;
+          payload: Record<string, unknown>;
       }
     | {
           type: 'PROCESSING_COMPLETE';
@@ -56,6 +57,7 @@ type WorkerMessage =
     | {
           type: 'ERROR';
           error: Error;
+          payload?: Record<string, unknown>;
       };
 
 export { type WorkerMessage };

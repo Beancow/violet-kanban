@@ -7,18 +7,21 @@ export function useWebWorker() {
     const [workerError, setWorkerError] = useState<string | null>(null);
     const [lastPayloadCount, setLastPayloadCount] = useState<number>(0);
 
-    const updatePayloadCount = useCallback((payload: any) => {
-        if (Array.isArray(payload)) {
-            setLastPayloadCount(payload.length);
-        } else if (typeof payload === 'object' && payload !== null) {
-            setLastPayloadCount(Object.keys(payload).length);
-        } else if (typeof payload === 'string') {
-            setLastPayloadCount(1);
-        } else {
-            setLastPayloadCount(0);
-        }
-        console.log('Payload count updated:', lastPayloadCount);
-    }, []);
+    const updatePayloadCount = useCallback(
+        (payload: WorkerMessage['payload']) => {
+            if (Array.isArray(payload)) {
+                setLastPayloadCount(payload.length);
+            } else if (typeof payload === 'object' && payload !== null) {
+                setLastPayloadCount(Object.keys(payload).length);
+            } else if (typeof payload === 'string') {
+                setLastPayloadCount(1);
+            } else {
+                setLastPayloadCount(0);
+            }
+            console.log('Payload count updated:', lastPayloadCount);
+        },
+        [lastPayloadCount]
+    );
 
     useEffect(() => {
         if (typeof Worker !== 'undefined') {
@@ -142,7 +145,7 @@ export function useWebWorker() {
                 workerRef.current = null;
             }
         };
-    }, []);
+    }, [updatePayloadCount]);
 
     const syncData = useCallback(
         (message: WorkerMessage) => {

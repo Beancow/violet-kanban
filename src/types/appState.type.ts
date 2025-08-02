@@ -87,4 +87,12 @@ type Organization = {
     };
 };
 
+export type CreateOrganizationResult = 
+    | { success: true; data: { orgId: string; message: string } }
+    | { success: false; error: Error };
+
+export type AddMemberToOrganizationResult = 
+    | { success: true; data: { message: string } }
+    | { success: false; error: Error };
+
 export type { BoardList, Boards, Todo, User, Organization, OrganizationMember };
