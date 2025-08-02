@@ -1,18 +1,50 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 8, 13);
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Gets the user's role object from the organization's members map
+    function getMembership(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)).data.members[request.auth.uid];
+    }
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() && getMembership(orgId) != null;
+    }
+
+    function isRole(orgId, role) {
+      return isOrgMember(orgId) && getMembership(orgId).role == role;
+    }
+
+    function isAtLeastRole(orgId, role) {
+      return isOrgMember(orgId) &&
+        (
+          (role == 'member' && getMembership(orgId).role in ['owner', 'admin', 'member']) ||
+          (role == 'admin' && getMembership(orgId).role in ['owner', 'admin']) ||
+          (role == 'owner' && getMembership(orgId).role == 'owner')
+        );
+    }
+
+    // Rules for the 'organizations' collection
+    match /organizations/{orgId} {
+      allow read: if isOrgMember(orgId);
+      allow update: if isAtLeastRole(orgId, 'admin');
+      allow create: if isAuthenticated();
+    }
+
+    // Rules for collections owned by an organization (e.g., boards, todos)
+    // Assumes documents in these collections have an 'orgId' field.
+    match /{collection}/{docId} {
+       // Anyone in the org can read documents.
+      allow read: if isOrgMember(resource.data.orgId);
+
+      // Only admins or owners can create/update/delete documents.
+      allow write: if isAtLeastRole(request.resource.data.orgId, 'admin');
     }
   }
 }
