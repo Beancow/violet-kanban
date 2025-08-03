@@ -61,6 +61,40 @@ export default function CreateOrganizationPage() {
                         </Form.Field>
                     </Flex>
 
+                    <Heading as="h2" size="4" align="center" mt="5" mb="3">
+                        Organization Creator
+                    </Heading>
+                    <Flex direction="column" gap="3">
+                        <Form.Field name="creatorName">
+                            <Form.Label asChild>
+                                <Text as="div" size="2" mb="1" weight="bold">
+                                    Creator Name
+                                </Text>
+                            </Form.Label>
+                            <Form.Control asChild>
+                                <input
+                                    name="creatorName"
+                                    value={user?.displayName || ''}
+                                    readOnly
+                                />
+                            </Form.Control>
+                        </Form.Field>
+                        <Form.Field name="creatorEmail">
+                            <Form.Label asChild>
+                                <Text as="div" size="2" mb="1" weight="bold">
+                                    Creator Email
+                                </Text>
+                            </Form.Label>
+                            <Form.Control asChild>
+                                <input
+                                    name="creatorEmail"
+                                    value={user?.email || ''}
+                                    readOnly
+                                />
+                            </Form.Control>
+                        </Form.Field>
+                    </Flex>
+
                     <Flex gap="3" mt="6" justify="end">
                         <Form.Submit asChild>
                             <Button color="green">Create Organization</Button>

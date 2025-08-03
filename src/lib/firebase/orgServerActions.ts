@@ -90,6 +90,11 @@ export async function createOrganizationAction(data: FormData, userId: string): 
         type: data.get('type') as 'personal' | 'company',
         createdAt: new Date(),
         updatedAt: new Date(),
+        createdBy: {
+            userId: userId,
+            name: data.get('creatorName') as string,
+            email: data.get('creatorEmail') as string,
+        },
         members: {
             [userId]: { role: 'owner' },
         },

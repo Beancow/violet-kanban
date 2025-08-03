@@ -73,6 +73,12 @@ type OrganizationMember = {
     isOwner: boolean;
 };
 
+type Creator = {
+    userId: string;
+    name: string;
+    email: string;
+}
+
 type Organization = {
     id?: string;
     name: string;
@@ -80,6 +86,7 @@ type Organization = {
     members: OrganizationMember[];
     createdAt: Date;
     updatedAt: Date;
+    createdBy: Creator;
     data?: {
         companyName: string;
         companyWebsite: string;
