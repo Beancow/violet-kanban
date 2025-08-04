@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const checkOrgs = async () => {
                 const orgs = await getAllOrganizationsAction();
                 if (!orgs.data || orgs.data.length === 0) {
-                    router.push('/org');
+                    router.push('/orgs');
                 } else {
                     router.push('/user');
                 }

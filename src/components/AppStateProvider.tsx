@@ -10,12 +10,14 @@ import {
     Organization,
 } from '@/types/appState.type';
 import { getUser } from '@/lib/firebase/userServerActions';
+import { getAllOrganizationsAction } from '@/lib/firebase/orgServerActions';
 
 type AppState = {
     user: User | null;
     boards: Boards[];
     todos: Todo[];
     organizations: Organization[];
+    orgsLoading: boolean;
     setUser: (user: User | null) => void;
     setBoards: (boards: Boards[]) => void;
     setTodos: (todos: Todo[]) => void;
@@ -33,6 +35,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const [boards, setBoards] = useState<Boards[]>([]);
     const [todos, setTodos] = useState<Todo[]>([]);
     const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [orgsLoading, setOrgsLoading] = useState<boolean>(true);
     const { authUser } = useAuth();
 
     const loadFromIndexedDB = useCallback(async () => {
@@ -100,15 +103,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, [organizations, storeDataToIndexedDB]);
 
     useEffect(() => {
-        const fetchUserData = async () => {
+        const fetchOrgs = async () => {
             if (authUser) {
-                const { data, success } = await getUser(authUser.uid);
+                setOrgsLoading(true);
+                const { data, success } = await getAllOrganizationsAction();
                 if (success && data) {
-                    setUser(data);
+                    setOrganizations(data);
                 }
+                setOrgsLoading(false);
             }
         };
-        fetchUserData();
+        fetchOrgs();
     }, [authUser]);
 
     const updateOrgMembers = useCallback(
@@ -132,6 +137,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                 boards,
                 todos,
                 organizations,
+                orgsLoading,
                 updateOrgMembers,
                 setUser,
                 setBoards,

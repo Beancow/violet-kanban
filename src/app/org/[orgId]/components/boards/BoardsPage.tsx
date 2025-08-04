@@ -16,7 +16,7 @@ export default function BoardsPage({ params }: { params: { orgId: string } }) {
                     {organization?.name} Boards
                 </Heading>
                 <Text>This is where the boards for the organization will be displayed.</Text>
-                <Button mt="4" onClick={() => router.push('/org?changeDefault=true')}>
+                <Button mt="4" onClick={() => router.push('/orgs')}>
                     Manage Organizations
                 </Button>
             </Card>
