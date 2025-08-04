@@ -1,25 +1,25 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppState } from '@/components/AppStateProvider';
+import { useUser } from '@/contexts/UserProvider';
 import { Organization } from '@/types/appState.type';
 import {
     getOrganizationAction,
     updateOrganizationAction,
     deleteOrganizationAction,
 } from '@/lib/firebase/orgServerActions';
-import OrganizationForm from './components/OrganizationForm';
+import OrganizationForm from '@/app/components/forms/OrganizationForm';
 
 export default function OrgPage({ params }: { params: { orgId: string } }) {
-    const { user } = useAppState();
-    const [org, setOrg] = useState<Organization | null>();
+    const { user } = useUser();
+    const [organization, setOrganization] = useState<Organization | null>(null);
     const router = useRouter();
 
     useEffect(() => {
         const fetchOrg = async () => {
             const { data, success } = await getOrganizationAction(params.orgId);
             if (success && data) {
-                setOrg(data);
+                setOrganization(data);
             }
         };
         if (params.orgId) {
@@ -29,11 +29,14 @@ export default function OrgPage({ params }: { params: { orgId: string } }) {
 
     const handleUpdateOrg = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!org || !org.id) {
+        if (!organization || !organization.id) {
             return;
         }
         const formData = new FormData(event.currentTarget);
-        const result = await updateOrganizationAction(org.id, formData);
+        const result = await updateOrganizationAction(
+            organization.id,
+            formData
+        );
         if (result.success) {
             alert('Organization updated successfully!');
         } else {
@@ -42,10 +45,10 @@ export default function OrgPage({ params }: { params: { orgId: string } }) {
     };
 
     const handleDeleteOrg = async () => {
-        if (!org || !org.id) {
+        if (!organization || !organization.id) {
             return;
         }
-        const result = await deleteOrganizationAction(org.id);
+        const result = await deleteOrganizationAction(organization.id);
         if (result.success) {
             alert('Organization deleted successfully!');
             router.push('/orgs');
@@ -54,13 +57,13 @@ export default function OrgPage({ params }: { params: { orgId: string } }) {
         }
     };
 
-    if (!org || org === null) {
+    if (!organization) {
         return <>Loading ...</>;
     }
 
     return (
         <OrganizationForm
-            org={org}
+            organization={organization}
             user={user}
             onSubmit={handleUpdateOrg}
             onDelete={handleDeleteOrg}

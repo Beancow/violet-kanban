@@ -1,14 +1,14 @@
 'use client';
-import { useAppState } from '@/components/AppStateProvider';
-import OrganizationList from './components/OrganizationList';
-import { Box, Spinner } from '@radix-ui/themes';
+import { useOrganizations } from '@/contexts/OrganizationsProvider';
+import OrganizationList from '../components/lists/OrganizationList';
+import { Box, Skeleton } from '@radix-ui/themes';
 import { useRouter } from 'next/navigation';
 
 export default function OrgsPage() {
-    const { organizations, orgsLoading } = useAppState();
+    const { organizations, loading } = useOrganizations();
     const router = useRouter();
 
-    if (orgsLoading) {
+    if (loading) {
         return (
             <Box
                 style={{
@@ -18,14 +18,13 @@ export default function OrgsPage() {
                     height: '100vh',
                 }}
             >
-                <Spinner size='3' />
+                <Skeleton />
             </Box>
         );
     }
 
-    if (organizations.length === 0) {
+    if (!loading && organizations.length === 0) {
         router.push('/org/create');
-        return null;
     }
 
     return <OrganizationList organizations={organizations} />;

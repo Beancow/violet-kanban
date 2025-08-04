@@ -1,23 +1,24 @@
+
 'use client';
 import { Button, Flex, Card, Heading, Text, Select } from '@radix-ui/themes';
 import { Organization } from '@/types/appState.type';
 import * as Form from '@radix-ui/react-form';
 
 export default function OrganizationForm({
-    org,
     user,
     onSubmit,
     onDelete,
+    organization
 }: {
-    org: Organization;
     user: any;
     onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
     onDelete?: () => Promise<void>;
+    organization?: Organization;
 }) {
     return (
         <Card size='4' style={{ width: 425, margin: '0 auto' }}>
             <Heading as='h1' size='6' align='center' mb='5'>
-                Update Organization
+                {organization ? 'Update' : 'Create'} Organization
             </Heading>
 
             {user && (
@@ -46,7 +47,7 @@ export default function OrganizationForm({
                             <input
                                 name='name'
                                 placeholder='Enter organization name'
-                                defaultValue={org?.name}
+                                defaultValue={organization?.name}
                                 required
                             />
                         </Form.Control>
@@ -57,11 +58,11 @@ export default function OrganizationForm({
                                 Organization Type
                             </Text>
                         </Form.Label>
-                        <Select.Root name='type' defaultValue={org.type}>
+                        <Select.Root name='type' defaultValue={organization?.type || 'personal'}>
                             <Select.Trigger />
                             <Select.Content>
-                                <Select.Item value={org.type}>
-                                    {org?.type}
+                                <Select.Item value='personal'>
+                                    Personal
                                 </Select.Item>
                                 <Select.Item value='company'>
                                     Company
@@ -79,7 +80,7 @@ export default function OrganizationForm({
                             <input
                                 name='companyName'
                                 placeholder='Enter company name'
-                                defaultValue={org.name}
+                                defaultValue={organization?.data.companyName}
                             />
                         </Form.Control>
                     </Form.Field>
@@ -93,7 +94,7 @@ export default function OrganizationForm({
                             <input
                                 name='companyWebsite'
                                 placeholder='Enter company website'
-                                defaultValue={org.data?.companyWebsite}
+                                defaultValue={organization?.data.companyWebsite}
                             />
                         </Form.Control>
                     </Form.Field>
@@ -107,18 +108,20 @@ export default function OrganizationForm({
                             <input
                                 name='logoURL'
                                 placeholder='Enter logo URL'
-                                defaultValue={org.data?.logoURL}
+                                defaultValue={organization?.data.logoURL}
                             />
                         </Form.Control>
                     </Form.Field>
                 </Flex>
 
                 <Flex gap='3' mt='6' justify='end'>
-                    <Button color='red' onClick={onDelete}>
-                        Delete Organization
-                    </Button>
+                    {organization && onDelete && (
+                        <Button color='red' onClick={onDelete}>
+                            Delete Organization
+                        </Button>
+                    )}
                     <Form.Submit asChild>
-                        <Button color='green'>Update Organization</Button>
+                        <Button color='green'>{organization ? 'Update' : 'Create'} Organization</Button>
                     </Form.Submit>
                 </Flex>
             </Form.Root>

@@ -1,16 +1,9 @@
-import { firebaseGetFirestore } from '@/lib/firebase/firebase-config';
+import { firebaseDB } from '@/lib/firebase/firebase-config';
 import { Todo } from '@/types/appState.type';
-import {
-    getDocs,
-    getDoc,
-    collection,
-    doc,
-} from 'firebase/firestore';
+import { getDocs, getDoc, collection, doc, addDoc } from 'firebase/firestore';
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
 import { hasPermission } from './utils/hasPermission';
-
-const db = firebaseGetFirestore();
 
 export async function getAllTodosAction(orgId: string, boardId: string) {
     if (!hasPermission(orgId, 'member')) {
@@ -21,7 +14,7 @@ export async function getAllTodosAction(orgId: string, boardId: string) {
     }
 
     const todosCollection = collection(
-        db,
+        firebaseDB,
         `organizations/${orgId}/boards/${boardId}/todos`
     );
     try {
@@ -55,7 +48,7 @@ export async function getTodoAction(
     }
 
     const todoDoc = doc(
-        db,
+        firebaseDB,
         `organizations/${orgId}/boards/${boardId}/todos/${todoId}`
     );
     try {
@@ -75,3 +68,29 @@ export async function getTodoAction(
         };
     }
 }
+
+export const createTodo = async (
+    data: FormData,
+    uid: string,
+    boardId: string
+) => {
+    const todo = {
+        title: data.get('title')?.valueOf(),
+        description: data.get('description')?.valueOf(),
+        completed: false,
+    };
+
+    if (!todo.title || !todo.description) {
+        throw new Error('Invalid data');
+    }
+
+    const response = await addDoc(
+        collection(firebaseDB, `users/${uid}/boards/${boardId}/todos`),
+        { ...todo }
+    );
+
+    return {
+        success: true,
+        data: response,
+    };
+};

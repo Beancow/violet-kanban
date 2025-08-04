@@ -1,29 +1,29 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
-import AppStateProviderWrapper from '@/components/AppStateProvider';
+import AppProviders from '@/contexts/AppProviders';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "A Kanban Board",
-  description: "A Kanban board application built with Next.js and Radix UI.",
+    title: 'A Kanban Board',
+    description: 'A Kanban board application built with Next.js and Radix UI.',
 };
 
 export default function RootLayout({
-  children,
+    children,
 }: Readonly<{
-  children: React.ReactNode;
+    children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>
-        <Theme>
-          <AppStateProviderWrapper>{children}</AppStateProviderWrapper>
-        </Theme>
-      </body>
-    </html>
-  );
+    return (
+        <html lang='en'>
+            <body className={inter.className}>
+                <Theme>
+                    <AppProviders>{children}</AppProviders>
+                </Theme>
+            </body>
+        </html>
+    );
 }

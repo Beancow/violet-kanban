@@ -1,42 +1,36 @@
 'use client';
 
 import { useEffect } from 'react';
-import * as firebaseui from 'firebaseui';
-import 'firebaseui/dist/firebaseui.css';
 import { EmailAuthProvider, GoogleAuthProvider } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase/firebase-config';
-import { useAuth } from '@/components/AuthProvider';
 import { Box, Card, Heading, Text } from '@radix-ui/themes';
 
-const uiConfig: firebaseui.auth.Config = {
-    signInFlow: 'popup',
-    signInSuccessUrl: '/',
-    signInOptions: [
-        GoogleAuthProvider.PROVIDER_ID,
-        EmailAuthProvider.PROVIDER_ID,
-    ],
-    callbacks: {
-        signInSuccessWithAuthResult: () => {
-            return false;
-        },
-    },
-};
-
 export default function LoginPage() {
-    const { authUser, loading } = useAuth();
+    const user = firebaseAuth.currentUser;
 
     useEffect(() => {
-        if (!loading && !authUser) {
-            const ui =
-                firebaseui.auth.AuthUI.getInstance() ||
-                new firebaseui.auth.AuthUI(firebaseAuth);
-            ui.start('#firebaseui-auth-container', uiConfig);
+        if (!user) {
+            import('firebaseui').then(firebaseui => {
+                const uiConfig: firebaseui.auth.Config = {
+                    signInFlow: 'popup',
+                    signInSuccessUrl: '/user/post-login',
+                    signInOptions: [
+                        GoogleAuthProvider.PROVIDER_ID,
+                        EmailAuthProvider.PROVIDER_ID,
+                    ],
+                    callbacks: {
+                        signInSuccessWithAuthResult: () => {
+                            return false;
+                        },
+                    },
+                };
+                const ui =
+                    firebaseui.auth.AuthUI.getInstance() ||
+                    new firebaseui.auth.AuthUI(firebaseAuth);
+                ui.start('#firebaseui-auth-container', uiConfig);
+            });
         }
-    }, [loading, authUser]);
-
-    if (loading || authUser) {
-        return null;
-    }
+    }, [user]);
 
     return (
         <Box

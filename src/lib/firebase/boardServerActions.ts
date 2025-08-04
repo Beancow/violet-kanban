@@ -1,11 +1,9 @@
-import { firebaseGetFirestore } from '@/lib/firebase/firebase-config';
-import { Boards } from '@/types/appState.type';
-import { getDocs, collection, getDoc, doc } from 'firebase/firestore';
+import { firebaseDB } from '@/lib/firebase/firebase-config';
+import { Board } from '@/types/appState.type';
+import { getDocs, collection, getDoc, doc, addDoc } from 'firebase/firestore';
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
 import { hasPermission } from './utils/hasPermission';
-
-const db = firebaseGetFirestore();
 
 export async function getBoardAction(orgId: string, boardId: string) {
     if (!hasPermission(orgId, 'member')) {
@@ -16,14 +14,12 @@ export async function getBoardAction(orgId: string, boardId: string) {
     }
 
     const boardCollectionRef = doc(
-        db,
+        firebaseDB,
         `organizations/${orgId}/boards/${boardId}`
-    );
+    ).withConverter(dataConverter<Board>());
     try {
         const boardDocs = await getDoc(boardCollectionRef);
-        const boardData = boardDocs
-            .data()
-            ?.withConverter(dataConverter<Boards>());
+        const boardData = boardDocs.data();
 
         if (!boardData) {
             sentry.captureException(
@@ -57,14 +53,15 @@ export async function getBoardsAction(orgId: string) {
     }
 
     const boardsCollection = collection(
-        db,
+        firebaseDB,
         `organizations/${orgId}/boards`
-    );
+    ).withConverter(dataConverter<Board>());
     try {
         const boardsSnapshot = await getDocs(boardsCollection);
-        const boardsList: Boards[] = boardsSnapshot.docs.map((doc) =>
-            doc.data().withConverter(dataConverter<Boards>())
-        );
+        const boardsList: Board[] = boardsSnapshot.docs.map((doc) => ({
+            ...doc.data(),
+            id: doc.id,
+        }));
         sentry.captureMessage(
             `Fetched ${boardsList.length} boards for org ${orgId}`
         );
@@ -80,4 +77,32 @@ export async function getBoardsAction(orgId: string) {
             error: new Error('Failed to fetch boards', { cause: error }),
         };
     }
+}
+
+export async function createBoard(data: FormData, uid: string, orgId: string) {
+    const board = {
+        title: data.get('title')?.valueOf(),
+        description: data.get('description')?.valueOf(),
+        organizationId: orgId,
+        ownerId: uid,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        tags: [],
+    };
+
+    if (!board.title || !board.description) {
+        throw new Error('Invalid data');
+    }
+
+    const response = await addDoc(
+        collection(firebaseDB, `organizations/${orgId}/boards`),
+        {
+            ...board,
+        }
+    );
+
+    return {
+        success: true,
+        data: response,
+    };
 }

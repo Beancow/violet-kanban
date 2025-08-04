@@ -39,16 +39,18 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow update: if isAtLeastRole(orgId, 'admin');
       allow create: if isAuthenticated();
-    }
 
-    // Rules for collections owned by an organization (e.g., boards, todos)
-    // Assumes documents in these collections have an 'orgId' field.
-    match /{collection}/{docId} {
-       // Anyone in the org can read documents.
-      allow read: if isOrgMember(resource.data.orgId);
+      match /boards/{boardId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId) && request.resource.data.organizationId == orgId;
+        allow update, delete: if isAtLeastRole(orgId, 'admin');
 
-      // Only admins or owners can create/update/delete documents.
-      allow write: if isAtLeastRole(request.resource.data.orgId, 'admin');
+        match /lists/{listId} {
+          allow read: if isOrgMember(orgId);
+          allow create: if isOrgMember(orgId) && request.resource.data.boardId == boardId;
+          allow update, delete: if isAtLeastRole(orgId, 'admin');
+        }
+      }
     }
   }
 }

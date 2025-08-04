@@ -13,6 +13,8 @@ import {
     getDocs,
     collection,
     writeBatch,
+    query,
+    where,
 } from 'firebase/firestore';
 
 import { dataConverter } from './dataConverter';
@@ -25,11 +27,11 @@ async function getOrgMembersAction(
     const orgCollection = collection(
         firebaseDB,
         `organizations/${orgId}/members`
-    );
+    ).withConverter(dataConverter<OrganizationMember>());
     try {
         const orgSnapshot = await getDocs(orgCollection);
         const orgMembers: OrganizationMember[] = orgSnapshot.docs.map((doc) =>
-            doc.data().withConverter(dataConverter<OrganizationMember>())
+            doc.data()
         );
         return orgMembers;
     } catch (error) {
@@ -48,12 +50,13 @@ export async function getOrganizationAction(orgId: string) {
             ),
         };
     }
-    const orgDoc = doc(firebaseDB, `organizations/${orgId}`);
+    const orgDoc = doc(firebaseDB, `organizations/${orgId}`).withConverter(dataConverter<Organization>());
     const orgMembers = await getOrgMembersAction(orgId);
 
     if (!orgMembers || orgMembers.length === 0) {
         console.warn(
-            `No members found for organization: ${orgId}. \nThis should not happen.`
+            `No members found for organization: ${orgId}. 
+This should not happen.`
         );
         sentry.captureException(
             new Error(`No members found for organization: ${orgId}`)
@@ -64,7 +67,7 @@ export async function getOrganizationAction(orgId: string) {
         const orgDocSnapshot = await getDoc(orgDoc);
         if (!orgDocSnapshot.exists()) {
             sentry.captureException(
-                new Error(`Organization with ID ${orgId} does not exist.`)
+                new Error(`Organization with ID ${orgId} does not exist.`) 
             );
             return {
                 success: false,
@@ -73,9 +76,7 @@ export async function getOrganizationAction(orgId: string) {
                 ),
             };
         }
-        const organization: Organization = orgDocSnapshot
-            .data()
-            .withConverter(dataConverter<Organization>());
+        const organization: Organization = orgDocSnapshot.data();
         if (!organization) {
             sentry.captureException(
                 new Error(
@@ -116,8 +117,8 @@ export async function createOrganizationAction(
         updatedAt: new Date(),
         createdBy: {
             userId: user.id,
-            name: data.get('creatorName') as string,
-            email: data.get('creatorEmail') as string,
+            name: user.displayName,
+            email: user.email,
         },
         members: {
             [user.id]: { role: 'owner' },
@@ -147,8 +148,8 @@ export async function createOrganizationAction(
             data: {
                 orgId: newOrgRef.id,
                 message:
-                    'Organization created successfully, new Organization ID: ' +
-                    newOrgRef.id,
+                    'Organization created successfully, new Organization ID: '
+                    + newOrgRef.id,
             },
         };
     } catch (error) {
@@ -161,13 +162,13 @@ export async function createOrganizationAction(
 }
 
 export async function getAllOrganizationsAction() {
-    const orgsCollection = collection(firebaseDB, 'organizations');
+    const orgsCollection = collection(firebaseDB, 'organizations').withConverter(dataConverter<Organization>());
 
     try {
         const orgsSnapshot = await getDocs(orgsCollection);
 
         const orgsList: Organization[] = orgsSnapshot.docs.map((doc) =>
-            doc.data().withConverter(dataConverter<Organization>())
+            doc.data()
         );
         return {
             success: true,
@@ -274,5 +275,28 @@ export async function deleteOrganizationAction(
     } catch (error) {
         console.error('Error deleting organization:', error);
         return { success: false, error };
+    }
+}
+
+export async function getOrganizationsForUserAction(userId: string) {
+    try {
+        const orgsCollection = collection(firebaseDB, 'organizations').withConverter(dataConverter<Organization>());
+        const q = query(orgsCollection, where(`members.${userId}`, '!=', null));
+        const querySnapshot = await getDocs(q);
+        const organizations = querySnapshot.docs.map((doc) =>
+            doc.data()
+        );
+        return {
+            success: true,
+            data: organizations,
+        };
+    } catch (error) {
+        console.error('Error fetching organizations for user:', error);
+        return {
+            success: false,
+            error: new Error('Failed to fetch organizations for user', {
+                cause: error,
+            }),
+        };
     }
 }

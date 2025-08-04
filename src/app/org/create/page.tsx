@@ -1,11 +1,12 @@
+
 'use client';
-import { useAppState } from '@/components/AppStateProvider';
-import OrganizationForm from './components/OrganizationForm';
-import { updateOrganizationAction } from '@/lib/firebase/orgServerActions';
+import { useUser } from '@/contexts/UserProvider';
+import OrganizationForm from '@/app/components/forms/OrganizationForm';
+import { createOrganizationAction } from '@/lib/firebase/orgServerActions';
 import { useRouter } from 'next/navigation';
 
 export default function CreateOrgPage() {
-    const { user } = useAppState();
+        const { user } = useUser();
     const router = useRouter();
 
     const handleCreateOrg = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -15,13 +16,10 @@ export default function CreateOrgPage() {
             return;
         }
         const formData = new FormData(event.currentTarget);
-        const result = await updateOrganizationAction(
-            formData.get('orgId') as string,
-            formData
-        );
+        const result = await createOrganizationAction(formData, user);
         if (result.success) {
             alert('Organization created successfully!');
-            router.push(`/org/${formData.get('orgId')}/boards`);
+            router.push(`/org/${result.data.orgId}/boards`);
         } else {
             alert(`Error: ${result.error.message}`);
         }
@@ -29,3 +27,4 @@ export default function CreateOrgPage() {
 
     return <OrganizationForm user={user} onSubmit={handleCreateOrg} />;
 }
+

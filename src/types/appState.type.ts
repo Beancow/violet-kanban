@@ -4,16 +4,17 @@ type BoardList = {
     description?: string;
     createdAt: Date;
     updatedAt: Date;
-    boardId: string;
-    isArchived?: boolean;
-    isDeleted?: boolean;
-    position?: number;
-    data?: {
+    position: number;
+    data: {
+        ownerId: string;
+        boardId: string;
+        isArchived?: boolean;
+        isDeleted?: boolean;
         backgroundColor?: string;
     };
 };
 
-type Boards = {
+type Board = {
     id: string;
     title: string;
     description?: string;
@@ -58,6 +59,7 @@ type User = {
     email: string;
     photoURL?: string;
     currentBoardId: string | null;
+    currentListId: string | null;
     currentOrganizationId: string | null;
     allowedOrgs?: string[];
     createdAt?: Date;
@@ -103,4 +105,4 @@ export type AddMemberToOrganizationResult =
     | { success: true; data: { message: string } }
     | { success: false; error: Error };
 
-export type { BoardList, Boards, Todo, User, Organization, OrganizationMember };
+export type { BoardList, Board, Todo, User, Organization, OrganizationMember };
