@@ -2,10 +2,7 @@ import { Button } from '@radix-ui/themes';
 import { useAppState } from './AppStateProvider';
 import { useWebWorker } from '@/hooks/useWebWorker';
 import { User } from '@/types/appState.type';
-import {
-    getUserAction,
-    storeUserDataForUidAction,
-} from '@/lib/firebase/firebaseUserServerActions';
+import { getUser } from '@/lib/firebase/userServerActions';
 
 export function WebWorkerTest() {
     const { user, boards, todos, organizations } = useAppState();
@@ -123,37 +120,6 @@ export function WebWorkerTest() {
                     color='gray'
                 >
                     Test Worker
-                </Button>
-                <Button
-                    onClick={() => {
-                        getUserAction('7jlfJ9DOiMMiFczhzwOPOy91Fd92')
-                            .then((userData) => {
-                                console.log('Fetched User Data:', userData);
-                            })
-                            .catch((error) => {
-                                console.error(
-                                    'Error fetching user data:',
-                                    error
-                                );
-                            });
-                    }}
-                    variant='solid'
-                    color='green'
-                >
-                    Fetch User Data
-                </Button>
-                <Button
-                    onClick={() => {
-                        console.log('Current User:', user);
-                        storeUserDataForUidAction(
-                            '7jlfJ9DOiMMiFczhzwOPOy91Fd92',
-                            user
-                        );
-                    }}
-                    variant='solid'
-                    color='blue'
-                >
-                    Log Current User
                 </Button>
             </div>
 

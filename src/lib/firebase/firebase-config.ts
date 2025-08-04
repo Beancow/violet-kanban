@@ -13,6 +13,8 @@ const firebaseConfig = {
     publicProjectId: process.env.NEXT_PUBLIC_FIREBASE_PUBLIC_PROJECT_ID,
 };
 
+console.log('Firebase Config:', firebaseConfig);
+
 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
     throw new Error(
         'Missing Firebase config values. Please check your .env.local file and ensure NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN are set.'
@@ -22,9 +24,6 @@ if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(app);
+const firebaseDB = getFirestore(app);
 
-const firebaseGetFirestore = () => {
-    return getFirestore(app);
-};
-
-export { app as firebaseApp, firebaseAuth, firebaseGetFirestore };
+export { app as firebaseApp, firebaseAuth, firebaseDB };

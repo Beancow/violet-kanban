@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { AuthProvider } from '@/components/AuthProvider';
+import { AuthProvider, useAuth } from '@/components/AuthProvider';
 import React from 'react';
 import {
     Boards,
@@ -9,73 +9,7 @@ import {
     OrganizationMember,
     Organization,
 } from '@/types/appState.type';
-
-const testAppState: Omit<
-    AppState,
-    'setUser' | 'setBoards' | 'setTodos' | 'setOrganizations'
-> = {
-    user: {
-        id: '1',
-        name: 'Test User',
-        email: 'test@example.com',
-        photoURL: 'https://example.com/test.jpg',
-        currentBoardId: '1',
-        currentOrganizationId: '1',
-        allowedOrgs: ['1'],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    },
-    boards: [
-        {
-            id: '1',
-            title: 'Test Board',
-            description: 'Test Description',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            ownerId: '1',
-            organizationId: '1',
-            lists: [
-                {
-                    id: '1',
-                    title: 'Test List',
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    boardId: '1',
-                },
-            ],
-            data: {
-                color: 'blue',
-                icon: 'check',
-                backgroundImage: 'https://example.com/background.jpg',
-            },
-            members: [
-                {
-                    userId: '1',
-                    name: 'Test Member',
-                    role: 'owner',
-                    joinedAt: new Date(),
-                    leftAt: undefined,
-                },
-            ],
-            archived: false,
-            deleted: false,
-            isPublic: true,
-        },
-    ],
-    todos: [
-        {
-            id: '1',
-            title: 'Test Todo',
-            description: 'Test Description',
-            completed: false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            boardId: '1',
-            userId: '1',
-        },
-    ],
-    organizations: [],
-};
+import { getUser } from '@/lib/firebase/userServerActions';
 
 type AppState = {
     user: User | null;
@@ -99,31 +33,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const [boards, setBoards] = useState<Boards[]>([]);
     const [todos, setTodos] = useState<Todo[]>([]);
     const [organizations, setOrganizations] = useState<Organization[]>([]);
-
-    const loadTestData = useCallback(() => {
-        setUser(testAppState.user);
-        setBoards(testAppState.boards);
-        setTodos(testAppState.todos);
-        setOrganizations(testAppState.organizations);
-    }, []);
-
-    useEffect(() => {
-        loadTestData();
-    }, [loadTestData]);
-
-    const updateOrgMembers = useCallback(
-        (orgId: string, members: OrganizationMember[]) => {
-            setOrganizations((prevOrgs) => {
-                return prevOrgs.map((org) => {
-                    if (org.id === orgId) {
-                        return { ...org, members };
-                    }
-                    return org;
-                });
-            });
-        },
-        []
-    );
+    const { authUser } = useAuth();
 
     const loadFromIndexedDB = useCallback(async () => {
         const storedUserData = localStorage.getItem('userData');
@@ -147,7 +57,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, [loadFromIndexedDB]);
 
     const storeDataToIndexedDB = useCallback(
-        async (keyname: string, data: User | Boards[] | Todo[] | Organization[]) => {
+        async (
+            keyname: string,
+            data: User | Boards[] | Todo[] | Organization[]
+        ) => {
             localStorage.setItem(keyname, JSON.stringify(data));
         },
         []
@@ -158,6 +71,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             const userData = {
                 id: user.id,
                 name: user.name,
+                displayName: user.name,
                 email: user.email,
                 photoURL: user.photoURL,
                 currentBoardId: '1752771419502',
@@ -185,6 +99,32 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }
     }, [organizations, storeDataToIndexedDB]);
 
+    useEffect(() => {
+        const fetchUserData = async () => {
+            if (authUser) {
+                const { data, success } = await getUser(authUser.uid);
+                if (success && data) {
+                    setUser(data);
+                }
+            }
+        };
+        fetchUserData();
+    }, [authUser]);
+
+    const updateOrgMembers = useCallback(
+        (orgId: string, members: OrganizationMember[]) => {
+            setOrganizations((prevOrgs) => {
+                return prevOrgs.map((org) => {
+                    if (org.id === orgId) {
+                        return { ...org, members };
+                    }
+                    return org;
+                });
+            });
+        },
+        []
+    );
+
     return (
         <AppStateContext.Provider
             value={{
@@ -199,8 +139,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                 setOrganizations,
             }}
         >
-            <AuthProvider>{children}</AuthProvider>
+            {children}
         </AppStateContext.Provider>
+    );
+}
+
+export default function AppStateProviderWrapper({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <AuthProvider>
+            <AppStateProvider>{children}</AppStateProvider>
+        </AuthProvider>
     );
 }
 

@@ -6,31 +6,51 @@ import {
     useState,
     ReactNode,
 } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { firebaseAuth } from '@/lib/firebase/firebase-config'; // Adjust the import path as needed
+import { firebaseAuth } from '@/lib/firebase/firebase-config';
 import { Box, Spinner } from '@radix-ui/themes';
 import { getAllOrganizationsAction } from '@/lib/firebase/orgServerActions';
+import { getUser, createUser } from '@/lib/firebase/userServerActions';
+import { User } from '@/types/appState.type';
 
 interface AuthContextType {
-    user: User | null;
+    authUser: FirebaseUser | null;
     loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
-    user: null,
+    authUser: null,
     loading: true,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
+    const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const pathname = usePathname();
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
+            setAuthUser(user);
+            if (user) {
+                const { success } = await getUser(user.uid);
+                if (!success) {
+                    const newUser: User = {
+                        id: user.uid,
+                        email: user.email || '',
+                        displayName: user.displayName || '',
+                        photoURL: user.photoURL || '',
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        name: user.displayName || '',
+                        currentBoardId: null,
+                        currentOrganizationId: null,
+                        allowedOrgs: [],
+                    };
+                    await createUser(newUser);
+                }
+            }
             setLoading(false);
         });
 
@@ -45,11 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        if (!user && !isAuthPage) {
+        if (!authUser && !isAuthPage) {
             router.push('/user/login');
-        } else if (user && isAuthPage) {
+        } else if (authUser && isAuthPage) {
             router.push('/user');
-        } else if (user && !isOrgPage) {
+        } else if (authUser && !isOrgPage) {
             const checkOrgs = async () => {
                 const orgs = await getAllOrganizationsAction();
                 if (!orgs.data || orgs.data.length === 0) {
@@ -60,9 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             checkOrgs();
         }
-    }, [user, loading, pathname, router, isAuthPage, isOrgPage]);
+    }, [authUser, loading, pathname, router, isAuthPage, isOrgPage]);
 
-    if (loading || (!user && !isAuthPage) || (user && isAuthPage)) {
+    if (loading || (!authUser && !isAuthPage) || (authUser && isAuthPage)) {
         return (
             <Box
                 style={{
@@ -78,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, loading }}>
+        <AuthContext.Provider value={{ authUser, loading }}>
             {children}
         </AuthContext.Provider>
     );

@@ -53,11 +53,12 @@ type Todo = {
 
 type User = {
     id: string;
+    displayName: string;
     name: string;
     email: string;
     photoURL?: string;
-    currentBoardId?: string;
-    currentOrganizationId?: string;
+    currentBoardId: string | null;
+    currentOrganizationId: string | null;
     allowedOrgs?: string[];
     createdAt?: Date;
     updatedAt?: Date;
@@ -77,10 +78,10 @@ type Creator = {
     userId: string;
     name: string;
     email: string;
-}
+};
 
 type Organization = {
-    id?: string;
+    id: string;
     name: string;
     type: 'personal' | 'company';
     members: OrganizationMember[];
@@ -94,11 +95,11 @@ type Organization = {
     };
 };
 
-export type CreateOrganizationResult = 
+export type CreateOrganizationResult =
     | { success: true; data: { orgId: string; message: string } }
     | { success: false; error: Error };
 
-export type AddMemberToOrganizationResult = 
+export type AddMemberToOrganizationResult =
     | { success: true; data: { message: string } }
     | { success: false; error: Error };
 

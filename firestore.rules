@@ -30,9 +30,13 @@ service cloud.firestore {
         );
     }
 
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
     // Rules for the 'organizations' collection
     match /organizations/{orgId} {
-      allow read: if isOrgMember(orgId);
+      allow read: if isAuthenticated();
       allow update: if isAtLeastRole(orgId, 'admin');
       allow create: if isAuthenticated();
     }

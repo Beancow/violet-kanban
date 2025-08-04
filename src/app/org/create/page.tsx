@@ -14,7 +14,7 @@ export default function CreateOrganizationPage() {
             return;
         }
         const formData = new FormData(event.currentTarget);
-        const result = await createOrganizationAction(formData, user.id);
+        const result = await createOrganizationAction(formData, user);
         if (result.success) {
             alert('Organization created successfully!');
         } else {

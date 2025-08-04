@@ -3,8 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
-import { AppStateProvider } from '@/components/AppStateProvider';
-import { AuthProvider } from "@/components/AuthProvider";
+import AppStateProviderWrapper from '@/components/AppStateProvider';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,9 +21,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Theme>
-          <AuthProvider>
-            <AppStateProvider>{children}</AppStateProvider>
-          </AuthProvider>
+          <AppStateProviderWrapper>{children}</AppStateProviderWrapper>
         </Theme>
       </body>
     </html>

@@ -23,18 +23,18 @@ const uiConfig: firebaseui.auth.Config = {
 };
 
 export default function LoginPage() {
-    const { user, loading } = useAuth();
+    const { authUser, loading } = useAuth();
 
     useEffect(() => {
-        if (!loading && !user) {
+        if (!loading && !authUser) {
             const ui =
                 firebaseui.auth.AuthUI.getInstance() ||
                 new firebaseui.auth.AuthUI(firebaseAuth);
             ui.start('#firebaseui-auth-container', uiConfig);
         }
-    }, [loading, user]);
+    }, [loading, authUser]);
 
-    if (loading || user) {
+    if (loading || authUser) {
         return null;
     }
 

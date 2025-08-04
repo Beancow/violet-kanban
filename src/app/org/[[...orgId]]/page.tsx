@@ -1,14 +1,47 @@
 'use client';
-import { Button, Flex, Card, Box, Heading, Text, Select } from '@radix-ui/themes';
-import { createOrganizationAction, addMemberToOrganizationAction } from '@/lib/firebase/orgServerActions';
-import { CreateOrganizationResult, AddMemberToOrganizationResult } from '@/types/appState.type';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppState } from '@/components/AppStateProvider';
-import * as Form from '@radix-ui/react-form';
-import { useState } from 'react';
+import { Organization } from '@/types/appState.type';
+import {
+    getOrganizationAction,
+    createOrganizationAction,
+    updateOrganizationAction,
+    deleteOrganizationAction,
+} from '@/lib/firebase/orgServerActions';
+import OrganizationList from './components/OrganizationList';
+import OrganizationForm from './components/OrganizationForm';
 
-export default function OrgPage() {
-    const { user } = useAppState();
-    const [orgId, setOrgId] = useState<string | null>(null);
+import BoardsPage from './components/boards/BoardsPage';
+
+import { useSearchParams } from 'next/navigation';
+
+export default function OrgPage({ params }: { params: { orgId: string[] } }) {
+    const { user, organizations } = useAppState();
+    const [org, setOrg] = useState<Organization | null>(null);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const changeDefault = searchParams.get('changeDefault');
+        if (user?.currentOrganizationId && !params.orgId && !changeDefault) {
+            router.push(`/org/${user.currentOrganizationId}/boards`);
+        }
+    }, [user, params.orgId, router, searchParams]);
+
+    useEffect(() => {
+        if (params.orgId && params.orgId.length > 0) {
+            const fetchOrg = async () => {
+                const { data, success } = await getOrganizationAction(
+                    params.orgId[0]
+                );
+                if (success && data) {
+                    setOrg(data);
+                }
+            };
+            fetchOrg();
+        }
+    }, [params.orgId]);
 
     const handleCreateOrg = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -17,163 +50,60 @@ export default function OrgPage() {
             return;
         }
         const formData = new FormData(event.currentTarget);
-        const result: CreateOrganizationResult = await createOrganizationAction(formData, user.id);
+        const result = await createOrganizationAction(formData, user);
         if (result.success) {
             alert('Organization created successfully!');
-            setOrgId(result.data.orgId);
+            router.push(`/org/${result.data.orgId}/boards`);
         } else {
             alert(`Error: ${result.error.message}`);
         }
     };
 
-    const handleAddMember = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleUpdateOrg = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!orgId) {
-            alert('You must create an organization first.');
+        if (!org || !org.id) {
             return;
         }
         const formData = new FormData(event.currentTarget);
-        formData.append('orgId', orgId);
-        const result: AddMemberToOrganizationResult = await addMemberToOrganizationAction(formData);
+        const result = await updateOrganizationAction(org.id, formData);
         if (result.success) {
-            alert('Member added successfully!');
+            alert('Organization updated successfully!');
         } else {
             alert(`Error: ${result.error.message}`);
         }
     };
 
+    const handleDeleteOrg = async () => {
+        if (!org || !org.id) {
+            return;
+        }
+        const result = await deleteOrganizationAction(org.id);
+        if (result.success) {
+            alert('Organization deleted successfully!');
+            router.push('/org');
+        } else {
+            alert(`Error: ${result.error.message}`);
+        }
+    };
+
+    if (
+        params.orgId &&
+        params.orgId.length > 1 &&
+        params.orgId[1] === 'boards'
+    ) {
+        return <BoardsPage params={{ orgId: params.orgId[0] }} />;
+    }
+
+    if (organizations.length > 0 && !params.orgId) {
+        return <OrganizationList organizations={organizations} />;
+    }
+
     return (
-        <Box pt='8'>
-            <Card size="4" style={{ width: 425, margin: '0 auto' }}>
-                <Heading as="h1" size="6" align="center" mb="5">
-                    Create a New Organization
-                </Heading>
-
-                <Form.Root onSubmit={handleCreateOrg}>
-                    <Flex direction="column" gap="3">
-                        <Form.Field name="name">
-                            <Form.Label asChild>
-                                <Text as="div" size="2" mb="1" weight="bold">
-                                    Organization Name
-                                </Text>
-                            </Form.Label>
-                            <Form.Control asChild>
-                                <input
-                                    name="name"
-                                    placeholder="Enter organization name"
-                                    required
-                                />
-                            </Form.Control>
-                        </Form.Field>
-                        <Form.Field name="type">
-                            <Form.Label asChild>
-                                <Text as="div" size="2" mb="1" weight="bold">
-                                    Organization Type
-                                </Text>
-                            </Form.Label>
-                            <Select.Root name="type" defaultValue="personal">
-                                <Select.Trigger />
-                                <Select.Content>
-                                    <Select.Item value="personal">Personal</Select.Item>
-                                    <Select.Item value="company">Company</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                        </Form.Field>
-                        <Form.Field name="companyName">
-                            <Form.Label asChild>
-                                <Text as="div" size="2" mb="1" weight="bold">
-                                    Company Name
-                                </Text>
-                            </Form.Label>
-                            <Form.Control asChild>
-                                <input
-                                    name="companyName"
-                                    placeholder="Enter company name"
-                                />
-                            </Form.Control>
-                        </Form.Field>
-                        <Form.Field name="companyWebsite">
-                            <Form.Label asChild>
-                                <Text as="div" size="2" mb="1" weight="bold">
-                                    Company Website
-                                </Text>
-                            </Form.Label>
-                            <Form.Control asChild>
-                                <input
-                                    name="companyWebsite"
-                                    placeholder="Enter company website"
-                                />
-                            </Form.Control>
-                        </Form.Field>
-                        <Form.Field name="logoURL">
-                            <Form.Label asChild>
-                                <Text as="div" size="2" mb="1" weight="bold">
-                                    Logo URL
-                                </Text>
-                            </Form.Label>
-                            <Form.Control asChild>
-                                <input
-                                    name="logoURL"
-                                    placeholder="Enter logo URL"
-                                />
-                            </Form.Control>
-                        </Form.Field>
-                    </Flex>
-
-                    <Flex gap="3" mt="6" justify="end">
-                        <Form.Submit asChild>
-                            <Button color="green">Create Organization</Button>
-                        </Form.Submit>
-                    </Flex>
-                </Form.Root>
-            </Card>
-
-            {orgId && (
-                <Card size="4" style={{ width: 425, margin: '2rem auto 0' }}>
-                    <Heading as="h1" size="6" align="center" mb="5">
-                        Add a New Member
-                    </Heading>
-
-                    <Form.Root onSubmit={handleAddMember}>
-                        <Flex direction="column" gap="3">
-                            <Form.Field name="userId">
-                                <Form.Label asChild>
-                                    <Text as="div" size="2" mb="1" weight="bold">
-                                        User ID
-                                    </Text>
-                                </Form.Label>
-                                <Form.Control asChild>
-                                    <input
-                                        name="userId"
-                                        placeholder="Enter user ID"
-                                        required
-                                    />
-                                </Form.Control>
-                            </Form.Field>
-                            <Form.Field name="role">
-                                <Form.Label asChild>
-                                    <Text as="div" size="2" mb="1" weight="bold">
-                                        Role
-                                    </Text>
-                                </Form.Label>
-                                <Form.Control asChild>
-                                    <input
-                                        name="role"
-                                        placeholder="Enter role"
-                                        required
-                                    />
-                                </Form.Control>
-                            </Form.Field>
-                        </Flex>
-
-                        <Flex gap="3" mt="6" justify="end">
-                            <Form.Submit asChild>
-                                <Button color="green">Add Member</Button>
-                            </Form.Submit>
-                        </Flex>
-                    </Form.Root>
-                </Card>
-            )}
-        </Box>
+        <OrganizationForm
+            org={org}
+            user={user}
+            onSubmit={org ? handleUpdateOrg : handleCreateOrg}
+            onDelete={org ? handleDeleteOrg : undefined}
+        />
     );
 }

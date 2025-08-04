@@ -1,15 +1,16 @@
-import { firebaseGetFirestore, firebaseAuth } from '@/lib/firebase/firebase-config';
+import { firebaseDB, firebaseAuth } from '@/lib/firebase/firebase-config';
 import { doc, getDoc } from 'firebase/firestore';
 
-const db = firebaseGetFirestore();
-
-export async function hasPermission(orgId: string, requiredRole: 'owner' | 'admin' | 'member') {
+export async function hasPermission(
+    orgId: string,
+    requiredRole: 'owner' | 'admin' | 'member'
+) {
     const user = firebaseAuth.currentUser;
     if (!user) {
         return false;
     }
 
-    const orgRef = doc(db, 'organizations', orgId);
+    const orgRef = doc(firebaseDB, 'organizations', orgId);
     const orgDoc = await getDoc(orgRef);
 
     if (!orgDoc.exists()) {
