@@ -7,7 +7,7 @@ import {
     ReactNode,
 } from 'react';
 import { Organization, OrganizationMember } from '@/types/appState.type';
-import { getAllOrganizationsAction } from '@/lib/firebase/orgServerActions';
+import { getOrganizationsForUserAction } from '@/lib/firebase/orgServerActions';
 import { useAuth } from '@/contexts/AuthProvider';
 
 interface OrganizationsContextType {
@@ -30,7 +30,7 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const fetchOrgs = async () => {
             if (authUser) {
-                const { data, success } = await getAllOrganizationsAction();
+                const { data, success } = await getOrganizationsForUserAction(authUser.uid);
                 if (success && data) {
                     setOrganizations(data);
                 }

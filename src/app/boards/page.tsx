@@ -1,66 +1,36 @@
 'use client';
-import { useUser } from '@/contexts/UserProvider';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useBoards } from '@/contexts/BoardsProvider';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { Box, Heading, Text, Button, Flex } from '@radix-ui/themes';
 import Link from 'next/link';
+import { useUser } from '@/contexts/UserProvider';
 
 export default function UserBoardsPage() {
-    const { user, setCurrentBoard } = useUser();
+    const { user } = useUser();
     const { organizations, loading: orgsLoading } = useOrganizations();
     const { boards, loading: boardsLoading } = useBoards();
     const router = useRouter();
+    const currentOrg = organizations.find(
+        (org) => org.id === user?.currentOrganizationId
+    );
 
     if (orgsLoading || boardsLoading) {
         return <Text>Loading boards...</Text>;
     }
 
-    const handleCreateListClick = (boardId: string) => {
-        setCurrentBoard(boardId);
-        router.push(`/board/${boardId}`);
-    };
-
     if (!organizations.length) {
-        return (
-            <Box key='no-orgs'>
-                <Text>An Organisation is required to view boards.</Text>;
-                <Button
-                    onClick={() => router.push('/org/create')}
-                    variant='solid'
-                    color='blue'
-                >
-                    Create Organisation
-                </Button>
-            </Box>
-        );
+        router.push('/user/post-login');
     }
-
-    useEffect(() => {
-        if (!orgsLoading && (!user || !user.currentOrganizationId))
-            router.push('/user/login');
-    }, [user, orgsLoading]);
-
-    if (!user || !user.currentOrganizationId) {
-        return null;
-    }
-
-    const currentOrg = organizations.find(
-        (org) => org.id === user.currentOrganizationId
-    );
-    const orgBoards = boards.filter(
-        (board) => board.organizationId === user.currentOrganizationId
-    );
 
     return (
         <Box pt='8'>
             <Heading as='h1' size='6' align='center' mb='5'>
-                {currentOrg ? `${currentOrg.name} Boards` : 'Your Boards'}
+                {`${currentOrg?.name ?? 'Your'} Boards`}
             </Heading>
             <Flex direction='column' gap='4' align='center'>
-                {orgBoards.length > 0 ?
-                    orgBoards.map((board) => (
+                {boards.length > 0 ?
+                    boards.map((board) => (
                         <Link
                             href={`/board/${board.id}`}
                             key={board.id}

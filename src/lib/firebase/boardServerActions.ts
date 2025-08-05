@@ -3,16 +3,10 @@ import { Board } from '@/types/appState.type';
 import { getDocs, collection, getDoc, doc, addDoc } from 'firebase/firestore';
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
-import { hasPermission } from './utils/hasPermission';
+import { getListsAction } from './listServerActions';
+import { getAllTodosAction } from './todoServerActions';
 
 export async function getBoardAction(orgId: string, boardId: string) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error('User does not have permission to view boards'),
-        };
-    }
-
     const boardCollectionRef = doc(
         firebaseDB,
         `organizations/${orgId}/boards/${boardId}`
@@ -45,23 +39,33 @@ export async function getBoardAction(orgId: string, boardId: string) {
 }
 
 export async function getBoardsAction(orgId: string) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error('User does not have permission to view boards'),
-        };
-    }
-
     const boardsCollection = collection(
         firebaseDB,
         `organizations/${orgId}/boards`
     ).withConverter(dataConverter<Board>());
     try {
         const boardsSnapshot = await getDocs(boardsCollection);
-        const boardsList: Board[] = boardsSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            id: doc.id,
-        }));
+        const boardsList: Board[] = await Promise.all(
+            boardsSnapshot.docs.map(async (doc) => {
+                const boardData = doc.data();
+                const boardId = doc.id;
+                const listsResult = await getListsAction(orgId, boardId);
+                const todosResult = await getAllTodosAction(orgId, boardId);
+                const lists = listsResult.success ? listsResult.data : [];
+                const todos = todosResult.success ? todosResult.data : [];
+                const listIds = lists.map((list) => list.id);
+                const orphanedTodos = todos.filter(
+                    (todo) => !listIds.includes(todo.listId)
+                );
+                return {
+                    ...boardData,
+                    id: boardId,
+                    lists: lists || [],
+                    todos: todos || [],
+                    orphanedTodos: orphanedTodos || [],
+                };
+            })
+        );
         sentry.captureMessage(
             `Fetched ${boardsList.length} boards for org ${orgId}`
         );

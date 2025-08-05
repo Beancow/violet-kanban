@@ -12,21 +12,24 @@ import { useUser } from './UserProvider';
 
 interface BoardsContextType {
     boards: Board[];
-    currentBoard: string | null;
+    currentBoard: string | null | undefined;
     loading: boolean;
+    setCurrentBoard: (boardId: string) => void;
 }
 
 const BoardsContext = createContext<BoardsContextType>({
     boards: [],
     currentBoard: null,
     loading: true,
+    setCurrentBoard: () => {},
 });
 
 export function BoardsProvider({ children }: { children: ReactNode }) {
     const [boards, setBoards] = useState<Board[]>([]);
-    const [currentBoard, setCurrentBoard] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const { user } = useUser();
+    const { user, setCurrentBoard } = useUser();
+
+    const currentBoard = user?.currentBoardId;
 
     useEffect(() => {
         const fetchBoards = async () => {
@@ -37,21 +40,18 @@ export function BoardsProvider({ children }: { children: ReactNode }) {
                 if (success && data) {
                     setBoards(data);
                 }
-                if (user.currentBoardId) {
-                    const currentBoard = user.currentBoardId;
-                    setCurrentBoard(currentBoard);
-                }
                 setLoading(false);
             }
         };
         fetchBoards();
-    }, [user]);
+    }, [user, user?.currentOrganizationId]);
 
     return (
         <BoardsContext.Provider
             value={{
                 boards,
                 currentBoard,
+                setCurrentBoard,
                 loading,
             }}
         >

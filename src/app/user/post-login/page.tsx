@@ -1,24 +1,24 @@
 'use client';
-import { getOrganizationsForUserAction } from '@/lib/firebase/orgServerActions';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@radix-ui/themes';
-import { firebaseAuth } from '@/lib/firebase/firebase-config';
+import { useOrganizations } from '@/contexts/OrganizationsProvider';
+import { useEffect } from 'react';
 
-export default async function PostLoginPage() {
-    const user = firebaseAuth.currentUser;
+export default function PostLoginPage() {
+    const router = useRouter();
+    const { organizations, loading: orgsLoading } = useOrganizations();
 
-    const { data: organizations } =
-        user !== null ?
-            await getOrganizationsForUserAction(user.uid)
-        :   { data: null }; // Or handle the null case appropriately
-
-    if (organizations && organizations.length > 0) redirect('/orgs');
+    useEffect(() => {
+        if (organizations.length > 0) {
+            router.push('/boards');
+        }
+    }, [orgsLoading, organizations.length, router]);
 
     return (
         <div className='flex flex-col items-center justify-center min-h-screen text-2xl mb-4'>
             <h1>You are not a member of any organization.</h1>
             <Button
-                onClick={() => redirect('/org/create')}
+                onClick={() => router.push('/org/create')}
                 variant='solid'
                 color='blue'
             >

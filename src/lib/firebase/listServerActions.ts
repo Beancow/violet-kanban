@@ -1,22 +1,24 @@
 import { firebaseDB } from '@/lib/firebase/firebase-config';
 import { BoardList } from '@/types/appState.type';
-import { getDocs, collection, getDoc, doc, addDoc } from 'firebase/firestore';
+import {
+    getDocs,
+    collection,
+    getDoc,
+    doc,
+    addDoc,
+    writeBatch,
+    query,
+    where,
+    deleteField,
+} from 'firebase/firestore';
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
-import { hasPermission } from './utils/hasPermission';
 
 export async function getListAction(
     orgId: string,
     boardId: string,
     listId: string
 ) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error('User does not have permission to view lists'),
-        };
-    }
-
     const listCollectionRef = doc(
         firebaseDB,
         `organizations/${orgId}/boards/${boardId}/lists/${listId}`
@@ -51,13 +53,6 @@ export async function getListAction(
 }
 
 export async function getListsAction(orgId: string, boardId: string) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error('User does not have permission to view lists'),
-        };
-    }
-
     const listsCollection = collection(
         firebaseDB,
         `organizations/${orgId}/boards/${boardId}/lists`
@@ -109,12 +104,12 @@ export async function createList({
         title,
         description,
         position: 0,
+        boardId,
         data: {
             isArchived: false,
             isDeleted: false,
             backgroundColor: '#ffffff',
             ownerId: uid,
-            boardId,
         },
         createdAt: creationDate,
         updatedAt: creationDate,
@@ -134,4 +129,44 @@ export async function createList({
         success: true,
         data: response,
     };
+}
+
+export async function deleteListAction(
+    orgId: string,
+    boardId: string,
+    listId: string
+) {
+    const listRef = doc(
+        firebaseDB,
+        `organizations/${orgId}/boards/${boardId}/lists/${listId}`
+    );
+    const todosRef = collection(
+        firebaseDB,
+        `organizations/${orgId}/boards/${boardId}/todos`
+    );
+    const q = query(todosRef, where('listId', '==', listId));
+    const batch = writeBatch(firebaseDB);
+
+    const todosSnapshot = await getDocs(q);
+    todosSnapshot.forEach((todoDoc) => {
+        const todoRef = doc(
+            firebaseDB,
+            `organizations/${orgId}/boards/${boardId}/todos/${todoDoc.id}`
+        );
+        batch.update(todoRef, { listId: deleteField() });
+    });
+
+    batch.delete(listRef);
+
+    try {
+        await batch.commit();
+        return { success: true };
+    } catch (error) {
+        sentry.captureException(error);
+        console.error('Error deleting list:', error);
+        return {
+            success: false,
+            error: new Error('Failed to delete list', { cause: error }),
+        };
+    }
 }

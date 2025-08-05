@@ -4,7 +4,7 @@ import { User } from '@/types/appState.type';
 
 export async function getUserFromFirebaseDB(
     userId: string
-): Promise<{ success: boolean; data?: User; error?: any }> {
+): Promise<{ success: boolean; data?: User; error?: { message: string } }> {
     try {
         const userRef = doc(firebaseDB, 'users', userId);
         const userSnap = await getDoc(userRef);
@@ -22,7 +22,7 @@ export async function getUserFromFirebaseDB(
 
 export async function createUser(
     user: User
-): Promise<{ success: boolean; error?: any }> {
+): Promise<{ success: boolean; error?: Error }> {
     try {
         const userRef = doc(firebaseDB, 'users', user.id);
         await setDoc(userRef, user);
@@ -35,8 +35,8 @@ export async function createUser(
 
 export async function setDefaultOrganizationAction(
     userId: string,
-    orgId: string
-): Promise<{ success: boolean; error?: any }> {
+    orgId?: string
+): Promise<{ success: boolean; error?: Error }> {
     try {
         const userRef = doc(firebaseDB, 'users', userId);
         await setDoc(

@@ -3,7 +3,6 @@ import { AuthProvider } from '@/contexts/AuthProvider';
 import { UserProvider } from '@/contexts/UserProvider';
 import { OrganizationsProvider } from '@/contexts/OrganizationsProvider';
 import { BoardsProvider } from '@/contexts/BoardsProvider';
-import { TodosProvider } from '@/contexts/TodosProvider';
 import { ReactNode } from 'react';
 
 export default function AppProviders({ children }: { children: ReactNode }) {
@@ -11,9 +10,7 @@ export default function AppProviders({ children }: { children: ReactNode }) {
         <AuthProvider>
             <UserProvider>
                 <OrganizationsProvider>
-                    <BoardsProvider>
-                        <TodosProvider>{children}</TodosProvider>
-                    </BoardsProvider>
+                    <BoardsProvider>{children}</BoardsProvider>
                 </OrganizationsProvider>
             </UserProvider>
         </AuthProvider>

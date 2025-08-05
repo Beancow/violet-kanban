@@ -1,27 +1,20 @@
 import { firebaseDB } from '@/lib/firebase/firebase-config';
 import { Todo } from '@/types/appState.type';
-import { getDocs, getDoc, collection, doc, addDoc } from 'firebase/firestore';
+import { getDocs, getDoc, collection, doc, addDoc, deleteDoc } from 'firebase/firestore';
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
-import { hasPermission } from './utils/hasPermission';
 
 export async function getAllTodosAction(orgId: string, boardId: string) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error('User does not have permission to view todos'),
-        };
-    }
-
     const todosCollection = collection(
         firebaseDB,
         `organizations/${orgId}/boards/${boardId}/todos`
-    );
+    ).withConverter(dataConverter<Todo>());
     try {
         const todosSnapshot = await getDocs(todosCollection);
-        const todosList: Todo[] = todosSnapshot.docs.map((doc) =>
-            doc.data().withConverter(dataConverter<Todo>())
-        );
+        const todosList: Todo[] = todosSnapshot.docs.map((doc) => ({
+            ...doc.data(),
+            id: doc.id,
+        }));
         return {
             success: true,
             data: todosList,
@@ -40,13 +33,6 @@ export async function getTodoAction(
     boardId: string,
     todoId: string
 ) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error('User does not have permission to view todos'),
-        };
-    }
-
     const todoDoc = doc(
         firebaseDB,
         `organizations/${orgId}/boards/${boardId}/todos/${todoId}`
@@ -72,12 +58,16 @@ export async function getTodoAction(
 export const createTodo = async (
     data: FormData,
     uid: string,
-    boardId: string
+    orgId: string,
+    boardId: string,
+    listId: string
 ) => {
     const todo = {
         title: data.get('title')?.valueOf(),
         description: data.get('description')?.valueOf(),
         completed: false,
+        listId,
+        ownerId: uid,
     };
 
     if (!todo.title || !todo.description) {
@@ -85,7 +75,10 @@ export const createTodo = async (
     }
 
     const response = await addDoc(
-        collection(firebaseDB, `users/${uid}/boards/${boardId}/todos`),
+        collection(
+            firebaseDB,
+            `organizations/${orgId}/boards/${boardId}/todos`
+        ),
         { ...todo }
     );
 
@@ -94,3 +87,26 @@ export const createTodo = async (
         data: response,
     };
 };
+
+export async function deleteTodoAction(
+    orgId: string,
+    boardId: string,
+    todoId: string
+) {
+    const todoRef = doc(
+        firebaseDB,
+        `organizations/${orgId}/boards/${boardId}/todos/${todoId}`
+    );
+
+    try {
+        await deleteDoc(todoRef);
+        return { success: true };
+    } catch (error) {
+        sentry.captureException(error);
+        console.error('Error deleting todo:', error);
+        return {
+            success: false,
+            error: new Error('Failed to delete todo', { cause: error }),
+        };
+    }
+}

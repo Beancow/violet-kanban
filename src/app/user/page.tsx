@@ -14,7 +14,7 @@ export default function UserPage() {
             </div>
         );
 
-    const { id: uid, name: displayName } = user;
+    const { name: displayName } = user;
     return (
         <div>
             <h1>{displayName ?? 'User Page'}</h1>

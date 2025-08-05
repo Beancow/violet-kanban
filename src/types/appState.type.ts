@@ -31,6 +31,8 @@ type Board = {
         leftAt?: Date;
     }[];
     lists?: BoardList[];
+    todos?: Todo[];
+    orphanedTodos?: Todo[];
     data?: {
         color?: string;
         icon?: string;
@@ -50,6 +52,7 @@ type Todo = {
     updatedAt: Date;
     boardId: string;
     userId: string;
+    ownerId: string;
 };
 
 type User = {
@@ -61,7 +64,10 @@ type User = {
     currentBoardId: string | null;
     currentListId: string | null;
     currentOrganizationId: string | null;
-    allowedOrgs?: string[];
+    currentOrganization?: {
+        id: string;
+        role: 'owner' | 'admin' | 'editor' | 'member';
+    };
     createdAt?: Date;
     updatedAt?: Date;
 };
@@ -72,8 +78,7 @@ type OrganizationMember = {
     photoURL?: string;
     updatedAt: Date;
     createdAt: Date;
-    isAdmin: boolean;
-    isOwner: boolean;
+    role: 'owner' | 'admin' | 'editor' | 'member';
 };
 
 type Creator = {

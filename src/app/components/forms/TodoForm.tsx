@@ -1,21 +1,21 @@
 'use client';
 import { Flex, Card, Heading, Text, Button } from '@radix-ui/themes';
-import { BoardList, User } from '@/types/appState.type';
+import { Todo, User } from '@/types/appState.type';
 import * as Form from '@radix-ui/react-form';
 
-export function ListForm({ 
+export function TodoForm({ 
     user,
     onSubmit,
-    list,
+    todo,
 }: { 
     user: User | null;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
-    list?: BoardList;
+    onSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+    todo?: Todo;
 }) {
     return (
         <Card size='4' style={{ width: 425, margin: '0 auto' }}>
             <Heading as='h1' size='6' align='center' mb='5'>
-                {list ? 'Update' : 'Create'} List
+                {todo ? 'Update' : 'Create'} Card
             </Heading>
 
             {user && (
@@ -37,14 +37,14 @@ export function ListForm({
                     <Form.Field name='title'>
                         <Form.Label asChild>
                             <Text as='div' size='2' mb='1' weight='bold'>
-                                List Title
+                                Card Title
                             </Text>
                         </Form.Label>
                         <Form.Control asChild>
                             <input
                                 name='title'
-                                placeholder='Enter list title'
-                                defaultValue={list?.title}
+                                placeholder='Enter card title'
+                                defaultValue={todo?.title}
                                 required
                             />
                         </Form.Control>
@@ -58,15 +58,17 @@ export function ListForm({
                         <Form.Control asChild>
                             <textarea
                                 name='description'
-                                placeholder='Enter list description'
-                                defaultValue={list?.description}
+                                placeholder='Enter card description'
+                                defaultValue={todo?.description}
                                 required
                                 rows={3}
                             />
                         </Form.Control>
                     </Form.Field>
                 </Flex>
-                <Button color='green'>{list ? 'Update' : 'Create'} List</Button>
+                <Button color='green'>
+                    {todo ? 'Update' : 'Create'} Card
+                </Button>
             </Form.Root>
         </Card>
     );

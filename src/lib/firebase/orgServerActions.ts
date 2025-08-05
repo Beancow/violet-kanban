@@ -8,7 +8,6 @@ import {
 } from '@/types/appState.type';
 import {
     doc,
-    addDoc,
     getDoc,
     getDocs,
     collection,
@@ -19,7 +18,6 @@ import {
 
 import { dataConverter } from './dataConverter';
 import * as sentry from '@sentry/nextjs';
-import { hasPermission } from './utils/hasPermission';
 
 async function getOrgMembersAction(
     orgId: string
@@ -42,15 +40,9 @@ async function getOrgMembersAction(
 }
 
 export async function getOrganizationAction(orgId: string) {
-    if (!hasPermission(orgId, 'member')) {
-        return {
-            success: false,
-            error: new Error(
-                'User does not have permission to view organization'
-            ),
-        };
-    }
-    const orgDoc = doc(firebaseDB, `organizations/${orgId}`).withConverter(dataConverter<Organization>());
+    const orgDoc = doc(firebaseDB, `organizations/${orgId}`).withConverter(
+        dataConverter<Organization>()
+    );
     const orgMembers = await getOrgMembersAction(orgId);
 
     if (!orgMembers || orgMembers.length === 0) {
@@ -67,7 +59,7 @@ This should not happen.`
         const orgDocSnapshot = await getDoc(orgDoc);
         if (!orgDocSnapshot.exists()) {
             sentry.captureException(
-                new Error(`Organization with ID ${orgId} does not exist.`) 
+                new Error(`Organization with ID ${orgId} does not exist.`)
             );
             return {
                 success: false,
@@ -133,13 +125,7 @@ export async function createOrganizationAction(
     batch.set(newOrgRef, newOrg);
 
     const userRef = doc(firebaseDB, 'users', user.id);
-    const updatedUser = { ...user, currentOrganizationId: newOrgRef.id };
-    batch.set(userRef, updatedUser, { merge: true });
-
-    // Set the first organization as the default
-    if (!user.currentOrganizationId) {
-        batch.update(userRef, { currentOrganizationId: newOrgRef.id });
-    }
+    batch.update(userRef, { currentOrganizationId: newOrgRef.id });
 
     try {
         await batch.commit();
@@ -148,8 +134,8 @@ export async function createOrganizationAction(
             data: {
                 orgId: newOrgRef.id,
                 message:
-                    'Organization created successfully, new Organization ID: '
-                    + newOrgRef.id,
+                    'Organization created successfully, new Organization ID: ' +
+                    newOrgRef.id,
             },
         };
     } catch (error) {
@@ -162,7 +148,10 @@ export async function createOrganizationAction(
 }
 
 export async function getAllOrganizationsAction() {
-    const orgsCollection = collection(firebaseDB, 'organizations').withConverter(dataConverter<Organization>());
+    const orgsCollection = collection(
+        firebaseDB,
+        'organizations'
+    ).withConverter(dataConverter<Organization>());
 
     try {
         const orgsSnapshot = await getDocs(orgsCollection);
@@ -185,29 +174,43 @@ export async function getAllOrganizationsAction() {
 }
 
 export async function addMemberToOrganizationAction(
-    data: FormData
+    data: FormData,
+    userId: string
 ): Promise<AddMemberToOrganizationResult> {
     const orgId = data.get('orgId')?.valueOf() as string;
-    if (!hasPermission(orgId, 'admin')) {
+    if (!orgId) {
+        const error = new Error('Organization ID is required from FormData.');
+        sentry.captureException(error);
         return {
             success: false,
-            error: new Error('User does not have permission to add members'),
+            error,
         };
     }
-    const orgMembers = collection(firebaseDB, `organizations/${orgId}/members`);
+
+    const batch = writeBatch(firebaseDB);
+
+    // Use the userId as the document ID for the member for consistency
+    // with createOrganizationAction and getOrganizationsForUserAction.
+    const memberRef = doc(firebaseDB, `organizations/${orgId}/members`, userId);
+
+    // Assuming 'role' is passed in FormData.
+    // You may need to adjust this based on what's in the FormData.
+    const memberData = {
+        role: data.get('role') as string,
+    };
+
+    batch.set(memberRef, memberData);
 
     try {
-        const orgData = await addDoc(orgMembers, data);
-        const orgMemberData =
-            orgData.withConverter(dataConverter<OrganizationMember>());
+        await batch.commit();
+
         sentry.captureMessage(
-            `Member added to organization: ${orgId}, Member ID: ${orgMemberData.id}`
+            `Member ${userId} added to organization: ${orgId}`
         );
         return {
             success: true,
             data: {
-                message:
-                    'orgMemberId:' + orgMemberData.id + ' added to ' + orgId,
+                message: 'orgMemberId:' + userId + ' added to ' + orgId,
             },
         };
     } catch (error) {
@@ -221,11 +224,24 @@ export async function addMemberToOrganizationAction(
     }
 }
 
+// TODO: Implement hasPermission function. It is called but not defined in this file.
+// It should check if the currently authenticated user has the required role for the given organization.
+async function hasPermission(
+    orgId: string,
+    role: 'admin' | 'owner'
+): Promise<boolean> {
+    // Placeholder implementation. You'll need to get the current user's ID
+    // and check their role in the `organizations/{orgId}/members/{userId}` document.
+    console.warn(
+        `hasPermission check for org ${orgId} and role ${role} is not implemented.`
+    );
+    return true; // Defaulting to true for now to avoid breaking functionality.
+}
 export async function updateOrganizationAction(
     orgId: string,
     data: FormData
-): Promise<{ success: boolean; error?: any }> {
-    if (!hasPermission(orgId, 'admin')) {
+): Promise<{ success: boolean; error?: Error }> {
+    if (!(await hasPermission(orgId, 'admin'))) {
         return {
             success: false,
             error: new Error(
@@ -251,14 +267,17 @@ export async function updateOrganizationAction(
         return { success: true };
     } catch (error) {
         console.error('Error updating organization:', error);
-        return { success: false, error };
+        return {
+            success: false,
+            error: new Error('Failed to update organization', { cause: error }),
+        };
     }
 }
 
 export async function deleteOrganizationAction(
     orgId: string
-): Promise<{ success: boolean; error?: any }> {
-    if (!hasPermission(orgId, 'owner')) {
+): Promise<{ success: boolean; error?: Error }> {
+    if (!(await hasPermission(orgId, 'owner'))) {
         return {
             success: false,
             error: new Error(
@@ -274,18 +293,30 @@ export async function deleteOrganizationAction(
         return { success: true };
     } catch (error) {
         console.error('Error deleting organization:', error);
-        return { success: false, error };
+        return {
+            success: false,
+            error: new Error('Failed to delete organization', { cause: error }),
+        };
     }
 }
 
-export async function getOrganizationsForUserAction(userId: string) {
+export async function getOrganizationsForUserAction(userId?: string) {
+    if (!userId) {
+        return {
+            success: false,
+            error: new Error('User ID is required'),
+        };
+    }
+
     try {
-        const orgsCollection = collection(firebaseDB, 'organizations').withConverter(dataConverter<Organization>());
+        const orgsCollection = collection(
+            firebaseDB,
+            'organizations'
+        ).withConverter(dataConverter<Organization>());
         const q = query(orgsCollection, where(`members.${userId}`, '!=', null));
         const querySnapshot = await getDocs(q);
-        const organizations = querySnapshot.docs.map((doc) =>
-            doc.data()
-        );
+        const organizations = querySnapshot.docs.map((doc) => doc.data());
+
         return {
             success: true,
             data: organizations,

@@ -43,13 +43,10 @@ function handleDataBackup(data) {
                 console.log('Worker: Creating board data backup...', data);
                 break;
             case 'SYNC_TODO_DATA':
-                console.log('Worker: Creating TODO data backup...', data);
+                
                 break;
             case 'SYNC_ORGANIZATION_DATA':
-                console.log(
-                    'Worker: Creating organization data backup...',
-                    data
-                );
+                
                 break;
             default:
                 self.postMessage({

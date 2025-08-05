@@ -17,22 +17,18 @@ export default function ListPage() {
     const orgId = user?.currentOrganizationId || '';
     const { boardId } = params;
 
-    console.log(boardId);
+    if (!user) {
+        return null;
+    }
 
     const handleCreateList = async (
         event: React.FormEvent<HTMLFormElement>
     ) => {
         event.preventDefault();
-        if (!user || !orgId || !user.currentBoardId || !boardId) {
-            alert(
-                'You must be logged in, belong to an organization, and be in a board to create a list.'
-            );
-            return;
-        }
         const formData = new FormData(event.currentTarget);
         const result = await createList({
             data: formData,
-            uid: user.id,
+            uid: user?.id,
             orgId,
             boardId,
         });

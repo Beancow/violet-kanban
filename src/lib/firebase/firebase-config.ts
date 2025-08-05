@@ -13,7 +13,7 @@ const firebaseConfig = {
     publicProjectId: process.env.NEXT_PUBLIC_FIREBASE_PUBLIC_PROJECT_ID,
 };
 
-console.log('Firebase Config:', firebaseConfig);
+
 
 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
     throw new Error(

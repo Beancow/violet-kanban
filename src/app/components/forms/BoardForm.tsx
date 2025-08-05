@@ -1,18 +1,16 @@
 'use client';
 import { Flex, Card, Heading, Text, Button } from '@radix-ui/themes';
-import { Board } from '@/types/appState.type';
+import { Board, User } from '@/types/appState.type';
 import * as Form from '@radix-ui/react-form';
 
-export function BoardForm({
+export function BoardForm({ 
     user,
     onSubmit,
-    onDelete,
     board,
-}: {
-    user: any;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
-    onDelete?: () => Promise<void>;
-    board?: Board;
+}: { 
+    user: User | null;
+    onSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+    board?: Board; 
 }) {
     return (
         <Card size='4' style={{ width: 425, margin: '0 auto' }}>

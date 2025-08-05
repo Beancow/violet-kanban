@@ -8,7 +8,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Gets the user's role object from the organization's members map
     function getMembership(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)).data.members[request.auth.uid];
     }
@@ -22,11 +21,13 @@ service cloud.firestore {
     }
 
     function isAtLeastRole(orgId, role) {
+      let userRole = getMembership(orgId).role;
       return isOrgMember(orgId) &&
         (
-          (role == 'member' && getMembership(orgId).role in ['owner', 'admin', 'member']) ||
-          (role == 'admin' && getMembership(orgId).role in ['owner', 'admin']) ||
-          (role == 'owner' && getMembership(orgId).role == 'owner')
+          (role == 'member' && userRole in ['owner', 'admin', 'editor', 'member']) ||
+          (role == 'editor' && userRole in ['owner', 'admin', 'editor']) ||
+          (role == 'admin' && userRole in ['owner', 'admin']) ||
+          (role == 'owner' && userRole == 'owner')
         );
     }
 
@@ -36,19 +37,25 @@ service cloud.firestore {
 
     // Rules for the 'organizations' collection
     match /organizations/{orgId} {
-      allow read: if isAuthenticated();
-      allow update: if isAtLeastRole(orgId, 'admin');
+      allow read: if isOrgMember(orgId);
+      allow update, delete: if isAtLeastRole(orgId, 'admin');
       allow create: if isAuthenticated();
 
       match /boards/{boardId} {
         allow read: if isOrgMember(orgId);
         allow create: if isOrgMember(orgId) && request.resource.data.organizationId == orgId;
-        allow update, delete: if isAtLeastRole(orgId, 'admin');
+        allow update, delete: if isAtLeastRole(orgId, 'editor') || request.auth.uid == resource.data.ownerId;
 
         match /lists/{listId} {
           allow read: if isOrgMember(orgId);
           allow create: if isOrgMember(orgId) && request.resource.data.boardId == boardId;
-          allow update, delete: if isAtLeastRole(orgId, 'admin');
+          allow update, delete: if isAtLeastRole(orgId, 'editor') || request.auth.uid == resource.data.data.ownerId;
+        }
+
+        match /todos/{todoId} {
+          allow read: if isOrgMember(orgId);
+          allow create: if isOrgMember(orgId);
+          allow update, delete: if isAtLeastRole(orgId, 'editor') || request.auth.uid == resource.data.ownerId;
         }
       }
     }

@@ -107,10 +107,6 @@ export function useWebWorker() {
                             updatePayloadCount(workerMessage.payload);
                             break;
                         case 'SYNC_TODO_DATA':
-                            console.log(
-                                'Todo data synced:',
-                                workerMessage.payload
-                            );
                             updatePayloadCount(workerMessage.payload);
                             break;
                         case 'ERROR':
@@ -119,7 +115,7 @@ export function useWebWorker() {
                             updatePayloadCount(null);
                             break;
                         default:
-                            console.log('Unknown worker message:', {
+                            
                                 ...workerMessage,
                             });
                     }
@@ -135,7 +131,7 @@ export function useWebWorker() {
                 setWorkerError('Failed to create web worker');
             }
         } else {
-            console.warn('Web Workers are not supported in this browser');
+            
             setWorkerError('Web Workers are not supported');
         }
 
@@ -149,12 +145,6 @@ export function useWebWorker() {
 
     const syncData = useCallback(
         (message: WorkerMessage) => {
-            if (workerRef.current && isWorkerReady) {
-                workerRef.current.postMessage(message);
-            } else {
-                console.warn('Worker is not ready or not available');
-            }
-        },
         [isWorkerReady]
     );
 

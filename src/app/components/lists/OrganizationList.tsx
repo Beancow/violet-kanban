@@ -2,7 +2,6 @@
 import { Button, Flex, Card, Box, Heading, Text } from '@radix-ui/themes';
 import { Organization } from '@/types/appState.type';
 import { useRouter } from 'next/navigation';
-import { setDefaultOrganizationAction } from '@/lib/firebase/userServerActions';
 import { useUser } from '@/contexts/UserProvider';
 
 export default function OrganizationList({
@@ -10,18 +9,21 @@ export default function OrganizationList({
 }: {
     organizations: Organization[];
 }) {
-        const { user } = useUser();
+    const { user, setCurrentOrganization } = useUser();
     const router = useRouter();
 
     const handleSetDefaultOrg = async (orgId: string) => {
         if (!user) {
             return;
         }
-        const result = await setDefaultOrganizationAction(user.id, orgId);
-        if (result.success) {
-            router.push(`/boards`);
-        } else {
-            alert(`Error: ${result.error.message}`);
+        if (orgId === user.currentOrganizationId) {
+            return;
+        }
+        try {
+            setCurrentOrganization(orgId);
+            router.push('/boards');
+        } catch (error) {
+            console.error('Error setting default organization:', error);
         }
     };
 

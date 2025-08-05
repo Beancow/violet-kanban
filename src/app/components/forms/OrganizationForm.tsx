@@ -1,16 +1,16 @@
 
 'use client';
 import { Button, Flex, Card, Heading, Text, Select } from '@radix-ui/themes';
-import { Organization } from '@/types/appState.type';
+import { Organization, User } from '@/types/appState.type';
 import * as Form from '@radix-ui/react-form';
 
 export default function OrganizationForm({
     user,
     onSubmit,
     onDelete,
-    organization
+    organization,
 }: {
-    user: any;
+    user: User | null;
     onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
     onDelete?: () => Promise<void>;
     organization?: Organization;

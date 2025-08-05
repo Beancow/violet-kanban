@@ -5,10 +5,10 @@ import { Box, Skeleton } from '@radix-ui/themes';
 import { useRouter } from 'next/navigation';
 
 export default function OrgsPage() {
-    const { organizations, loading } = useOrganizations();
+    const { organizations, loading: organizationsLoading } = useOrganizations();
     const router = useRouter();
 
-    if (loading) {
+    if (organizationsLoading) {
         return (
             <Box
                 style={{
@@ -23,7 +23,7 @@ export default function OrgsPage() {
         );
     }
 
-    if (!loading && organizations.length === 0) {
+    if (!organizationsLoading && organizations.length < 1) {
         router.push('/org/create');
     }
 
