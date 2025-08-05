@@ -38,7 +38,7 @@ service cloud.firestore {
     // Rules for the 'organizations' collection
     match /organizations/{orgId} {
       allow read: if isOrgMember(orgId);
-      allow update, delete: if isAtLeastRole(orgId, 'admin');
+      allow update, delete: if isAtLeastRole(orgId, 'owner');
       allow create: if isAuthenticated();
 
       match /boards/{boardId} {

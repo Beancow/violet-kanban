@@ -28,8 +28,8 @@ async function getOrgMembersAction(
     ).withConverter(dataConverter<OrganizationMember>());
     try {
         const orgSnapshot = await getDocs(orgCollection);
-        const orgMembers: OrganizationMember[] = orgSnapshot.docs.map((doc) =>
-            doc.data()
+        const orgMembers: OrganizationMember[] = orgSnapshot.docs.map(
+            (doc) => ({ ...doc.data(), id: doc.id }) as OrganizationMember
         );
         return orgMembers;
     } catch (error) {

@@ -100,10 +100,6 @@ export function useWebWorker() {
                             updatePayloadCount(workerMessage.payload);
                             break;
                         case 'SYNC_BOARD_DATA':
-                            console.log(
-                                'Board data synced:',
-                                workerMessage.payload
-                            );
                             updatePayloadCount(workerMessage.payload);
                             break;
                         case 'SYNC_TODO_DATA':
@@ -127,7 +123,7 @@ export function useWebWorker() {
                     setIsWorkerReady(false);
                 };
             } catch (error) {
-                console.error('Failed to create web worker:', error);
+                
                 setWorkerError('Failed to create web worker');
             }
         } else {
