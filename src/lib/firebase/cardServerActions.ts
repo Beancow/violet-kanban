@@ -5,7 +5,7 @@ import { BoardCard } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import { FirebaseError } from 'firebase/app';
 
-import { getOrganizationAction } from '@/lib/firebase/orgServerActions';
+import { getOrganizationServerAction } from '@/lib/firebase/orgServerActions';
 
 // Dynamic import for firebase-admin-init
 const getAdminFirestore = async () => {
@@ -73,7 +73,7 @@ export const createCardServerAction = async ({
         }
 
         // Explicitly check organization existence and user membership
-        const orgResult = await getOrganizationAction(orgId);
+        const orgResult = await getOrganizationServerAction(orgId);
         if (!orgResult.success || !orgResult.data) {
             const error = new Error(
                 `Organization ${orgId} not found or accessible.`

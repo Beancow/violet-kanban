@@ -1,4 +1,4 @@
-import { getOrganizationServerAction, updateOrganizationServerAction, deleteOrganizationServerAction } from '@/lib/firebase/orgServerActions';
+import { getOrganizationServerAction } from '@/lib/firebase/orgServerActions';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Organization } from '@/types/appState.type';

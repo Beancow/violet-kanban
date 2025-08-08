@@ -7,7 +7,7 @@ import {
     ReactNode,
 } from 'react';
 import { Organization } from '@/types/appState.type';
-import { getOrganizationsForUserAction } from '@/lib/firebase/orgServerActions';
+import { getOrganizationsForUserServerAction } from '@/lib/firebase/orgServerActions';
 import { useAuth } from '@/contexts/AuthProvider';
 
 interface OrganizationsContextType {
@@ -29,7 +29,7 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
         const fetchOrgs = async () => {
             if (authUser) {
                 setLoading(true); // Set loading to true before fetching
-                const { data, success } = await getOrganizationsForUserAction(
+                const { data, success } = await getOrganizationsForUserServerAction(
                     authUser.uid
                 );
                 if (success && data) {
