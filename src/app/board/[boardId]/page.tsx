@@ -7,8 +7,8 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { useSync } from '@/contexts/SyncProvider';
 import { LooseCardsMenu } from '@/app/components/menus/LooseCardsMenu';
 import { CardDetails } from '@/app/components/menus/CardDetails';
-import { useState, useEffect } from 'react';
-import { DragEndEvent } from '@dnd-kit/core';
+import { useState, useEffect, useCallback } from 'react';
+
 
 import { useRequireOrganization } from '@/hooks/useRequireOrganization';
 import BoardContent from '@/app/components/board/BoardContent';
@@ -32,7 +32,7 @@ export default function BoardPage() {
         setIsEditing(showAddCardDialog !== null);
     }, [showAddCardDialog, setIsEditing]);
 
-    const { boards, loading: boardsLoading, handleDeleteList } = useBoardData();
+    const { boards, loading: boardsLoading, handleDeleteList, handleUpdateCard } = useBoardData();
 
     useEffect(() => {
         if (!boardsLoading && boards) {
@@ -123,53 +123,25 @@ export default function BoardPage() {
         }
     };
 
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
+    const handleUpdateCardOrder = useCallback(async (listId: string, newOrder: string[]) => {
+        if (!board) return;
 
-        if (!board || !currentOrganizationId) {
-            console.log(
-                'Pre-conditions not met: board or organization missing.'
-            );
-            return;
-        }
-
-        const activeCard = board.cards?.find((card) => card.id === active.id);
-        if (!activeCard) {
-            console.log('Active card not found.');
-            return;
-        }
-
-        if (over) {
-            const potentialDestinationId =
-                over.data.current?.sortable?.containerId || over.id;
-            const validList = board.lists?.find(
-                (list) => list.id === potentialDestinationId
-            );
-            if (validList) {
-                // destinationListId = validList.id;
+        const updatedCards = newOrder.map((cardId, index) => {
+            const card = board.cards?.find(c => c.id === cardId);
+            if (card) {
+                return { ...card, priority: index };
             }
-        }
+            return card;
+        }).filter(Boolean) as BoardCard[];
 
-        // Optimistically update the UI (no local state update needed as we refetch)
+        // Update local state optimistically
+        setBoard(prevBoard => prevBoard ? { ...prevBoard, cards: updatedCards } : null);
 
-        // Then, update the backend
-        try {
-            // Assuming updateCardListIdServerAction is available and handles the update
-            // This would need to be exposed via an API route as well.
-            // For now, we'll keep the direct call for simplicity, but ideally it would go through an API route.
-            // await updateCardListIdServerAction(
-            //     currentOrganizationId,
-            //     board.id,
-            //     activeCard.id,
-            //     destinationListId
-            // );
-            // No need to re-fetch or re-set state here as we're optimistic
-        } catch (error) {
-            console.error('Failed to update card position:', error);
-            // Revert the UI change on failure
-            alert('Failed to move card. Please try again.');
+        // Update backend
+        for (const [index, cardId] of newOrder.entries()) {
+            await handleUpdateCard(boardId as string, cardId, { priority: index });
         }
-    };
+    }, [board, boardId, handleUpdateCard]);
 
     if (loading) {
         return <LoadingPage dataType="Board" />;
@@ -199,7 +171,7 @@ export default function BoardPage() {
                 onCreateCard={handleCreateCard}
                 showAddCardDialog={showAddCardDialog}
                 setShowAddCardDialog={setShowAddCardDialog}
-                onDragEnd={handleDragEnd}
+                onUpdateCardOrder={handleUpdateCardOrder}
             />
         </Box>
     );

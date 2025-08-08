@@ -152,6 +152,66 @@ async function handleDeleteBoard(payload) {
     }
 }
 
+async function handleUpdateBoard(payload) {
+    const { boardId, data, idToken, orgId } = payload;
+    const response = await fetch('/api/boards/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
+        },
+        body: JSON.stringify({ boardId, data, orgId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to update board' },
+        });
+    }
+}
+
+async function handleUpdateList(payload) {
+    const { listId, data, idToken, orgId } = payload;
+    const response = await fetch('/api/lists/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
+        },
+        body: JSON.stringify({ listId, data, orgId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to update list' },
+        });
+    }
+}
+
+async function handleUpdateCard(payload) {
+    const { cardId, data, idToken, orgId } = payload;
+    const response = await fetch('/api/cards/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
+        },
+        body: JSON.stringify({ cardId, data, orgId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to update card' },
+        });
+    }
+}
+
 self.onmessage = async function (e) {
     const { type, payload } = e.data;
 
@@ -176,6 +236,15 @@ self.onmessage = async function (e) {
             break;
         case 'deleteBoard':
             await handleDeleteBoard(payload);
+            break;
+        case 'updateBoard':
+            await handleUpdateBoard(payload);
+            break;
+        case 'updateList':
+            await handleUpdateList(payload);
+            break;
+        case 'updateCard':
+            await handleUpdateCard(payload);
             break;
         case 'SYNC_USER_DATA':
             console.log('Worker: Syncing user data...', payload);

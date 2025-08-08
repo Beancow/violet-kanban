@@ -14,11 +14,8 @@ import {
     Cross1Icon,
     ReloadIcon,
 } from '@radix-ui/react-icons';
-import { useDroppable } from '@dnd-kit/core';
-import {
-    SortableContext,
-    verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+
+
 import BoardCardItem from '@/app/components/board/BoardCardItem';
 
 interface LooseCardsMenuProps {
@@ -34,7 +31,7 @@ export function LooseCardsMenu({
 }: LooseCardsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
 
-    const { setNodeRef } = useDroppable({ id: 'loose' }); // Droppable for loose cards
+    
 
     const looseCards = cards.filter(
         (card) => card.listId === null && !card.isDeleted
@@ -43,7 +40,6 @@ export function LooseCardsMenu({
 
     return (
         <Box
-            ref={setNodeRef} // Attach droppable ref to the Box
             style={{
                 position: 'fixed',
                 left: isOpen ? 0 : '-250px',
@@ -73,11 +69,7 @@ export function LooseCardsMenu({
                 <Text size='4' weight='bold' mb='4'>
                     Loose Cards
                 </Text>
-                <SortableContext
-                    items={looseCards.map((card) => card.id)}
-                    strategy={verticalListSortingStrategy}
-                >
-                    <Flex direction='column' gap='3' mb='4'>
+                <Flex direction='column' gap='3' mb='4'>
                         {looseCards.length > 0 ? (
                             looseCards.map((card) => (
                                 <BoardCardItem
@@ -92,7 +84,6 @@ export function LooseCardsMenu({
                             </Text>
                         )}
                     </Flex>
-                </SortableContext>
 
                 {deletedCards.length > 0 && (
                     <>

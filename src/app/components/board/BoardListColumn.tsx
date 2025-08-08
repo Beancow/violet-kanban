@@ -9,9 +9,21 @@ import {
 } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import BoardCardItem from './BoardCardItem';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    arrayMove,
+} from '@dnd-kit/sortable';
 import { CardForm } from '@/app/components/forms/CardForm';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useDroppable } from '@dnd-kit/core';
+import { useState } from 'react';
 
 interface BoardListColumnProps {
     list: BoardList;
@@ -22,6 +34,7 @@ interface BoardListColumnProps {
     onCreateCard: (event: React.FormEvent<HTMLFormElement>, listId: string) => Promise<void>;
     showAddCardDialog: string | null;
     setShowAddCardDialog: (listId: string | null) => void;
+    onUpdateCardOrder: (listId: string, newOrder: string[]) => void;
 }
 
 export default function BoardListColumn({
@@ -33,15 +46,31 @@ export default function BoardListColumn({
     onCreateCard,
     showAddCardDialog,
     setShowAddCardDialog,
+    onUpdateCardOrder,
 }: BoardListColumnProps) {
-    const { setNodeRef } = useDroppable({ id: list.id });
+    const [listCards, setListCards] = useState<BoardCard[]>(cards.filter(card => card.listId === list.id).sort((a, b) => (a.priority || 10) - (b.priority || 10)));
 
-    const displayCards = cards
-        ?.filter((card) => !card.isDeleted && card.listId === list.id);
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor)
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (active.id !== over.id) {
+            setListCards((items) => {
+                const oldIndex = items.findIndex((item) => item.id === active.id);
+                const newIndex = items.findIndex((item) => item.id === over.id);
+                const newOrderedCards = arrayMove(items, oldIndex, newIndex);
+                onUpdateCardOrder(list.id, newOrderedCards.map(card => card.id));
+                return newOrderedCards;
+            });
+        }
+    };
 
     return (
         <Card
-            ref={setNodeRef}
             key={list.id}
             style={{
                 minWidth: '250px',
@@ -78,17 +107,23 @@ export default function BoardListColumn({
                     </IconButton>
                 </Flex>
             </Flex>
-            <SortableContext items={displayCards.map(card => card.id)} strategy={verticalListSortingStrategy}>
-                <Flex direction='column' gap='3'>
-                    {displayCards.map((card: BoardCard) => (
-                        <BoardCardItem
-                            key={card.id}
-                            card={card}
-                            onSelectCard={onSelectCard}
-                        />
-                    ))}
-                </Flex>
-            </SortableContext>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext items={listCards.map(card => card.id)} strategy={verticalListSortingStrategy}>
+                    <Flex direction='column' gap='3'>
+                        {listCards.map((card: BoardCard) => (
+                            <BoardCardItem
+                                key={card.id}
+                                card={card}
+                                onSelectCard={onSelectCard}
+                            />
+                        ))}
+                    </Flex>
+                </SortableContext>
+            </DndContext>
         </Card>
     );
 }

@@ -56,6 +56,7 @@ type BoardCard = {
     userId: string;
     ownerId: string;
     isDeleted?: boolean;
+    priority?: number;
 };
 
 type User = {

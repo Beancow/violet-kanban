@@ -24,6 +24,9 @@ interface BoardDataContextType {
     handleSetBoardCards: (boardId: string, cards: BoardCard[]) => void;
     handleDeleteList: (boardId: string, listId: string) => void;
     handleDeleteBoard: (boardId: string) => void;
+    handleUpdateBoard: (boardId: string, data: Partial<Board>) => void;
+    handleUpdateList: (boardId: string, listId: string, data: Partial<BoardList>) => void;
+    handleUpdateCard: (boardId: string, cardId: string, data: Partial<BoardCard>) => void;
 }
 
 const BoardDataContext = createContext<BoardDataContextType>({
@@ -37,6 +40,9 @@ const BoardDataContext = createContext<BoardDataContextType>({
     handleSetBoardCards: () => {},
     handleDeleteList: () => {},
     handleDeleteBoard: () => {},
+    handleUpdateBoard: () => {},
+    handleUpdateList: () => {},
+    handleUpdateCard: () => {},
 });
 
 export function BoardDataProvider({ children }: { children: ReactNode }) {
@@ -278,6 +284,101 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
         setBoards((prevBoards) => prevBoards.filter(board => board.id !== boardId));
     }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
+    const handleUpdateBoard = useCallback(async (boardId: string, data: Partial<Board>) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
+        if (navigator.onLine) {
+            fetch('/api/boards/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
+                },
+                body: JSON.stringify({ boardId, data, orgId: currentOrganizationId }),
+            });
+        } else {
+            addActionToQueue({ type: 'updateBoard', payload: { boardId, data, orgId: currentOrganizationId } });
+        }
+        setBoards((prevBoards) =>
+            prevBoards.map((board) =>
+                board.id === boardId ? { ...board, ...data } : board
+            )
+        );
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
+
+    const handleUpdateList = useCallback(async (boardId: string, listId: string, data: Partial<BoardList>) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
+        if (navigator.onLine) {
+            fetch('/api/lists/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
+                },
+                body: JSON.stringify({ listId, data, orgId: currentOrganizationId }),
+            });
+        } else {
+            addActionToQueue({ type: 'updateList', payload: { listId, data, orgId: currentOrganizationId } });
+        }
+        setBoards((prevBoards) =>
+            prevBoards.map((board) =>
+                board.id === boardId
+                    ? {
+                          ...board,
+                          lists: (board.lists || []).map((list) =>
+                              list.id === listId ? { ...list, ...data } : list
+                          ),
+                      }
+                    : board
+            )
+        );
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
+
+    const handleUpdateCard = useCallback(async (boardId: string, cardId: string, data: Partial<BoardCard>) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
+        if (navigator.onLine) {
+            fetch('/api/cards/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
+                },
+                body: JSON.stringify({ cardId, data, orgId: currentOrganizationId }),
+            });
+        } else {
+            addActionToQueue({ type: 'updateCard', payload: { cardId, data, orgId: currentOrganizationId } });
+        }
+        setBoards((prevBoards) =>
+            prevBoards.map((board) =>
+                board.id === boardId
+                    ? {
+                          ...board,
+                          cards: (board.cards || []).map((card) =>
+                              card.id === cardId ? { ...card, ...data } : card
+                          ),
+                      }
+                    : board
+            )
+        );
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
+
     return (
         <BoardDataContext.Provider
             value={{
@@ -291,6 +392,9 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
                 handleSetBoardCards,
                 handleDeleteList,
                 handleDeleteBoard,
+                handleUpdateBoard,
+                handleUpdateList,
+                handleUpdateCard,
             }}
         >
             {children}

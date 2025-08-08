@@ -4,14 +4,7 @@ import { Flex, Box, Heading, Text, IconButton } from '@radix-ui/themes';
 import Link from 'next/link';
 import { PlusIcon } from '@radix-ui/react-icons';
 import BoardListColumn from './BoardListColumn';
-import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core';
+
 
 interface BoardContentProps {
     board: Board;
@@ -21,7 +14,7 @@ interface BoardContentProps {
     onCreateCard: (event: React.FormEvent<HTMLFormElement>, listId: string) => Promise<void>;
     showAddCardDialog: string | null;
     setShowAddCardDialog: (listId: string | null) => void;
-    onDragEnd: (event: DragEndEvent) => void;
+    onUpdateCardOrder: (listId: string, newOrder: string[]) => void;
 }
 
 export default function BoardContent({
@@ -32,24 +25,14 @@ export default function BoardContent({
     onCreateCard,
     showAddCardDialog,
     setShowAddCardDialog,
-    onDragEnd,
+    onUpdateCardOrder,
 }: BoardContentProps) {
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor)
-    );
-
     return (
         <Box pt='8'>
             <Heading as='h1' size='6' align='center' mb='5'>
                 {board.title}
             </Heading>
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={onDragEnd}
-            >
-                <Flex direction='row' gap='4' justify='center' align='start'>
+            <Flex direction='row' gap='4' justify='center' align='start'>
                     {board && board.lists && board.lists.length > 0 ? (
                         board.lists.map((list: BoardList) => (
                             <BoardListColumn
@@ -62,6 +45,7 @@ export default function BoardContent({
                                 onCreateCard={onCreateCard}
                                 showAddCardDialog={showAddCardDialog}
                                 setShowAddCardDialog={setShowAddCardDialog}
+                                onUpdateCardOrder={onUpdateCardOrder}
                             />
                         ))
                     ) : (
@@ -82,7 +66,6 @@ export default function BoardContent({
                         </IconButton>
                     </Link>
                 </Flex>
-            </DndContext>
         </Box>
     );
 }
