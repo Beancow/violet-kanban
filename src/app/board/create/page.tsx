@@ -1,46 +1,40 @@
-'use client';
-import { BoardForm } from '@/app/components/forms/BoardForm';
+import { createBoardServerAction } from '@/lib/firebase/boardServerActions';
 import { useUser } from '@/contexts/UserProvider';
-import { createBoard } from '@/lib/firebase/boardServerActions';
-import { useRouter } from 'next/navigation';
-import { useBoards } from '@/contexts/BoardsProvider';
+import { useAuth } from '@/contexts/AuthProvider';
+import { BoardForm } from '@/app/components/forms/BoardForm';
+import { Board } from '@/types/appState.type';
 
-import { useRequireOrganization } from '@/hooks/useRequireOrganization';
+export default function CreateBoardPage() {
+    const { user } = useUser();
+    const { authUser } = useAuth();
 
-export default function BoardCreate() {
-    useRequireOrganization();
-    const { user, currentOrganizationId } = useUser();
-    const { addBoard } = useBoards();
-    const router = useRouter();
-
-    const handleCreateBoard = async (
-        event: React.FormEvent<HTMLFormElement>
-    ) => {
-        event.preventDefault();
-        if (!user || !currentOrganizationId) {
-            alert(
-                'You must be logged in and belong to an organization to create a board.'
-            );
+    const handleCreateBoard = async (formData: FormData) => {
+        if (!user || !authUser) {
+            alert('You must be logged in to create a board.');
             return;
         }
-        const formData = new FormData(event.currentTarget);
-        const result = await createBoard(
-            formData,
-            user?.id,
-            currentOrganizationId
-        );
+
+        
+        const boardData: Omit<Board, 'id'> = {
+            title: formData.get('title') as string,
+            description: formData.get('description') as string,
+            organizationId: user.organizationIds[0], // Assuming the first organization for now
+            ownerId: user.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            tags: [],
+        };
+
+        const result = await createBoardServerAction(boardData, user.id, user.organizationIds[0]);
+
         if (result.success) {
-            addBoard(result.data);
-            router.push(`/board/${result.data.id}`);
+            alert('Board created successfully!');
         } else {
-            console.error('Error creating board:', result.data);
+            alert(`Error creating board: ${result.error?.message}`);
         }
     };
 
     return (
-        <div>
-            <h1>Create Board</h1>
-            <BoardForm user={user} onSubmit={handleCreateBoard} />
-        </div>
+        <BoardForm user={user} onSubmit={handleCreateBoard} />
     );
 }

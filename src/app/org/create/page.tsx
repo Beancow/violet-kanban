@@ -1,27 +1,26 @@
-'use client';
+import { createOrganizationServerAction } from '@/lib/firebase/orgServerActions';
 import { useUser } from '@/contexts/UserProvider';
-import OrganizationForm from '@/app/components/forms/OrganizationForm';
-import { createOrganizationAction } from '@/lib/firebase/orgServerActions';
-import { useRouter } from 'next/navigation';
+import { OrganizationForm } from '@/app/components/forms/OrganizationForm';
 
-export default function CreateOrgPage() {
+export default function CreateOrganizationPage() {
     const { user } = useUser();
-    const router = useRouter();
 
-    const handleCreateOrg = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    const handleCreateOrganization = async (formData: FormData) => {
         if (!user) {
             alert('You must be logged in to create an organization.');
             return;
         }
-        const formData = new FormData(event.currentTarget);
-        const result = await createOrganizationAction(formData, user);
+
+        const result = await createOrganizationServerAction(formData, user);
+
         if (result.success) {
-            router.push(`/boards`);
+            alert('Organization created successfully!');
         } else {
-            alert(`Error: ${result.error.message}`);
+            alert(`Error creating organization: ${result.error?.message}`);
         }
     };
 
-    return <OrganizationForm user={user} onSubmit={handleCreateOrg} />;
+    return (
+        <OrganizationForm onSubmit={handleCreateOrganization} />
+    );
 }

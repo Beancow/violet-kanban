@@ -16,7 +16,7 @@ const getAdminFirestore = async () => {
     return getAdminFirestore();
 };
 
-export async function getOrganizationAction(orgId: string) {
+export async function getOrganizationServerAction(orgId: string) {
     console.log(`Attempting to fetch organization: ${orgId}`);
     try {
         const adminFirestore = await getAdminFirestore();
@@ -58,7 +58,7 @@ export async function getOrganizationAction(orgId: string) {
     }
 }
 
-export async function createOrganizationAction(
+export async function createOrganizationServerAction(
     data: FormData,
     user: User
 ): Promise<CreateOrganizationResult> {
@@ -112,7 +112,7 @@ export async function createOrganizationAction(
     }
 }
 
-export async function getAllOrganizationsAction() {
+export async function getAllOrganizationsServerAction() {
     try {
         const adminFirestore = await getAdminFirestore();
         const orgsCollection = adminFirestore.collection(
@@ -138,7 +138,7 @@ export async function getAllOrganizationsAction() {
     }
 }
 
-export async function addMemberToOrganizationAction(
+export async function addMemberToOrganizationServerAction(
     data: FormData,
     userId: string
 ): Promise<AddMemberToOrganizationResult> {
@@ -157,11 +157,11 @@ export async function addMemberToOrganizationAction(
         const orgRef = adminFirestore.doc('organizations', orgId);
         const batch = adminFirestore.batch();
 
-        const role = data.get('role') as string;
+        
 
         // Update the members map within the organization document
         batch.update(orgRef, {
-            [`members.${userId}`]: { role: role },
+            [`members.${userId}`]: { role: 'owner' },
         });
 
         await batch.commit();
@@ -183,7 +183,7 @@ export async function addMemberToOrganizationAction(
     }
 }
 
-export async function updateOrganizationAction(
+export async function updateOrganizationServerAction(
     orgId: string,
     data: FormData
 ): Promise<{ success: boolean; error?: Error }> {
@@ -213,7 +213,7 @@ export async function updateOrganizationAction(
     }
 }
 
-export async function deleteOrganizationAction(
+export async function deleteOrganizationServerAction(
     orgId: string
 ): Promise<{ success: boolean; error?: Error }> {
     try {
@@ -239,7 +239,7 @@ export async function deleteOrganizationAction(
  * The Firestore rule 'allow list: if isAuthenticated() && isOrgMemberByOrgId(orgId);'
  * relies on this query to ensure only relevant organizations are returned.
  */
-export async function getOrganizationsForUserAction(userId?: string) {
+export async function getOrganizationsForUserServerAction(userId?: string) {
     if (!userId) {
         return {
             success: false,

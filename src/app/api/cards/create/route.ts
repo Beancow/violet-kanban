@@ -1,11 +1,13 @@
-import { createCardAction } from '@/lib/firebase/cardServerActions';
+import { createCardServerAction } from '@/lib/firebase/cardServerActions';
 import { NextResponse } from 'next/server';
+import { getAuthAndOrgContext } from "@/lib/serverUtils";
 
 export async function POST(request: Request) {
+    const { uid, orgId } = await getAuthAndOrgContext(request);
     const body = await request.json();
-    const { data, idToken, orgId, boardId, listId } = body;
+    const { data, boardId, listId } = body;
 
-    const result = await createCardAction({ data, idToken, orgId, boardId, listId });
+    const result = await createCardServerAction({ data, uid, orgId, boardId, listId });
 
     return NextResponse.json(result);
 }

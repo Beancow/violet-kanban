@@ -7,7 +7,7 @@ import {
     useCallback,
 } from 'react';
 import { Board, BoardList, BoardCard } from '@/types/appState.type';
-import { getBoardsAction } from '@/lib/firebase/boardServerActions';
+import { getBoardsServerAction } from '@/lib/firebase/boardServerActions'; // Updated import
 import { useUser } from './UserProvider';
 import { useAuth } from './AuthProvider';
 import useLocalStorage from '@/hooks/useLocalStorage';
@@ -16,40 +16,41 @@ import { useSync } from './SyncProvider';
 interface BoardDataContextType {
     boards: Board[];
     loading: boolean;
-    addBoard: (board: Board) => void;
-    addListToBoard: (boardId: string, list: BoardList) => void;
-    addCardToBoard: (boardId: string, card: BoardCard) => void;
-    softDeleteCard: (boardId: string, cardId: string) => void;
-    restoreCard: (boardId: string, cardId: string) => void;
-    setBoardCards: (boardId: string, cards: BoardCard[]) => void;
-    deleteList: (boardId: string, listId: string) => void;
-    deleteBoard: (boardId: string) => void;
+    handleAddBoard: (board: Board) => void;
+    handleAddListToBoard: (boardId: string, list: BoardList) => void;
+    handleAddCardToBoard: (boardId: string, card: BoardCard) => void;
+    handleSoftDeleteCard: (boardId: string, cardId: string) => void;
+    handleRestoreCard: (boardId: string, cardId: string) => void;
+    handleSetBoardCards: (boardId: string, cards: BoardCard[]) => void;
+    handleDeleteList: (boardId: string, listId: string) => void;
+    handleDeleteBoard: (boardId: string) => void;
 }
 
 const BoardDataContext = createContext<BoardDataContextType>({
     boards: [],
     loading: true,
-    addBoard: () => {},
-    addListToBoard: () => {},
-    addCardToBoard: () => {},
-    softDeleteCard: () => {},
-    restoreCard: () => {},
-    setBoardCards: () => {},
-    deleteList: () => {},
-    deleteBoard: () => {},
+    handleAddBoard: () => {},
+    handleAddListToBoard: () => {},
+    handleAddCardToBoard: () => {},
+    handleSoftDeleteCard: () => {},
+    handleRestoreCard: () => {},
+    handleSetBoardCards: () => {},
+    handleDeleteList: () => {},
+    handleDeleteBoard: () => {},
 });
 
 export function BoardDataProvider({ children }: { children: ReactNode }) {
     const [boards, setBoards] = useLocalStorage<Board[]>('boards', []);
     const [loading, setLoading] = useState(true);
     const { currentOrganizationId } = useUser();
-    const { actionQueue, addActionToQueue } = useSync();
+    const { authUser } = useAuth();
+    const { addActionToQueue } = useSync();
 
     useEffect(() => {
         const fetchBoards = async () => {
             if (currentOrganizationId) {
                 if (navigator.onLine) {
-                    const { data, success } = await getBoardsAction(
+                    const { data, success } = await getBoardsServerAction(
                         currentOrganizationId
                     );
                     if (success && data) {
@@ -68,32 +69,48 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
         fetchBoards();
     }, [currentOrganizationId, setBoards]);
 
-    const addBoard = (newBoard: Board) => {
+    const handleAddBoard = useCallback(async (newBoard: Board) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/boards/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ data: newBoard }),
+                body: JSON.stringify({ data: newBoard, orgId: currentOrganizationId }),
             });
         } else {
-            addActionToQueue({ type: 'addBoard', payload: { data: newBoard } });
+            addActionToQueue({ type: 'addBoard', payload: { data: newBoard, orgId: currentOrganizationId } });
         }
         setBoards((prevBoards) => [...prevBoards, newBoard]);
-    };
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
-    const addListToBoard = (boardId: string, newList: BoardList) => {
+    const handleAddListToBoard = useCallback(async (boardId: string, newList: BoardList) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/lists/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ data: newList }),
+                body: JSON.stringify({ data: newList, orgId: currentOrganizationId }),
             });
         } else {
-            addActionToQueue({ type: 'addList', payload: { data: newList } });
+            addActionToQueue({ type: 'addList', payload: { data: newList, orgId: currentOrganizationId } });
         }
         setBoards((prevBoards) =>
             prevBoards.map((board) =>
@@ -102,19 +119,27 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
                     : board
             )
         );
-    };
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
-    const addCardToBoard = (boardId: string, newCard: BoardCard) => {
+    const handleAddCardToBoard = useCallback(async (boardId: string, newCard: BoardCard) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/cards/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ boardId, newCard }),
+                body: JSON.stringify({ boardId, newCard, orgId: currentOrganizationId }),
             });
         } else {
-            addActionToQueue({ type: 'addCard', payload: { boardId, newCard } });
+            addActionToQueue({ type: 'addCard', payload: { boardId, newCard, orgId: currentOrganizationId } });
         }
         setBoards((prevBoards) =>
             prevBoards.map((board) =>
@@ -123,19 +148,27 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
                     : board
             )
         );
-    };
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
-    const softDeleteCard = (boardId: string, cardId: string) => {
+    const handleSoftDeleteCard = useCallback(async (boardId: string, cardId: string) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/cards/delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ boardId, cardId }),
+                body: JSON.stringify({ boardId, cardId, orgId: currentOrganizationId }),
             });
         } else {
-            addActionToQueue({ type: 'softDeleteCard', payload: { boardId, cardId } });
+            addActionToQueue({ type: 'softDeleteCard', payload: { boardId, cardId, orgId: currentOrganizationId } });
         }
         setBoards((prevBoards) =>
             prevBoards.map((board) =>
@@ -149,19 +182,27 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
                     : board
             )
         );
-    };
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
-    const restoreCard = (boardId: string, cardId: string) => {
+    const handleRestoreCard = useCallback(async (boardId: string, cardId: string) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/cards/restore', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ boardId, cardId }),
+                body: JSON.stringify({ boardId, cardId, orgId: currentOrganizationId }),
             });
         } else {
-            addActionToQueue({ type: 'restoreCard', payload: { boardId, cardId } });
+            addActionToQueue({ type: 'restoreCard', payload: { boardId, cardId, orgId: currentOrganizationId } });
         }
         setBoards((prevBoards) =>
             prevBoards.map((board) =>
@@ -175,27 +216,35 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
                     : board
             )
         );
-    };
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
-    const setBoardCards = (boardId: string, newCards: BoardCard[]) => {
+    const handleSetBoardCards = useCallback((boardId: string, newCards: BoardCard[]) => {
         setBoards((prevBoards) =>
             prevBoards.map((board) =>
                 board.id === boardId ? { ...board, cards: newCards } : board
             )
         );
-    };
+    }, [setBoards]);
 
-    const deleteList = (boardId: string, listId: string) => {
+    const handleDeleteList = useCallback(async (boardId: string, listId: string) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/lists/delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ orgId: useUser().currentOrganizationId, boardId, listId }),
+                body: JSON.stringify({ orgId: currentOrganizationId, boardId, listId }),
             });
         } else {
-            addActionToQueue({ type: 'deleteList', payload: { orgId: useUser().currentOrganizationId, boardId, listId } });
+            addActionToQueue({ type: 'deleteList', payload: { orgId: currentOrganizationId, boardId, listId } });
         }
         setBoards((prevBoards) =>
             prevBoards.map((board) =>
@@ -204,71 +253,44 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
                     : board
             )
         );
-    };
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
-    const deleteBoard = (boardId: string) => {
+    const handleDeleteBoard = useCallback(async (boardId: string) => {
+        const idToken = await authUser?.getIdToken();
+        if (!idToken) {
+            console.error('User not authenticated.');
+            return;
+        }
+
         if (navigator.onLine) {
             fetch('/api/boards/delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                    'X-Organization-Id': currentOrganizationId || '',
                 },
-                body: JSON.stringify({ orgId: useUser().currentOrganizationId, boardId }),
+                body: JSON.stringify({ orgId: currentOrganizationId, boardId }),
             });
         } else {
-            addActionToQueue({ type: 'deleteBoard', payload: { orgId: useUser().currentOrganizationId, boardId } });
+            addActionToQueue({ type: 'deleteBoard', payload: { orgId: currentOrganizationId, boardId } });
         }
         setBoards((prevBoards) => prevBoards.filter(board => board.id !== boardId));
-    };
-
-    const mergedBoards = boards.map(board => {
-        const pendingActions = actionQueue.filter(action => action.payload.boardId === board.id);
-        if (pendingActions.length === 0) {
-            return board;
-        }
-
-        const newBoard = { ...board };
-
-        pendingActions.forEach(action => {
-            switch (action.type) {
-                case 'addCard':
-                    newBoard.cards = [...(newBoard.cards || []), action.payload.newCard];
-                    break;
-                case 'softDeleteCard':
-                    newBoard.cards = (newBoard.cards || []).map(card =>
-                        card.id === action.payload.cardId ? { ...card, isDeleted: true, listId: null } : card
-                    );
-                    break;
-                case 'restoreCard':
-                    newBoard.cards = (newBoard.cards || []).map(card =>
-                        card.id === action.payload.cardId ? { ...card, isDeleted: false } : card
-                    );
-                    break;
-                case 'deleteList':
-                    newBoard.lists = (newBoard.lists || []).filter(list => list.id !== action.payload.listId);
-                    break;
-            }
-        });
-
-        return newBoard;
-    }).filter(board => {
-        // Filter out boards that have a pending deleteBoard action
-        return !actionQueue.some(action => action.type === 'deleteBoard' && action.payload.boardId === board.id);
-    });
+    }, [addActionToQueue, authUser, currentOrganizationId, setBoards]);
 
     return (
         <BoardDataContext.Provider
             value={{
-                boards: mergedBoards,
+                boards: boards,
                 loading,
-                addBoard,
-                addListToBoard,
-                addCardToBoard,
-                softDeleteCard,
-                restoreCard,
-                setBoardCards,
-                deleteList,
-                deleteBoard,
+                handleAddBoard,
+                handleAddListToBoard,
+                handleAddCardToBoard,
+                handleSoftDeleteCard,
+                handleRestoreCard,
+                handleSetBoardCards,
+                handleDeleteList,
+                handleDeleteBoard,
             }}
         >
             {children}

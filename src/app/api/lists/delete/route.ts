@@ -1,11 +1,14 @@
-import { deleteListAction } from '@/lib/firebase/listServerActions';
-import { NextResponse } from 'next/server';
+import { deleteListServerAction } from "@/lib/firebase/listServerActions";
+import { getAuthAndOrgContext } from "@/lib/serverUtils";
 
 export async function POST(request: Request) {
-    const body = await request.json();
-    const { orgId, boardId, listId } = body;
-
-    const result = await deleteListAction(orgId, boardId, listId);
-
-    return NextResponse.json(result);
+  try {
+    const { orgId } = await getAuthAndOrgContext(request);
+    const { listId } = await request.json(); // Still need listId from body for now, will refactor later
+    await deleteListServerAction(orgId, listId);
+    return new Response("List deleted", { status: 200 });
+  } catch (error) {
+    console.error("Error deleting list:", error);
+    return new Response("Error deleting list", { status: 500 });
+  }
 }

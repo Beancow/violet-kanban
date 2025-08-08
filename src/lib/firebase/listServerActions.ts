@@ -10,7 +10,7 @@ const getAdminFirestore = async () => {
     return getAdminFirestore();
 };
 
-export async function getListAction(
+export async function getListServerAction(
     orgId: string,
     boardId: string,
     listId: string
@@ -49,7 +49,7 @@ export async function getListAction(
     }
 }
 
-export async function getListsAction({ orgId, boardId }: { orgId: string; boardId: string; }) {
+export async function getListsServerAction({ orgId, boardId }: { orgId: string; boardId: string; }) {
     try {
         const adminFirestore = await getAdminFirestore();
         const listsCollection = adminFirestore.collection(
@@ -78,7 +78,7 @@ export async function getListsAction({ orgId, boardId }: { orgId: string; boardI
     }
 }
 
-export async function createListAction({
+export async function createListServerAction({
     data,
     uid,
     orgId,
@@ -141,7 +141,7 @@ export async function createListAction({
     }
 }
 
-export async function deleteListAction(
+export async function deleteListServerAction(
     orgId: string,
     boardId: string,
     listId: string
@@ -157,7 +157,7 @@ export async function deleteListAction(
     const batch = adminFirestore.batch();
 
     const cardsSnapshot = await q.get();
-    cardsSnapshot.forEach((cardDoc) => {
+    cardsSnapshot.docs.forEach((cardDoc) => {
         const cardRef = adminFirestore.doc(
             `organizations/${orgId}/boards/${boardId}/cards/${cardDoc.id}`
         );

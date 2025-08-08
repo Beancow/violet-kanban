@@ -1,53 +1,66 @@
-'use client';
-import { useParams, useRouter } from 'next/navigation';
+import { createListServerAction } from '@/lib/firebase/listServerActions';
 import { useUser } from '@/contexts/UserProvider';
-import { useBoards } from '@/contexts/BoardsProvider';
-import { createListAction } from '@/lib/firebase/listServerActions';
-import { ListForm } from '@/app/components/forms/ListForm';
+import { useAuth } from '@/contexts/AuthProvider';
+import { useParams } from 'next/navigation';
+import { useState } from 'react';
+import { Box, Button, Flex, Text, TextArea, TextField } from '@radix-ui/themes';
 
-import { useRequireOrganization } from '@/hooks/useRequireOrganization';
-
-export default function ListPage() {
-    useRequireOrganization();
-    const router = useRouter();
-    const params = useParams<{ boardId: string }>();
-    const { user, currentOrganizationId } = useUser();
-    const { boards } = useBoards();
-    const lists = boards.find(
-        (board) => board.id === user?.currentBoardId
-    )?.lists;
-    const currentList = user?.currentListId;
-    const orgId = currentOrganizationId || '';
+export default function CreateListPage() {
+    const params = useParams();
     const { boardId } = params;
+    const { user } = useUser();
+    const { authUser } = useAuth();
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
 
-    if (!user) {
-        return null;
-    }
-
-    const handleCreateList = async (
-        event: React.FormEvent<HTMLFormElement>
-    ) => {
+    const handleCreateList = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (!user || !boardId || !authUser) {
+            alert('You must be logged in and select a board to create a list.');
+            return;
+        }
+
+        
         const formData = new FormData(event.currentTarget);
-        const result = await createListAction({
+
+        const result = await createListServerAction({
             data: formData,
-            uid: user?.id,
-            orgId,
-            boardId,
+            uid: user.id,
+            orgId: user.organizationIds[0], // Assuming the first organization for now
+            boardId: boardId as string,
         });
-        if (result.success && result.data) {
-            router.push(`/board/${boardId}/list/${result.data.id}`);
+
+        if (result.success) {
+            alert('List created successfully!');
+            setTitle('');
+            setDescription('');
         } else {
-            alert(`Error: ${result.data}`);
+            alert(`Error creating list: ${result.error?.message}`);
         }
     };
+
     return (
-        <div>
-            <ListForm
-                user={user}
-                onSubmit={handleCreateList}
-                list={lists?.find((list) => list.id === currentList)}
-            />
-        </div>
+        <Box>
+            <Text>Create New List for Board: {boardId}</Text>
+            <form onSubmit={handleCreateList}>
+                <Flex direction="column" gap="2">
+                    <TextField.Root
+                        placeholder="List Title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        name="title"
+                        required
+                    />
+                    <TextArea
+                        placeholder="List Description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        name="description"
+                        required
+                    />
+                    <Button type="submit">Create List</Button>
+                </Flex>
+            </form>
+        </Box>
     );
 }

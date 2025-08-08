@@ -1,75 +1,81 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/contexts/UserProvider';
+import { getOrganizationServerAction, updateOrganizationServerAction, deleteOrganizationServerAction } from '@/lib/firebase/orgServerActions';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Organization } from '@/types/appState.type';
-import {
-    getOrganizationAction,
-    updateOrganizationAction,
-    deleteOrganizationAction,
-} from '@/lib/firebase/orgServerActions';
-import OrganizationForm from '@/app/components/forms/OrganizationForm';
+import { Box, Button, Flex, Text, TextField } from '@radix-ui/themes';
 
-import { useRequireOrganization } from '@/hooks/useRequireOrganization';
-
-export default function OrgPage({ params }: { params: { orgId: string } }) {
-    useRequireOrganization();
-    const { user } = useUser();
+export default function OrganizationPage() {
+    const params = useParams();
     const [organization, setOrganization] = useState<Organization | null>(null);
-    const router = useRouter();
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchOrg = async () => {
-            const { data, success } = await getOrganizationAction(params.orgId);
-            if (success && data) {
-                setOrganization(data);
+        const fetchOrganization = async () => {
+            if (params.orgId) {
+                setLoading(true);
+                const { data, success } = await getOrganizationServerAction(params.orgId as string);
+                if (success && data) {
+                    setOrganization(data);
+                }
+                setLoading(false);
             }
         };
-        if (params.orgId) {
-            fetchOrg();
-        }
+        fetchOrganization();
     }, [params.orgId]);
 
-    const handleUpdateOrg = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleUpdateOrganization = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!organization || !organization.id) {
-            return;
-        }
+        if (!organization) return;
+
         const formData = new FormData(event.currentTarget);
-        const result = await updateOrganizationAction(
-            organization.id,
-            formData
-        );
+        const result = await updateOrganizationServerAction(organization.id, formData);
+
         if (result.success) {
             alert('Organization updated successfully!');
         } else {
-            alert(`Error: ${result.error.message}`);
+            alert(`Error updating organization: ${result.error?.message}`);
         }
     };
 
-    const handleDeleteOrg = async () => {
-        if (!organization || !organization.id) {
-            return;
-        }
-        const result = await deleteOrganizationAction(organization.id);
+    const handleDeleteOrganization = async () => {
+        if (!organization || !confirm('Are you sure you want to delete this organization?')) return;
+
+        const result = await deleteOrganizationServerAction(organization.id);
+
         if (result.success) {
             alert('Organization deleted successfully!');
-            router.push('/orgs');
+            // Redirect or update UI as needed
         } else {
-            alert(`Error: ${result.error.message}`);
+            alert(`Error deleting organization: ${result.error?.message}`);
         }
     };
 
+    if (loading) {
+        return <Text>Loading organization...</Text>;
+    }
+
     if (!organization) {
-        return <>Loading ...</>;
+        return <Text>Organization not found</Text>;
     }
 
     return (
-        <OrganizationForm
-            organization={organization}
-            user={user}
-            onSubmit={handleUpdateOrg}
-            onDelete={handleDeleteOrg}
-        />
+        <Box>
+            <Text>Organization: {organization.name}</Text>
+            <form onSubmit={handleUpdateOrganization}>
+                <Flex direction="column" gap="2">
+                    <TextField.Root
+                        placeholder="Organization Name"
+                        defaultValue={organization.name}
+                        name="name"
+                        required
+                    />
+                    {/* Add other fields for update as needed */}
+                    <Button type="submit">Update Organization</Button>
+                </Flex>
+            </form>
+            <Button color="red" onClick={handleDeleteOrganization} mt="3">
+                Delete Organization
+            </Button>
+        </Box>
     );
 }

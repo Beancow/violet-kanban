@@ -3,8 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { Board } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@sentry/nextjs';
-import { getListsAction } from './listServerActions';
-import { getCardsAction } from './cardServerActions';
+import { getListsServerAction } from './listServerActions'; // Updated import
+import { getCardsServerAction } from './cardServerActions'; // Updated import
 
 // Dynamic import for firebase-admin-init
 const getAdminFirestore = async () => {
@@ -12,7 +12,7 @@ const getAdminFirestore = async () => {
     return getAdminFirestore();
 };
 
-export async function getBoardAction(orgId: string, boardId: string) {
+export async function getBoardServerAction(orgId: string, boardId: string) {
     try {
         const adminFirestore = await getAdminFirestore();
         const boardDocRef = adminFirestore.doc(
@@ -33,8 +33,8 @@ export async function getBoardAction(orgId: string, boardId: string) {
         }
 
         // Fetch lists and cards for the single board
-        const listsResult = await getListsAction({ orgId, boardId });
-        const cardsResult = await getCardsAction({ orgId, boardId });
+        const listsResult = await getListsServerAction({ orgId, boardId }); // Updated call
+        const cardsResult = await getCardsServerAction({ orgId, boardId }); // Updated call
 
         const board: Board = {
             ...boardData,
@@ -57,7 +57,7 @@ export async function getBoardAction(orgId: string, boardId: string) {
     }
 }
 
-export async function getBoardsAction(orgId: string) {
+export async function getBoardsServerAction(orgId: string) {
     try {
         const adminFirestore = await getAdminFirestore();
         const boardsCollection = adminFirestore.collection(
@@ -93,17 +93,25 @@ export async function getBoardsAction(orgId: string) {
     }
 }
 
-export async function createBoard(boardData: Omit<Board, 'id'>, uid: string, orgId: string) {
+export async function createBoardServerAction(boardData: Omit<Board, 'id'>, uid: string, orgId: string) {
+    const board: Omit<Board, 'id'> = {
+        ...boardData,
+        organizationId: orgId,
+        ownerId: uid,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+
     try {
         const adminFirestore = await getAdminFirestore();
         const response = await adminFirestore.collection(
             `organizations/${orgId}/boards`
         ).add({
-            ...boardData,
+            ...board,
         });
 
         const newBoard: Board = {
-            ...boardData,
+            ...board,
             id: response.id as string,
         };
 
@@ -122,7 +130,7 @@ export async function createBoard(boardData: Omit<Board, 'id'>, uid: string, org
     }
 }
 
-export async function deleteBoardAction(orgId: string, boardId: string) {
+export async function deleteBoardServerAction(orgId: string, boardId: string) {
     try {
         const adminFirestore = await getAdminFirestore();
         const boardRef = adminFirestore.doc(`organizations/${orgId}/boards/${boardId}`);

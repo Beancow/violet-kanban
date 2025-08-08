@@ -28,7 +28,7 @@ type CardResult = {
     error?: Error;
 };
 
-export const createCardAction = async ({
+export const createCardServerAction = async ({
     data,
     idToken,
     orgId,
@@ -133,7 +133,7 @@ export const createCardAction = async ({
     }
 };
 
-export const softDeleteCardAction = async (
+export const softDeleteCardServerAction = async (
     orgId: string,
     boardId: string,
     cardId: string
@@ -156,7 +156,7 @@ export const softDeleteCardAction = async (
     }
 };
 
-export const restoreCardAction = async (
+export const restoreCardServerAction = async (
     orgId: string,
     boardId: string,
     cardId: string
@@ -178,7 +178,7 @@ export const restoreCardAction = async (
     }
 };
 
-export const updateCardListIdAction = async (
+export const updateCardListIdServerAction = async (
     orgId: string,
     boardId: string,
     cardId: string,
@@ -201,7 +201,7 @@ export const updateCardListIdAction = async (
     }
 };
 
-export async function getCardsAction({
+export async function getCardsServerAction({
     orgId,
     boardId,
 }: {

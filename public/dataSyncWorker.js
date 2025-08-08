@@ -1,11 +1,13 @@
 async function handleAddCard(payload) {
-    const { boardId, newCard } = payload;
+    const { boardId, newCard, idToken, orgId } = payload;
     const response = await fetch('/api/cards/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
-        body: JSON.stringify({ boardId, newCard }),
+        body: JSON.stringify({ boardId, newCard, orgId }),
     });
 
     if (!response.ok) {
@@ -17,13 +19,15 @@ async function handleAddCard(payload) {
 }
 
 async function handleSoftDeleteCard(payload) {
-    const { boardId, cardId } = payload;
+    const { boardId, cardId, idToken, orgId } = payload;
     const response = await fetch('/api/cards/delete', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
-        body: JSON.stringify({ boardId, cardId }),
+        body: JSON.stringify({ boardId, cardId, orgId }),
     });
 
     if (!response.ok) {
@@ -35,13 +39,15 @@ async function handleSoftDeleteCard(payload) {
 }
 
 async function handleRestoreCard(payload) {
-    const { boardId, cardId } = payload;
+    const { boardId, cardId, idToken, orgId } = payload;
     const response = await fetch('/api/cards/restore', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
-        body: JSON.stringify({ boardId, cardId }),
+        body: JSON.stringify({ boardId, cardId, orgId }),
     });
 
     if (!response.ok) {
@@ -52,12 +58,14 @@ async function handleRestoreCard(payload) {
     }
 }
 
-
-    const { data } = payload;
+async function handleAddBoard(payload) {
+    const { data, idToken, orgId } = payload;
     const response = await fetch('/api/boards/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ data }),
     });
@@ -71,11 +79,13 @@ async function handleRestoreCard(payload) {
 }
 
 async function handleAddList(payload) {
-    const { data } = payload;
+    const { data, idToken, orgId } = payload;
     const response = await fetch('/api/lists/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ data }),
     });
@@ -89,7 +99,7 @@ async function handleAddList(payload) {
 }
 
 async function handleDeleteList(payload) {
-    const { orgId, boardId, listId } = payload;
+    const { orgId, boardId, listId, idToken } = payload;
 
     // Check if there's a pending deleteBoard action for the same board
     const actionQueue = JSON.parse(localStorage.getItem('actionQueue') || '[]');
@@ -107,6 +117,8 @@ async function handleDeleteList(payload) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ orgId, boardId, listId }),
     });
@@ -118,17 +130,16 @@ async function handleDeleteList(payload) {
         });
         return;
     }
-
-    
 }
 
-
 async function handleDeleteBoard(payload) {
-    const { orgId, boardId } = payload;
+    const { orgId, boardId, idToken } = payload;
     const response = await fetch('/api/boards/delete', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ orgId, boardId }),
     });

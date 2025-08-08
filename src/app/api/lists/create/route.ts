@@ -1,7 +1,9 @@
-import { createListAction } from '@/lib/firebase/listServerActions';
+import { createListServerAction } from '@/lib/firebase/listServerActions';
 import { NextResponse } from 'next/server';
+import { getAuthAndOrgContext } from "@/lib/serverUtils";
 
 export async function POST(request: Request) {
+    const { uid, orgId } = await getAuthAndOrgContext(request);
     const body = await request.json();
     const { data } = body;
 
@@ -10,7 +12,7 @@ export async function POST(request: Request) {
         formData.append(key, data[key]);
     }
 
-    const result = await createListAction({ data: formData, uid: data.ownerId, orgId: data.organizationId, boardId: data.boardId });
+    const result = await createListServerAction({ data: formData, uid, orgId, boardId: data.boardId });
 
     return NextResponse.json(result);
 }
