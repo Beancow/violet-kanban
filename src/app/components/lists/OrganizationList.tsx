@@ -3,29 +3,38 @@ import { Button, Flex, Card, Box, Heading, Text } from '@radix-ui/themes';
 import { Organization } from '@/types/appState.type';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserProvider';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export default function OrganizationList({
     organizations,
+    returnTo,
 }: {
     organizations: Organization[];
+    returnTo?: string | null;
 }) {
-    const { user, setCurrentOrganization } = useUser();
+    const { user, currentOrganizationId, setCurrentOrganization } = useUser();
     const router = useRouter();
 
     const handleSetDefaultOrg = async (orgId: string) => {
         if (!user) {
             return;
         }
-        if (orgId === user.currentOrganizationId) {
+        if (orgId === currentOrganizationId) {
             return;
         }
         try {
-            setCurrentOrganization(orgId);
-            router.push('/boards');
+            await setCurrentOrganization(orgId);
+            if (returnTo) {
+                router.push(returnTo);
+            } else {
+                router.push('/boards');
+            }
         } catch (error) {
             console.error('Error setting default organization:', error);
         }
     };
+
+    const debouncedSetDefaultOrg = useDebounce(handleSetDefaultOrg, 300);
 
     return (
         <Box pt='8'>
@@ -45,7 +54,7 @@ export default function OrganizationList({
                         </Box>
                         <Button
                             mt='2'
-                            onClick={() => handleSetDefaultOrg(org.id)}
+                            onClick={() => debouncedSetDefaultOrg(org.id)}
                         >
                             Set as Default
                         </Button>

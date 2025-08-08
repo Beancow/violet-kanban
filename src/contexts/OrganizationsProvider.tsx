@@ -6,20 +6,18 @@ import {
     useEffect,
     ReactNode,
 } from 'react';
-import { Organization, OrganizationMember } from '@/types/appState.type';
+import { Organization } from '@/types/appState.type';
 import { getOrganizationsForUserAction } from '@/lib/firebase/orgServerActions';
 import { useAuth } from '@/contexts/AuthProvider';
 
 interface OrganizationsContextType {
     organizations: Organization[];
     loading: boolean;
-    addMember: (orgId: string, member: OrganizationMember) => void;
 }
 
 const OrganizationsContext = createContext<OrganizationsContextType>({
     organizations: [],
     loading: true,
-    addMember: () => {},
 });
 
 export function OrganizationsProvider({ children }: { children: ReactNode }) {
@@ -30,31 +28,24 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const fetchOrgs = async () => {
             if (authUser) {
-                const { data, success } = await getOrganizationsForUserAction(authUser.uid);
+                setLoading(true); // Set loading to true before fetching
+                const { data, success } = await getOrganizationsForUserAction(
+                    authUser.uid
+                );
                 if (success && data) {
                     setOrganizations(data);
                 }
-                setLoading(false);
+                setLoading(false); // Set loading to false after fetching (success or failure)
+            } else {
+                setOrganizations([]); // Clear organizations if no authUser
+                setLoading(false); // Set loading to false if no authUser
             }
         };
         fetchOrgs();
     }, [authUser]);
 
-    const addMember = (orgId: string, member: OrganizationMember) => {
-        setOrganizations((prevOrgs) => {
-            return prevOrgs.map((org) => {
-                if (org.id === orgId) {
-                    return { ...org, members: [...org.members, member] };
-                }
-                return org;
-            });
-        });
-    };
-
     return (
-        <OrganizationsContext.Provider
-            value={{ organizations, loading, addMember }}
-        >
+        <OrganizationsContext.Provider value={{ organizations, loading }}>
             {children}
         </OrganizationsContext.Provider>
     );

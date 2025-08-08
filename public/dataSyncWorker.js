@@ -1,7 +1,171 @@
-self.onmessage = function (e) {
+async function handleAddCard(payload) {
+    const { boardId, newCard } = payload;
+    const response = await fetch('/api/cards/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ boardId, newCard }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to add card' },
+        });
+    }
+}
+
+async function handleSoftDeleteCard(payload) {
+    const { boardId, cardId } = payload;
+    const response = await fetch('/api/cards/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ boardId, cardId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to delete card' },
+        });
+    }
+}
+
+async function handleRestoreCard(payload) {
+    const { boardId, cardId } = payload;
+    const response = await fetch('/api/cards/restore', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ boardId, cardId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to restore card' },
+        });
+    }
+}
+
+
+    const { data } = payload;
+    const response = await fetch('/api/boards/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to add board' },
+        });
+    }
+}
+
+async function handleAddList(payload) {
+    const { data } = payload;
+    const response = await fetch('/api/lists/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to add list' },
+        });
+    }
+}
+
+async function handleDeleteList(payload) {
+    const { orgId, boardId, listId } = payload;
+
+    // Check if there's a pending deleteBoard action for the same board
+    const actionQueue = JSON.parse(localStorage.getItem('actionQueue') || '[]');
+    const boardDeletePending = actionQueue.some(
+        (action) => action.type === 'deleteBoard' && action.payload.boardId === boardId
+    );
+
+    if (boardDeletePending) {
+        console.log(`Skipping deleteList for list ${listId} as board ${boardId} is pending deletion.`);
+        return; // Do not process this deleteList action
+    }
+
+    // Proceed with deleting the list
+    const response = await fetch('/api/lists/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orgId, boardId, listId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to delete list' },
+        });
+        return;
+    }
+
+    
+}
+
+
+async function handleDeleteBoard(payload) {
+    const { orgId, boardId } = payload;
+    const response = await fetch('/api/boards/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orgId, boardId }),
+    });
+
+    if (!response.ok) {
+        self.postMessage({
+            type: 'ERROR',
+            payload: { message: 'Failed to delete board' },
+        });
+    }
+}
+
+self.onmessage = async function (e) {
     const { type, payload } = e.data;
 
     switch (type) {
+        case 'addCard':
+            await handleAddCard(payload);
+            break;
+        case 'softDeleteCard':
+            await handleSoftDeleteCard(payload);
+            break;
+        case 'restoreCard':
+            await handleRestoreCard(payload);
+            break;
+        case 'addBoard':
+            await handleAddBoard(payload);
+            break;
+        case 'addList':
+            await handleAddList(payload);
+            break;
+        case 'deleteList':
+            await handleDeleteList(payload);
+            break;
+        case 'deleteBoard':
+            await handleDeleteBoard(payload);
+            break;
         case 'SYNC_USER_DATA':
             console.log('Worker: Syncing user data...', payload);
             break;

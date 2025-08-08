@@ -10,7 +10,10 @@ import {
 } from '@/lib/firebase/orgServerActions';
 import OrganizationForm from '@/app/components/forms/OrganizationForm';
 
+import { useRequireOrganization } from '@/hooks/useRequireOrganization';
+
 export default function OrgPage({ params }: { params: { orgId: string } }) {
+    useRequireOrganization();
     const { user } = useUser();
     const [organization, setOrganization] = useState<Organization | null>(null);
     const router = useRouter();

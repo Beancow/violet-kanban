@@ -1,27 +1,28 @@
 'use client';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useBoards } from '@/contexts/BoardsProvider';
-import { useRouter } from 'next/navigation';
+
 import { Box, Heading, Text, Button, Flex } from '@radix-ui/themes';
 import Link from 'next/link';
 import { useUser } from '@/contexts/UserProvider';
+import LoadingPage from '@/components/LoadingPage';
+import { useRequireOrganization } from '@/hooks/useRequireOrganization';
 
 export default function UserBoardsPage() {
-    const { user } = useUser();
+    useRequireOrganization();
+    const { currentOrganizationId } = useUser();
     const { organizations, loading: orgsLoading } = useOrganizations();
     const { boards, loading: boardsLoading } = useBoards();
-    const router = useRouter();
+    
     const currentOrg = organizations.find(
-        (org) => org.id === user?.currentOrganizationId
+        (org) => org.id === currentOrganizationId
     );
 
     if (orgsLoading || boardsLoading) {
-        return <Text>Loading boards...</Text>;
+        return <LoadingPage dataType='boards' />;
     }
 
-    if (!organizations.length) {
-        router.push('/user/post-login');
-    }
+    
 
     return (
         <Box pt='8'>
@@ -29,7 +30,7 @@ export default function UserBoardsPage() {
                 {`${currentOrg?.name ?? 'Your'} Boards`}
             </Heading>
             <Flex direction='column' gap='4' align='center'>
-                {boards.length > 0 ?
+                {boards.length > 0 ? (
                     boards.map((board) => (
                         <Link
                             href={`/board/${board.id}`}
@@ -49,7 +50,9 @@ export default function UserBoardsPage() {
                             </Button>
                         </Link>
                     ))
-                :   <Text>No boards found for this organization.</Text>}
+                ) : (
+                    <Text>No boards found for this organization.</Text>
+                )}
                 <Link
                     href='/board/create'
                     style={{

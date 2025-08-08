@@ -1,19 +1,26 @@
-import { firebaseDB } from '@/lib/firebase/firebase-config';
+'use server';
+import { revalidatePath } from 'next/cache';
 import { Board } from '@/types/appState.type';
-import { getDocs, collection, getDoc, doc, addDoc } from 'firebase/firestore';
-import { dataConverter } from './dataConverter';
+import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@sentry/nextjs';
 import { getListsAction } from './listServerActions';
-import { getAllTodosAction } from './todoServerActions';
+import { getCardsAction } from './cardServerActions';
+
+// Dynamic import for firebase-admin-init
+const getAdminFirestore = async () => {
+    const { getAdminFirestore } = await import('./firebase-admin-init');
+    return getAdminFirestore();
+};
 
 export async function getBoardAction(orgId: string, boardId: string) {
-    const boardCollectionRef = doc(
-        firebaseDB,
-        `organizations/${orgId}/boards/${boardId}`
-    ).withConverter(dataConverter<Board>());
     try {
-        const boardDocs = await getDoc(boardCollectionRef);
-        const boardData = boardDocs.data();
+        const adminFirestore = await getAdminFirestore();
+        const boardDocRef = adminFirestore.doc(
+            `organizations/${orgId}/boards/${boardId}`
+        ).withConverter(adminDataConverter<Board>());
+
+        const boardDocSnapshot = await boardDocRef.get();
+        const boardData = boardDocSnapshot.data();
 
         if (!boardData) {
             sentry.captureException(
@@ -24,13 +31,25 @@ export async function getBoardAction(orgId: string, boardId: string) {
                 error: new Error('Board not found'),
             };
         }
+
+        // Fetch lists and cards for the single board
+        const listsResult = await getListsAction({ orgId, boardId });
+        const cardsResult = await getCardsAction({ orgId, boardId });
+
+        const board: Board = {
+            ...boardData,
+            id: boardId,
+            lists: listsResult.success ? listsResult.data : [],
+            cards: cardsResult.success ? cardsResult.data : [],
+        };
+
         return {
             success: true,
-            data: boardData,
+            data: board,
         };
     } catch (error) {
         sentry.captureException(error);
-        console.error('Error fetching board:', error);
+        console.error(`Error fetching board ${boardId}:`, error);
         return {
             success: false,
             error: new Error('Failed to fetch board', { cause: error }),
@@ -39,33 +58,24 @@ export async function getBoardAction(orgId: string, boardId: string) {
 }
 
 export async function getBoardsAction(orgId: string) {
-    const boardsCollection = collection(
-        firebaseDB,
-        `organizations/${orgId}/boards`
-    ).withConverter(dataConverter<Board>());
     try {
-        const boardsSnapshot = await getDocs(boardsCollection);
-        const boardsList: Board[] = await Promise.all(
-            boardsSnapshot.docs.map(async (doc) => {
-                const boardData = doc.data();
-                const boardId = doc.id;
-                const listsResult = await getListsAction(orgId, boardId);
-                const todosResult = await getAllTodosAction(orgId, boardId);
-                const lists = listsResult.success ? listsResult.data : [];
-                const todos = todosResult.success ? todosResult.data : [];
-                const listIds = lists.map((list) => list.id);
-                const orphanedTodos = todos.filter(
-                    (todo) => !listIds.includes(todo.listId)
-                );
-                return {
-                    ...boardData,
-                    id: boardId,
-                    lists: lists || [],
-                    todos: todos || [],
-                    orphanedTodos: orphanedTodos || [],
-                };
-            })
-        );
+        const adminFirestore = await getAdminFirestore();
+        const boardsCollection = adminFirestore.collection(
+            `organizations/${orgId}/boards`
+        ).withConverter(adminDataConverter<Board>());
+
+        const boardsSnapshot = await boardsCollection.get();
+        const boardsList: Board[] = boardsSnapshot.docs.map((doc) => {
+            const boardData = doc.data();
+            const boardId = doc.id;
+            return {
+                ...boardData,
+                id: boardId,
+                lists: [], // Initialize as empty, fetched by individual board page
+                cards: [], // Initialize as empty, fetched by individual board page
+                orphanedCards: [], // Initialize as empty
+            };
+        });
         sentry.captureMessage(
             `Fetched ${boardsList.length} boards for org ${orgId}`
         );
@@ -83,30 +93,68 @@ export async function getBoardsAction(orgId: string) {
     }
 }
 
-export async function createBoard(data: FormData, uid: string, orgId: string) {
-    const board = {
-        title: data.get('title')?.valueOf(),
-        description: data.get('description')?.valueOf(),
-        organizationId: orgId,
-        ownerId: uid,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        tags: [],
-    };
+export async function createBoard(boardData: Omit<Board, 'id'>, uid: string, orgId: string) {
+    try {
+        const adminFirestore = await getAdminFirestore();
+        const response = await adminFirestore.collection(
+            `organizations/${orgId}/boards`
+        ).add({
+            ...boardData,
+        });
 
-    if (!board.title || !board.description) {
-        throw new Error('Invalid data');
+        const newBoard: Board = {
+            ...boardData,
+            id: response.id as string,
+        };
+
+        revalidatePath(`/board/${newBoard.id}`); // Revalidate the new board's page
+        return {
+            success: true,
+            data: newBoard,
+        };
+    } catch (error) {
+        sentry.captureException(error);
+        console.error('Error creating board:', error);
+        return {
+            success: false,
+            error: new Error('Failed to create board', { cause: error }),
+        };
     }
+}
 
-    const response = await addDoc(
-        collection(firebaseDB, `organizations/${orgId}/boards`),
-        {
-            ...board,
-        }
-    );
+export async function deleteBoardAction(orgId: string, boardId: string) {
+    try {
+        const adminFirestore = await getAdminFirestore();
+        const boardRef = adminFirestore.doc(`organizations/${orgId}/boards/${boardId}`);
+        const listsRef = adminFirestore.collection(`organizations/${orgId}/boards/${boardId}/lists`);
+        const cardsRef = adminFirestore.collection(`organizations/${orgId}/boards/${boardId}/cards`);
 
-    return {
-        success: true,
-        data: response,
-    };
+        const batch = adminFirestore.batch();
+
+        // Delete all lists within the board
+        const listsSnapshot = await listsRef.get();
+        listsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // Delete all cards within the board
+        const cardsSnapshot = await cardsRef.get();
+        cardsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // Delete the board itself
+        batch.delete(boardRef);
+
+        await batch.commit();
+        revalidatePath(`/orgs/${orgId}`); // Revalidate the organization page to reflect board deletion
+        return { success: true };
+    } catch (error) {
+        sentry.captureException(error);
+        console.error('Error deleting board:', error);
+        return {
+            success: false,
+            error: new Error('Failed to delete board', { cause: error }),
+        };
+    }
 }

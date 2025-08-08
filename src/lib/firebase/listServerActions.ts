@@ -1,30 +1,27 @@
-import { firebaseDB } from '@/lib/firebase/firebase-config';
+'use server';
+import { revalidatePath } from 'next/cache';
 import { BoardList } from '@/types/appState.type';
-import {
-    getDocs,
-    collection,
-    getDoc,
-    doc,
-    addDoc,
-    writeBatch,
-    query,
-    where,
-    deleteField,
-} from 'firebase/firestore';
-import { dataConverter } from './dataConverter';
+import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@sentry/nextjs';
+
+// Dynamic import for firebase-admin-init
+const getAdminFirestore = async () => {
+    const { getAdminFirestore } = await import('./firebase-admin-init');
+    return getAdminFirestore();
+};
 
 export async function getListAction(
     orgId: string,
     boardId: string,
     listId: string
 ) {
-    const listCollectionRef = doc(
-        firebaseDB,
-        `organizations/${orgId}/boards/${boardId}/lists/${listId}`
-    ).withConverter(dataConverter<BoardList>());
     try {
-        const listDocs = await getDoc(listCollectionRef);
+        const adminFirestore = await getAdminFirestore();
+        const listCollectionRef = adminFirestore.doc(
+            `organizations/${orgId}/boards/${boardId}/lists/${listId}`
+        ).withConverter(adminDataConverter<BoardList>());
+
+        const listDocs = await listCollectionRef.get();
         const listData = listDocs.data();
 
         if (!listData) {
@@ -52,13 +49,14 @@ export async function getListAction(
     }
 }
 
-export async function getListsAction(orgId: string, boardId: string) {
-    const listsCollection = collection(
-        firebaseDB,
-        `organizations/${orgId}/boards/${boardId}/lists`
-    ).withConverter(dataConverter<BoardList>());
+export async function getListsAction({ orgId, boardId }: { orgId: string; boardId: string; }) {
     try {
-        const listsSnapshot = await getDocs(listsCollection);
+        const adminFirestore = await getAdminFirestore();
+        const listsCollection = adminFirestore.collection(
+            `organizations/${orgId}/boards/${boardId}/lists`
+        ).withConverter(adminDataConverter<BoardList>());
+
+        const listsSnapshot = await listsCollection.get();
         const listsList: BoardList[] = listsSnapshot.docs.map((doc) => ({
             ...doc.data(),
             id: doc.id,
@@ -80,7 +78,7 @@ export async function getListsAction(orgId: string, boardId: string) {
     }
 }
 
-export async function createList({
+export async function createListAction({
     data,
     uid,
     orgId,
@@ -100,35 +98,47 @@ export async function createList({
 
     const creationDate = new Date();
 
-    const list = {
+    const list: Omit<BoardList, 'id'> = {
         title,
         description,
         position: 0,
         boardId,
         data: {
+            ownerId: uid,
+            boardId,
             isArchived: false,
             isDeleted: false,
             backgroundColor: '#ffffff',
-            ownerId: uid,
         },
         createdAt: creationDate,
         updatedAt: creationDate,
     };
-
-    const response = await addDoc(
-        collection(
-            firebaseDB,
+    try {
+        const adminFirestore = await getAdminFirestore();
+        const response = await adminFirestore.collection(
             `organizations/${orgId}/boards/${boardId}/lists`
-        ),
-        {
+        ).add({
             ...list,
-        }
-    );
+        });
 
-    return {
-        success: true,
-        data: response,
-    };
+        const newList: BoardList = {
+            ...list,
+            id: response.id,
+        };
+
+        revalidatePath(`/board/${boardId}`); // Revalidate the board page to show new list
+        return {
+            success: true,
+            data: newList,
+        };
+    } catch (error) {
+        sentry.captureException(error);
+        console.error('Error creating list:', error);
+        return {
+            success: false,
+            error: new Error('Failed to create list', { cause: error }),
+        };
+    }
 }
 
 export async function deleteListAction(
@@ -136,30 +146,29 @@ export async function deleteListAction(
     boardId: string,
     listId: string
 ) {
-    const listRef = doc(
-        firebaseDB,
+    const adminFirestore = await getAdminFirestore();
+    const listRef = adminFirestore.doc(
         `organizations/${orgId}/boards/${boardId}/lists/${listId}`
     );
-    const todosRef = collection(
-        firebaseDB,
-        `organizations/${orgId}/boards/${boardId}/todos`
+    const cardsRef = adminFirestore.collection(
+        `organizations/${orgId}/boards/${boardId}/cards`
     );
-    const q = query(todosRef, where('listId', '==', listId));
-    const batch = writeBatch(firebaseDB);
+    const q = cardsRef.where('listId', '==', listId);
+    const batch = adminFirestore.batch();
 
-    const todosSnapshot = await getDocs(q);
-    todosSnapshot.forEach((todoDoc) => {
-        const todoRef = doc(
-            firebaseDB,
-            `organizations/${orgId}/boards/${boardId}/todos/${todoDoc.id}`
+    const cardsSnapshot = await q.get();
+    cardsSnapshot.forEach((cardDoc) => {
+        const cardRef = adminFirestore.doc(
+            `organizations/${orgId}/boards/${boardId}/cards/${cardDoc.id}`
         );
-        batch.update(todoRef, { listId: deleteField() });
+        batch.update(cardRef, { listId: null, updatedAt: adminFirestore.FieldValue.serverTimestamp() });
     });
 
     batch.delete(listRef);
 
     try {
         await batch.commit();
+        revalidatePath(`/board/${boardId}`); // Revalidate the board page after deletion
         return { success: true };
     } catch (error) {
         sentry.captureException(error);

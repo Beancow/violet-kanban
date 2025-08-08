@@ -1,105 +1,223 @@
-'use client';
-import { useBoards } from '@/contexts/BoardsProvider';
-import { BoardList, Todo } from '@/types/appState.type';
-import { Button, Flex, Box, Heading, Text, Card, IconButton, Tooltip } from '@radix-ui/themes';
-import Link from 'next/link';
+import { Board, BoardCard } from '@/types/appState.type';
+import { Box, Text } from '@radix-ui/themes';
 import { useParams } from 'next/navigation';
-import { deleteListAction } from '@/lib/firebase/listServerActions';
-import { deleteTodoAction } from '@/lib/firebase/todoServerActions';
+import { useBoardData } from '@/contexts/BoardDataProvider';
 import { useUser } from '@/contexts/UserProvider';
-import { PlusIcon, TrashIcon, DotsHorizontalIcon } from '@radix-ui/react-icons';
-import { OrphanedTodosMenu } from '@/app/components/menus/OrphanedTodosMenu';
-import { TodoDetails } from '@/app/components/menus/TodoDetails';
-import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthProvider';
+import { useBoardData } from '@/contexts/BoardDataProvider';
+import { useSync } from '@/contexts/SyncProvider';
+import { LooseCardsMenu } from '@/app/components/menus/LooseCardsMenu';
+import { CardDetails } from '@/app/components/menus/CardDetails';
+import { useState, useEffect } from 'react';
+import { DragEndEvent } from '@dnd-kit/core';
+
+import { useRequireOrganization } from '@/hooks/useRequireOrganization';
+import BoardContent from '@/app/components/board/BoardContent';
+import LoadingPage from '@/components/LoadingPage';
 
 export default function BoardPage() {
+    useRequireOrganization();
     const params = useParams();
     const { boardId } = params;
-    const { boards, loading: boardsLoading } = useBoards();
-    const { user } = useUser();
-    const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
+    const { currentOrganizationId, user } = useUser();
+    const { authUser } = useAuth();
+    const { setIsEditing } = useSync();
+    const [board, setBoard] = useState<Board | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [selectedCard, setSelectedCard] = useState<BoardCard | null>(null);
+    const [showAddCardDialog, setShowAddCardDialog] = useState<string | null>(
+        null
+    ); // State to control which list's dialog is open
 
-    const board = boards.find((board) => board.id === boardId);
+    useEffect(() => {
+        setIsEditing(showAddCardDialog !== null);
+    }, [showAddCardDialog, setIsEditing]);
+
+    const { boards, loading: boardsLoading } = useBoardData();
+
+    useEffect(() => {
+        if (!boardsLoading && boards) {
+            const currentBoard = boards.find(b => b.id === boardId);
+            setBoard(currentBoard || null);
+            setLoading(false);
+        }
+    }, [boards, boardsLoading, boardId]);
+
+    const { deleteList, deleteBoard } = useBoardData();
 
     const handleDeleteList = async (listId: string) => {
-        if (user && user.currentOrganizationId) {
-            await deleteListAction(user.currentOrganizationId, boardId as string, listId);
+        if (currentOrganizationId) {
+            deleteList(boardId as string, listId);
         }
     };
 
-    const handleDeleteTodo = async (todoId: string) => {
-        if (user && user.currentOrganizationId) {
-            await deleteTodoAction(user.currentOrganizationId, boardId as string, todoId);
-            setSelectedTodo(null);
+    const handleDeleteBoard = async () => {
+        if (currentOrganizationId) {
+            deleteBoard(boardId as string);
         }
     };
+
+    const handleCreateCard = async (
+        event: React.FormEvent<HTMLFormElement>,
+        listId: string
+    ) => {
+        event.preventDefault();
+        if (!user || !currentOrganizationId || !authUser) {
+            alert(
+                'You must be logged in and belong to an organization to create a card.'
+            );
+            return;
+        }
+
+        const idToken = await authUser.getIdToken();
+        const formData = new FormData(event.currentTarget);
+        const data = Object.fromEntries(formData.entries());
+
+        const response = await fetch('/api/cards/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                data,
+                idToken,
+                orgId: currentOrganizationId,
+                boardId: boardId as string,
+                listId: listId as string,
+            }),
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            // You might want to update the local board state here
+            setShowAddCardDialog(null); // Close the dialog on successful creation
+        } else {
+            console.error('Error creating card:', result.error);
+        }
+    };
+
+    const handleDeleteCard = async (cardId: string) => {
+        if (currentOrganizationId) {
+            const response = await fetch('/api/cards/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orgId: currentOrganizationId,
+                    boardId: boardId as string,
+                    cardId,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // You might want to update the local board state here
+                setSelectedCard(null);
+            }
+        }
+    };
+
+    const handleRestoreCard = async (cardId: string) => {
+        if (currentOrganizationId) {
+            const response = await fetch('/api/cards/restore', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orgId: currentOrganizationId,
+                    boardId: boardId as string,
+                    cardId,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // You might want to update the local board state here
+            }
+        }
+    };
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!board || !currentOrganizationId) {
+            console.log(
+                'Pre-conditions not met: board or organization missing.'
+            );
+            return;
+        }
+
+        const activeCard = board.cards?.find((card) => card.id === active.id);
+        if (!activeCard) {
+            console.log('Active card not found.');
+            return;
+        }
+
+        let destinationListId: string | null = null;
+        if (over) {
+            const potentialDestinationId =
+                over.data.current?.sortable?.containerId || over.id;
+            const validList = board.lists?.find(
+                (list) => list.id === potentialDestinationId
+            );
+            if (validList) {
+                destinationListId = validList.id;
+            }
+        }
+
+        // Optimistically update the UI (no local state update needed as we refetch)
+
+        // Then, update the backend
+        try {
+            await updateCardListIdAction(
+                currentOrganizationId,
+                board.id,
+                activeCard.id,
+                destinationListId
+            );
+            // No need to re-fetch or re-set state here as we're optimistic
+        } catch (error) {
+            console.error('Failed to update card position:', error);
+            // Revert the UI change on failure
+            alert('Failed to move card. Please try again.');
+        }
+    };
+
+    if (loading) {
+        return <LoadingPage dataType="Board" />;
+    }
 
     if (!board) {
         return <Text>Board not found</Text>;
     }
 
-    if (boardsLoading) {
-        return <Text>Loading...</Text>;
-    }
-
     return (
-        <Box pt='8'>
-            <OrphanedTodosMenu todos={board.orphanedTodos || []} />
-            <TodoDetails todo={selectedTodo} onClose={() => setSelectedTodo(null)} onDelete={handleDeleteTodo} />
-            <Heading as='h1' size='6' align='center' mb='5'>
-                {board.title}
-            </Heading>
-            <Flex direction='row' gap='4' justify='center' align='flex-start'>
-                {board && board.lists && board.lists.length > 0 ? (
-                    board.lists.map((list: BoardList) => (
-                        <Card key={list.id} style={{ minWidth: '250px', maxWidth: '300px', flex: '1' }}>
-                            <Flex direction='row' justify='between' align='center' mb='3'>
-                                <Heading as='h2' size='4'>
-                                    {list.title}
-                                </Heading>
-                                <Flex gap='2'>
-                                    <Link href={`/board/${boardId}/list/${list.id}/card/create`}>
-                                        <IconButton size='1' variant='soft'>
-                                            <PlusIcon />
-                                        </IconButton>
-                                    </Link>
-                                    <IconButton size='1' variant='soft' color='red' onClick={() => handleDeleteList(list.id)}>
-                                        <TrashIcon />
-                                    </IconButton>
-                                </Flex>
-                            </Flex>
-                            <Flex direction='column' gap='3'>
-                                {board.todos
-                                    ?.filter((todo) => todo.listId === list.id)
-                                    .map((todo: Todo) => (
-                                        <Card key={todo.id}>
-                                            <Flex direction='row' justify='between' align='center'>
-                                                <Text truncate>{todo.title}</Text>
-                                                <Tooltip content='Details'>
-                                                    <IconButton size='1' variant='soft' onClick={() => setSelectedTodo(todo)}>
-                                                        <DotsHorizontalIcon />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </Flex>
-                                        </Card>
-                                    ))}
-                            </Flex>
-                        </Card>
-                    ))
-                ) : (
-                    <Text>No Lists found</Text>
-                )}
-                <Link
-                    href={`/board/${board.id}/list/create`}
-                    style={{
-                        textDecoration: 'none',
-                    }}
-                >
-                    <Button variant='solid' size='3'>
-                        Add a List
-                    </Button>
-                </Link>
-            </Flex>
+        <Box>
+            <LooseCardsMenu
+                cards={board.cards || []}
+                onRestore={handleRestoreCard}
+                onSelectCard={setSelectedCard}
+            />
+            <CardDetails
+                card={selectedCard}
+                onClose={() => setSelectedCard(null)}
+                onDelete={handleDeleteCard}
+            />
+            <BoardContent
+                board={board}
+                user={user}
+                onDeleteList={handleDeleteList}
+                onSelectCard={setSelectedCard}
+                onCreateCard={handleCreateCard}
+                showAddCardDialog={showAddCardDialog}
+                setShowAddCardDialog={setShowAddCardDialog}
+                onDragEnd={handleDragEnd}
+            />
         </Box>
     );
 }

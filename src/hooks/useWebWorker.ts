@@ -111,9 +111,11 @@ export function useWebWorker() {
                             updatePayloadCount(null);
                             break;
                         default:
-                            
-                                ...workerMessage,
-                            });
+                            console.warn(
+                                'Unknown worker message type:',
+                                workerMessage
+                            );
+                            break;
                     }
                 };
 
@@ -122,8 +124,7 @@ export function useWebWorker() {
                     setWorkerError('Web Worker encountered an error');
                     setIsWorkerReady(false);
                 };
-            } catch (error) {
-                
+            } catch {
                 setWorkerError('Failed to create web worker');
             }
         } else {
@@ -141,6 +142,10 @@ export function useWebWorker() {
 
     const syncData = useCallback(
         (message: WorkerMessage) => {
+            if (workerRef.current && isWorkerReady) {
+                workerRef.current.postMessage(message);
+            }
+        },
         [isWorkerReady]
     );
 

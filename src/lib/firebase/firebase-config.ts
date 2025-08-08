@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,17 +14,19 @@ const firebaseConfig = {
     publicProjectId: process.env.NEXT_PUBLIC_FIREBASE_PUBLIC_PROJECT_ID,
 };
 
-
-
 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
     throw new Error(
         'Missing Firebase config values. Please check your .env.local file and ensure NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN are set.'
     );
 }
 
-// Initialize Firebase
+// Initialize Firebase Client SDK
 const app = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(app);
 const firebaseDB = getFirestore(app);
+
+if (process.env.NEXT_PUBLIC_RUN_LOCALLY === 'true') {
+    connectFirestoreEmulator(firebaseDB, '127.0.0.1', 8080);
+}
 
 export { app as firebaseApp, firebaseAuth, firebaseDB };

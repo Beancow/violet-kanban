@@ -16,7 +16,10 @@ export async function getUserFromFirebaseDB(
         }
     } catch (error) {
         console.error('Error in getUser:', error);
-        return { success: false, error };
+        return {
+            success: false,
+            error: new Error('Failed to fetch user', { cause: error }),
+        };
     }
 }
 
@@ -29,25 +32,10 @@ export async function createUser(
         return { success: true };
     } catch (error) {
         console.error('Error in createUser:', error);
-        return { success: false, error };
-    }
-}
-
-export async function setDefaultOrganizationAction(
-    userId: string,
-    orgId?: string
-): Promise<{ success: boolean; error?: Error }> {
-    try {
-        const userRef = doc(firebaseDB, 'users', userId);
-        await setDoc(
-            userRef,
-            { currentOrganizationId: orgId },
-            { merge: true }
-        );
-        return { success: true };
-    } catch (error) {
-        console.error('Error in setDefaultOrganizationAction:', error);
-        return { success: false, error };
+        return {
+            success: false,
+            error: new Error('Failed to create user', { cause: error }),
+        };
     }
 }
 

@@ -8,12 +8,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // For organization documents
-    function isOrgMember() {
-      return isAuthenticated() &&
-        request.auth.uid in resource.data.members;
-    }
-
     function isOwner() {
       return isAuthenticated() &&
         resource.data.members[request.auth.uid].role == 'owner';
@@ -26,8 +20,10 @@ service cloud.firestore {
 
     // For nested collections - check parent org membership
     function isOrgMemberByOrgId(orgId) {
+      let orgData = get(/databases/$(database)/documents/organizations/$(orgId)).data;
       return isAuthenticated() &&
-        request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)).data.members;
+        'members' in orgData &&
+        request.auth.uid in orgData.members;
     }
 
     match /users/{userId} {
@@ -36,27 +32,23 @@ service cloud.firestore {
 
     // Rules for the 'organizations' collection
     match /organizations/{orgId} {
-      allow read: if isOrgMember();
+      allow read; // TEMPORARY: For debugging
       allow list: if isAuthenticated();
       allow update: if isOwner() || isAdmin();
-      allow delete: if isOwner();
+      allow delete: if isOwner() || isAdmin();
       allow create: if isAuthenticated();
 
       match /boards/{boardId} {
-        allow read, list: if isOrgMemberByOrgId(orgId);
-        allow create: if isOrgMemberByOrgId(orgId);
-        allow update, delete: if isOrgMemberByOrgId(orgId);
+        allow read, list, update, delete: if isOrgMemberByOrgId(orgId);
+        allow create: if isAuthenticated();
 
         match /lists/{listId} {
-          allow read, list: if isOrgMemberByOrgId(orgId);
-          allow create: if isOrgMemberByOrgId(orgId);
-          allow update, delete: if isOrgMemberByOrgId(orgId);
+          allow read, list, create, update, delete: if isOrgMemberByOrgId(orgId);
+        }
 
-          match /todos/{todoId} {
-            allow read, list: if isOrgMemberByOrgId(orgId);
-            allow create: if isOrgMemberByOrgId(orgId);
-            allow update, delete: if isOrgMemberByOrgId(orgId);
-          }
+        match /cards/{cardId} {
+          allow read, list, update, delete: if isOrgMemberByOrgId(orgId);
+          allow create: if debug(isAuthenticated());
         }
       }
     }

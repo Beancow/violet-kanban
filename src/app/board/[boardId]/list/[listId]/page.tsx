@@ -2,19 +2,22 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserProvider';
 import { useBoards } from '@/contexts/BoardsProvider';
-import { createList } from '@/lib/firebase/listServerActions';
+import { createListAction } from '@/lib/firebase/listServerActions';
 import { ListForm } from '@/app/components/forms/ListForm';
 
+import { useRequireOrganization } from '@/hooks/useRequireOrganization';
+
 export default function ListPage() {
+    useRequireOrganization();
     const router = useRouter();
     const params = useParams<{ boardId: string }>();
-    const { user } = useUser();
+    const { user, currentOrganizationId } = useUser();
     const { boards } = useBoards();
     const lists = boards.find(
         (board) => board.id === user?.currentBoardId
     )?.lists;
     const currentList = user?.currentListId;
-    const orgId = user?.currentOrganizationId || '';
+    const orgId = currentOrganizationId || '';
     const { boardId } = params;
 
     if (!user) {
@@ -26,13 +29,13 @@ export default function ListPage() {
     ) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        const result = await createList({
+        const result = await createListAction({
             data: formData,
             uid: user?.id,
             orgId,
             boardId,
         });
-        if (result.success) {
+        if (result.success && result.data) {
             router.push(`/board/${boardId}/list/${result.data.id}`);
         } else {
             alert(`Error: ${result.data}`);

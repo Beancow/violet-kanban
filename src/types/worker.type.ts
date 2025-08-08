@@ -1,4 +1,4 @@
-import type { Boards, Organization, Todo, User } from './appState.type';
+import type { Boards, Organization, Card, User } from './appState.type';
 
 type WorkerMessage =
     | {
@@ -18,7 +18,7 @@ type WorkerMessage =
       }
     | {
           type: 'SYNC_TODO_DATA';
-          payload: Todo[] | Array<Todo>;
+          payload: Card[] | Array<Card>;
           timestamp: string;
       }
     | {

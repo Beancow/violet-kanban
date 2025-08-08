@@ -1,5 +1,6 @@
 type BoardList = {
     id: string;
+    boardId: string;
     title: string;
     description?: string;
     createdAt: Date;
@@ -31,8 +32,8 @@ type Board = {
         leftAt?: Date;
     }[];
     lists?: BoardList[];
-    todos?: Todo[];
-    orphanedTodos?: Todo[];
+    cards?: BoardCard[];
+    orphanedCards?: BoardCard[];
     data?: {
         color?: string;
         icon?: string;
@@ -43,7 +44,7 @@ type Board = {
     isPublic?: boolean;
 };
 
-type Todo = {
+type BoardCard = {
     id: string;
     title: string;
     description?: string;
@@ -51,8 +52,10 @@ type Todo = {
     createdAt: Date;
     updatedAt: Date;
     boardId: string;
+    listId: string | null;
     userId: string;
     ownerId: string;
+    isDeleted?: boolean;
 };
 
 type User = {
@@ -63,11 +66,6 @@ type User = {
     photoURL?: string;
     currentBoardId: string | null;
     currentListId: string | null;
-    currentOrganizationId: string | null;
-    currentOrganization?: {
-        id: string;
-        role: 'owner' | 'admin' | 'editor' | 'member';
-    };
     createdAt?: Date;
     updatedAt?: Date;
 };
@@ -91,7 +89,11 @@ type Organization = {
     id: string;
     name: string;
     type: 'personal' | 'company';
-    members: OrganizationMember[];
+    members: {
+        [userId: string]: {
+            role: 'owner' | 'admin' | 'editor' | 'member';
+        };
+    };
     createdAt: Date;
     updatedAt: Date;
     createdBy: Creator;
@@ -110,4 +112,11 @@ export type AddMemberToOrganizationResult =
     | { success: true; data: { message: string } }
     | { success: false; error: Error };
 
-export type { BoardList, Board, Todo, User, Organization, OrganizationMember };
+export type {
+    BoardList,
+    Board,
+    BoardCard,
+    User,
+    Organization,
+    OrganizationMember,
+};

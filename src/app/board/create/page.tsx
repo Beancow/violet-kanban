@@ -3,18 +3,21 @@ import { BoardForm } from '@/app/components/forms/BoardForm';
 import { useUser } from '@/contexts/UserProvider';
 import { createBoard } from '@/lib/firebase/boardServerActions';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useBoards } from '@/contexts/BoardsProvider';
+
+import { useRequireOrganization } from '@/hooks/useRequireOrganization';
 
 export default function BoardCreate() {
-    const [newBoardId, setNewBoardId] = useState('');
-    const { user } = useUser();
+    useRequireOrganization();
+    const { user, currentOrganizationId } = useUser();
+    const { addBoard } = useBoards();
     const router = useRouter();
 
     const handleCreateBoard = async (
         event: React.FormEvent<HTMLFormElement>
     ) => {
         event.preventDefault();
-        if (!user || !user.currentOrganizationId) {
+        if (!user || !currentOrganizationId) {
             alert(
                 'You must be logged in and belong to an organization to create a board.'
             );
@@ -24,20 +27,15 @@ export default function BoardCreate() {
         const result = await createBoard(
             formData,
             user?.id,
-            user?.currentOrganizationId
+            currentOrganizationId
         );
         if (result.success) {
-            setNewBoardId(result.data.id);
+            addBoard(result.data);
+            router.push(`/board/${result.data.id}`);
         } else {
             console.error('Error creating board:', result.data);
         }
     };
-
-    useEffect(() => {
-        if (newBoardId) {
-            router.push(`/board/${newBoardId}`);
-        }
-    }, [newBoardId, router]);
 
     return (
         <div>

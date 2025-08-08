@@ -1,21 +1,21 @@
 'use client';
 import { Flex, Card, Heading, Text, Button } from '@radix-ui/themes';
-import { Todo, User } from '@/types/appState.type';
+import { BoardCard, User } from '@/types/appState.type';
 import * as Form from '@radix-ui/react-form';
 
-export function TodoForm({ 
+export function CardForm({
     user,
     onSubmit,
-    todo,
-}: { 
+    card,
+}: {
     user: User | null;
     onSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
-    todo?: Todo;
+    card?: BoardCard;
 }) {
     return (
         <Card size='4' style={{ width: 425, margin: '0 auto' }}>
             <Heading as='h1' size='6' align='center' mb='5'>
-                {todo ? 'Update' : 'Create'} Card
+                {card ? 'Update' : 'Create'} Card
             </Heading>
 
             {user && (
@@ -44,7 +44,7 @@ export function TodoForm({
                             <input
                                 name='title'
                                 placeholder='Enter card title'
-                                defaultValue={todo?.title}
+                                defaultValue={card?.title}
                                 required
                             />
                         </Form.Control>
@@ -59,16 +59,14 @@ export function TodoForm({
                             <textarea
                                 name='description'
                                 placeholder='Enter card description'
-                                defaultValue={todo?.description}
+                                defaultValue={card?.description}
                                 required
                                 rows={3}
                             />
                         </Form.Control>
                     </Form.Field>
                 </Flex>
-                <Button color='green'>
-                    {todo ? 'Update' : 'Create'} Card
-                </Button>
+                <Button color='green'>{card ? 'Update' : 'Create'} Card</Button>
             </Form.Root>
         </Card>
     );

@@ -2,7 +2,20 @@ import {withSentryConfig} from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  
+  serverExternalPackages: ["firebase-admin"],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.externals = {
+        ...config.externals,
+        net: "commonjs net",
+        tls: "commonjs tls",
+        fs: "commonjs fs",
+        child_process: "commonjs child_process",
+        http2: "commonjs http2",
+      };
+    }
+    return config;
+  },
 };
 
 export default withSentryConfig(nextConfig, {
