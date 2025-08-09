@@ -1,13 +1,20 @@
-'use client';
-import { BoardList, BoardCard, User } from '@/types/appState.type';
 import {
     Card,
     Flex,
     Heading,
     IconButton,
     Dialog,
+    DropdownMenu,
+    Box,
+    TextField,
 } from '@radix-ui/themes';
-import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
+import {
+    PlusIcon,
+    TrashIcon,
+    DotsHorizontalIcon,
+    Pencil1Icon,
+    GearIcon,
+} from '@radix-ui/react-icons';
 import BoardCardItem from './BoardCardItem';
 import {
     DndContext,
@@ -16,6 +23,7 @@ import {
     PointerSensor,
     useSensor,
     useSensors,
+    DragEndEvent,
 } from '@dnd-kit/core';
 import {
     SortableContext,
@@ -24,6 +32,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CardForm } from '@/app/components/forms/CardForm';
 import { useState } from 'react';
+import { BoardCard, BoardList, User } from '@/types/appState.type';
 
 interface BoardListColumnProps {
     list: BoardList;
@@ -31,10 +40,15 @@ interface BoardListColumnProps {
     user: User | null;
     onDeleteList: (listId: string) => void;
     onSelectCard: (card: BoardCard) => void;
-    onCreateCard: (event: React.FormEvent<HTMLFormElement>, listId: string) => Promise<void>;
+    onCreateCard: (
+        event: React.FormEvent<HTMLFormElement>,
+        listId: string
+    ) => Promise<void>;
     showAddCardDialog: string | null;
     setShowAddCardDialog: (listId: string | null) => void;
     onUpdateCardOrder: (listId: string, newOrder: string[]) => void;
+    onUpdateListTitle: (listId: string, newTitle: string) => void;
+    onEditList: (list: BoardList) => void;
 }
 
 export default function BoardListColumn({
@@ -47,8 +61,16 @@ export default function BoardListColumn({
     showAddCardDialog,
     setShowAddCardDialog,
     onUpdateCardOrder,
+    onUpdateListTitle,
+    onEditList,
 }: BoardListColumnProps) {
-    const [listCards, setListCards] = useState<BoardCard[]>(cards.filter(card => card.listId === list.id).sort((a, b) => (a.priority || 10) - (b.priority || 10)));
+    const [listCards, setListCards] = useState<BoardCard[]>(
+        cards
+            .filter((card) => card.listId === list.id)
+            .sort((a, b) => (a.priority || 10) - (b.priority || 10))
+    );
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editedTitle, setEditedTitle] = useState(list.title);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -58,15 +80,27 @@ export default function BoardListColumn({
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
-        if (active.id !== over.id) {
+        if (active && over && active.id !== over.id) {
             setListCards((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id);
+                const oldIndex = items.findIndex(
+                    (item) => item.id === active.id
+                );
                 const newIndex = items.findIndex((item) => item.id === over.id);
                 const newOrderedCards = arrayMove(items, oldIndex, newIndex);
-                onUpdateCardOrder(list.id, newOrderedCards.map(card => card.id));
+                onUpdateCardOrder(
+                    list.id,
+                    newOrderedCards.map((card) => card.id)
+                );
                 return newOrderedCards;
             });
         }
+    };
+
+    const handleUpdateListTitle = () => {
+        if (editedTitle.trim() !== '' && editedTitle.trim() !== list.title) {
+            onUpdateListTitle(list.id, editedTitle.trim());
+        }
+        setIsEditingTitle(false);
     };
 
     return (
@@ -79,13 +113,42 @@ export default function BoardListColumn({
             }}
         >
             <Flex direction='row' justify='between' align='center' mb='3'>
-                <Heading as='h2' size='4'>
-                    {list.title}
-                </Heading>
-                <Flex gap='2'>
-                    <Dialog.Root open={showAddCardDialog === list.id} onOpenChange={(open) => setShowAddCardDialog(open ? list.id : null)}>
-                        <Dialog.Trigger asChild>
-                            <IconButton size='1' variant='soft' aria-label='Add card'>
+                <Box style={{ flex: 1 }} />
+                {isEditingTitle ? (
+                    <TextField.Root
+                        value={editedTitle}
+                        onChange={(e) => setEditedTitle(e.target.value)}
+                        onBlur={handleUpdateListTitle}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleUpdateListTitle();
+                            }
+                        }}
+                        autoFocus
+                        style={{ flex: 1, textAlign: 'center' }}
+                    />
+                ) : (
+                    <Heading
+                        as='h2'
+                        size='4'
+                        style={{ flex: 1, textAlign: 'center' }}
+                    >
+                        {list.title}
+                    </Heading>
+                )}
+                <Flex gap='2' style={{ flex: 1, justifyContent: 'flex-end' }}>
+                    <Dialog.Root
+                        open={showAddCardDialog === list.id}
+                        onOpenChange={(open) =>
+                            setShowAddCardDialog(open ? list.id : null)
+                        }
+                    >
+                        <Dialog.Trigger>
+                            <IconButton
+                                size='1'
+                                variant='soft'
+                                aria-label='Add card'
+                            >
                                 <PlusIcon />
                             </IconButton>
                         </Dialog.Trigger>
@@ -97,14 +160,42 @@ export default function BoardListColumn({
                             />
                         </Dialog.Content>
                     </Dialog.Root>
-                    <IconButton
-                        size='1'
-                        variant='soft'
-                        color='red'
-                        onClick={() => onDeleteList(list.id)}
-                    >
-                        <TrashIcon />
-                    </IconButton>
+                    <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                            <IconButton size='1' variant='soft'>
+                                <DotsHorizontalIcon />
+                            </IconButton>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content>
+                            <DropdownMenu.Sub>
+                                <DropdownMenu.SubTrigger>
+                                    <Pencil1Icon />
+                                    Edit
+                                </DropdownMenu.SubTrigger>
+                                <DropdownMenu.SubContent>
+                                    <DropdownMenu.Item
+                                        onClick={() => setIsEditingTitle(true)}
+                                    >
+                                        <Pencil1Icon />
+                                        Edit name
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item
+                                        onClick={() => onEditList(list)}
+                                    >
+                                        <GearIcon />
+                                        Edit details
+                                    </DropdownMenu.Item>
+                                </DropdownMenu.SubContent>
+                            </DropdownMenu.Sub>
+                            <DropdownMenu.Item
+                                color='red'
+                                onClick={() => onDeleteList(list.id)}
+                            >
+                                <TrashIcon />
+                                Delete List
+                            </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                    </DropdownMenu.Root>
                 </Flex>
             </Flex>
             <DndContext
@@ -112,7 +203,10 @@ export default function BoardListColumn({
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
             >
-                <SortableContext items={listCards.map(card => card.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext
+                    items={listCards.map((card) => card.id)}
+                    strategy={verticalListSortingStrategy}
+                >
                     <Flex direction='column' gap='3'>
                         {listCards.map((card: BoardCard) => (
                             <BoardCardItem

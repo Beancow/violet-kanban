@@ -7,7 +7,7 @@ import { getListsServerAction } from '@/lib/firebase/listServerActions';
 import { getCardsServerAction } from '@/lib/firebase/cardServerActions';
 import { List, BoardCard } from '@/types/appState.type';
 
-export async function GET(request: NextRequest, { params }: { params: { orgId: string } }) {
+export async function GET(request: NextRequest) {
     try {
         // Derive orgId from the header, making it the single source of truth.
         const { uid, orgId } = await getAuthAndOrgContext(request);

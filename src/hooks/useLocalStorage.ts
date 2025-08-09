@@ -1,7 +1,8 @@
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-const useLocalStorage = <T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] => {
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
     const [storedValue, setStoredValue] = useState<T>(() => {
         if (typeof window === 'undefined') {
             return initialValue;
@@ -10,61 +11,45 @@ const useLocalStorage = <T>(key: string, initialValue: T): [T, (value: T | ((val
             const item = window.localStorage.getItem(key);
             return item ? JSON.parse(item) : initialValue;
         } catch (error) {
-            console.error(`Error reading localStorage key “${key}”:`, error);
+            console.error(error);
             return initialValue;
         }
     });
 
-    const setValue = useCallback(
-        (value: T | ((val: T) => T)) => {
-            if (typeof window === 'undefined') {
-                console.warn(`Tried setting localStorage key “${key}” even though no window was found.`);
-                return;
+    // Use a ref to store the storedValue to avoid it being in the setValue dependency array
+    const storedValueRef = useRef(storedValue);
+    storedValueRef.current = storedValue;
+
+    const setValue = useCallback((value: T | ((val: T) => T)) => {
+        try {
+            const valueToStore = value instanceof Function ? value(storedValueRef.current) : value;
+            setStoredValue(valueToStore);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, JSON.stringify(valueToStore));
             }
-            try {
-                // Use the functional update form of useState's setter
-                setStoredValue((prevValue) => {
-                    const valueToStore = value instanceof Function ? value(prevValue) : value;
-                    window.localStorage.setItem(key, JSON.stringify(valueToStore));
-                    // Dispatch a custom event to notify other instances of this hook
-                    window.dispatchEvent(new CustomEvent('local-storage-changed', { detail: { key } }));
-                    return valueToStore;
-                });
-            } catch (error) {
-                console.error(`Error setting localStorage key “${key}”:`, error);
-            }
-        },
-        [key] // No dependency on storedValue
-    );
+        } catch (error) {
+            console.error(error);
+        }
+    }, [key]);
 
     useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        const handleStorageChange = (event: Event) => {
-            const customEvent = event as CustomEvent;
-            if (customEvent.detail.key === key) {
-                // Schedule the state update for the next event loop tick
-                setTimeout(() => {
-                    try {
-                        const item = window.localStorage.getItem(key);
-                        setStoredValue(item ? JSON.parse(item) : initialValue);
-                    } catch (error) {
-                        console.error(`Error handling custom storage event for key “${key}”:`, error);
-                    }
-                }, 0);
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === key && e.newValue) {
+                try {
+                    setStoredValue(JSON.parse(e.newValue));
+                } catch (error) {
+                    console.error(error);
+                }
             }
         };
 
-        window.addEventListener('local-storage-changed', handleStorageChange);
-
+        window.addEventListener('storage', handleStorageChange);
         return () => {
-            window.removeEventListener('local-storage-changed', handleStorageChange);
+            window.removeEventListener('storage', handleStorageChange);
         };
-    }, [key, initialValue]);
+    }, [key]);
 
     return [storedValue, setValue];
-};
+}
 
 export default useLocalStorage;

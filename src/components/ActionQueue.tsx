@@ -1,12 +1,11 @@
-import { useSync } from '@/contexts/SyncProvider';
-import { useBoardData } from '@/contexts/BoardDataProvider';
+import { useData } from '@/contexts/DataProvider';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
 import { Action } from '@/types/sync.type';
 
 export default function ActionQueue() {
-    const { actionQueue } = useSync();
-    const { boards, cards } = useBoardData();
+    const { actionQueue } = useData();
+    const { boards, cards } = useData();
 
     if (actionQueue.length === 0) {
         return <Text>No pending actions.</Text>;
