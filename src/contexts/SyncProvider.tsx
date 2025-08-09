@@ -21,12 +21,17 @@ const SyncContext = createContext<SyncContextType>({
     addActionToQueue: () => {},
 });
 
+import { useOrganizations } from './OrganizationsProvider';
+
+// ...
+
 export function SyncProvider({ children }: { children: ReactNode }) {
     const [isSyncing, setIsSyncing] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [actionQueue, setActionQueue] = useLocalStorage<Action[]>('actionQueue', []);
     const { syncData } = useWebWorker();
     const { authUser } = useAuth();
+    const { currentOrganizationId } = useOrganizations();
 
     const processActionQueue = useCallback(async () => {
         if (isEditing) {
@@ -35,8 +40,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }
 
         const idToken = await authUser?.getIdToken();
-        if (!idToken) {
-            console.error('Cannot sync: User not authenticated or token unavailable.');
+        if (!idToken || !currentOrganizationId) {
+            console.error('Cannot sync: User not authenticated, token, or orgId unavailable.');
             setIsSyncing(false);
             return;
         }
@@ -45,12 +50,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         const queue = [...actionQueue];
         while (queue.length > 0) {
             const action = queue.shift();
-            // Pass the fresh idToken with the action to the worker
-            syncData({ ...action, payload: { ...action.payload, idToken } });
+            // Pass the fresh idToken and orgId with the action to the worker
+            syncData({ ...action, payload: { ...action.payload, idToken, orgId: currentOrganizationId } });
         }
         setActionQueue(queue);
         setIsSyncing(false);
-    }, [actionQueue, isEditing, setActionQueue, syncData, authUser]);
+    }, [actionQueue, isEditing, setActionQueue, syncData, authUser, currentOrganizationId]);
 
     useEffect(() => {
         const handleOnline = () => {

@@ -82,7 +82,7 @@ import { getUserServerAction } from './userServerActions';
 // ...
 
 export async function createOrganizationServerAction(
-    data: FormData,
+    data: { [key: string]: string },
     uid: string
 ): Promise<CreateOrganizationResult> {
     try {
@@ -99,8 +99,8 @@ export async function createOrganizationServerAction(
 
         const newOrg = {
             id: newOrgRef.id,
-            name: data.get('name') as string,
-            type: data.get('type') as 'personal' | 'company',
+            name: data.name,
+            type: data.type as 'personal' | 'company',
             createdAt: adminFirestore.FieldValue.serverTimestamp(),
             updatedAt: adminFirestore.FieldValue.serverTimestamp(),
             createdBy: {
@@ -112,9 +112,9 @@ export async function createOrganizationServerAction(
                 [user.id]: { role: 'owner' },
             },
             data: {
-                companyName: data.get('companyName') as string,
-                companyWebsite: data.get('companyWebsite') as string,
-                logoURL: data.get('logoURL') as string,
+                companyName: data.companyName,
+                companyWebsite: data.companyWebsite,
+                logoURL: data.logoURL,
             },
         };
 

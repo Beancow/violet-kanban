@@ -12,29 +12,30 @@ export default function CreateOrganizationPage() {
     const { authUser } = useAuth();
     const { setCurrentOrganization, refetchOrganizations } = useOrganizations();
 
-    const handleCreateOrganization = async (formData: FormData) => {
+    const handleCreateOrganization = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
         if (!user || !authUser) {
             alert('You must be logged in to create an organization.');
             return;
         }
 
+        const formData = new FormData(event.currentTarget);
+        const data = Object.fromEntries(formData.entries());
         const idToken = await authUser.getIdToken();
 
         const result = await fetch('/api/orgs/create', {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 Authorization: `Bearer ${idToken}`,
             },
-            body: formData,
+            body: JSON.stringify(data),
         }).then(res => res.json());
 
         if (result.success) {
             alert('Organization created successfully!');
-            // Refetch the organizations list to include the new one
             await refetchOrganizations();
-            // Set the new org as the current one
             setCurrentOrganization(result.data.orgId);
-            // Redirect to the boards page
             router.push('/boards');
         } else {
             alert(`Error creating organization: ${result.error?.message}`);

@@ -5,7 +5,7 @@ import { getUidFromAuthHeader } from '@/lib/serverUtils';
 export async function POST(request: NextRequest) {
     try {
         const uid = await getUidFromAuthHeader(request);
-        const data = await request.formData();
+        const data = await request.json();
         
         const result = await createOrganizationServerAction(data, uid);
 
