@@ -1,56 +1,46 @@
 'use server';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { firebaseDB } from '@/lib/firebase/firebase-config';
 import { User } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
-
-// Dynamic import for firebase-admin-init
-const getAdminFirestore = async () => {
-    const { getAdminFirestore } = await import('./firebase-admin-init');
-    return getAdminFirestore();
-};
+import { getAdminAuth, getAdminFirestore } from './firebase-admin-init';
 
 export async function getUserServerAction(userId: string): Promise<{ success: boolean; data?: User; error?: Error }> {
     try {
         const adminFirestore = await getAdminFirestore();
         const userRef = adminFirestore.doc(`users/${userId}`).withConverter(adminDataConverter<User>());
-        const userSnap = await getDoc(userRef);
+        const userSnap = await userRef.get();
 
-        if (userSnap.exists()) {
-            return { success: true, data: userSnap.data() as User };
+        if (userSnap.exists) {
+            return { success: true, data: userSnap.data() };
         } else {
-            return { success: false, error: new Error('User not found') };
+            // User not found, create it
+            const userRecord = await getAdminAuth().getUser(userId);
+            const newUser: User = {
+                id: userRecord.uid,
+                email: userRecord.email || '',
+                displayName: userRecord.displayName || '',
+                photoURL: userRecord.photoURL || '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                name: userRecord.displayName || '',
+                currentBoardId: null,
+                currentListId: null,
+            };
+            await userRef.set(newUser);
+            return { success: true, data: newUser };
         }
     } catch (error) {
         console.error('Error in getUserServerAction:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         return {
             success: false,
-            error: new Error('Failed to fetch user', { cause: error }),
-        };
-    }
-}
-
-
-
-
-export async function createUser(
-    user: User
-): Promise<{ success: boolean; error?: Error }> {
-    try {
-        const userRef = doc(firebaseDB, 'users', user.id);
-        await setDoc(userRef, user);
-        return { success: true };
-    } catch (error) {
-        console.error('Error in createUser:', error);
-        return {
-            success: false,
-            error: new Error('Failed to create user', { cause: error }),
+            error: new Error(errorMessage),
         };
     }
 }
 
 export async function updateUser(data: FormData, uid: string) {
-    const userDoc = doc(firebaseDB, `users/${uid}`);
+    const adminFirestore = await getAdminFirestore();
+    const userDoc = adminFirestore.doc(`users/${uid}`);
 
     const userData = {
         username: data.get('username')?.valueOf(),
@@ -62,7 +52,7 @@ export async function updateUser(data: FormData, uid: string) {
         throw new Error('Invalid user data');
     }
 
-    await updateDoc(userDoc, userData);
+    await userDoc.update(userData);
 
     return {
         success: true,

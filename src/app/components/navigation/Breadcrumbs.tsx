@@ -1,98 +1,81 @@
 'use client';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Fragment, useEffect, useState } from 'react';
-import { Flex, Text } from '@radix-ui/themes';
-import { ChevronRightIcon } from '@radix-ui/react-icons';
-
-interface BreadcrumbItem {
-    label: string;
-    path: string;
-}
+import { Fragment } from 'react';
+import { Flex, Text, DropdownMenu, Button } from '@radix-ui/themes';
+import { ChevronRightIcon, CaretDownIcon } from '@radix-ui/react-icons';
 
 export default function Breadcrumbs() {
     const pathname = usePathname();
-    const { currentOrganizationId, currentOrganization } = useOrganizations();
-    const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
+    const router = useRouter();
+    const { organizations, currentOrganization, setCurrentOrganization } = useOrganizations();
 
-    useEffect(() => {
-        const generateBreadcrumbs = async () => {
-            const pathSegments = pathname
-                .split('/')
-                .filter((segment) => segment);
-            const newBreadcrumbs: BreadcrumbItem[] = [];
-            let currentPath = '';
+    const handleSetCurrentOrg = (orgId: string) => {
+        setCurrentOrganization(orgId);
+        // Navigate to the org's board list after switching
+        router.push('/boards');
+    };
 
-            for (let i = 0; i < pathSegments.length; i++) {
-                const segment = pathSegments[i];
-                currentPath += `/${segment}`;
-
-                let label = segment;
-                // Attempt to fetch more descriptive labels for IDs
-                if (segment.length === 20) {
-                    // Heuristic for Firestore IDs
-                    if (currentPath.includes('/orgs/') && i === 1) {
-                        // Organization ID
-                        const { data } = await fetch(
-                            `/api/orgs/${segment}`
-                        ).then((res) => res.json());
-                        if (data) {
-                            label = data.name;
-                        }
-                    } else if (currentPath.includes('/board/') && i === 2) {
-                        // Board ID
-                        if (currentOrganizationId) {
-                            const { data } = await fetch(
-                                `/api/boards/${segment}`
-                            ).then((res) => res.json());
-                            if (data) {
-                                label = data.title;
-                            }
-                        }
-                    }
-                }
-
-                newBreadcrumbs.push({
-                    label: label.charAt(0).toUpperCase() + label.slice(1),
-                    path: currentPath,
-                });
-            }
-            setBreadcrumbs(newBreadcrumbs);
-        };
-
-        generateBreadcrumbs();
-    }, [pathname, currentOrganizationId]);
+    const pathSegments = pathname.split('/').filter(Boolean);
+    const breadcrumbs = pathSegments.map((segment, index) => {
+        const path = `/${pathSegments.slice(0, index + 1).join('/')}`;
+        // Capitalize the segment for display, you can add more sophisticated logic here if needed
+        const label = segment.charAt(0).toUpperCase() + segment.slice(1);
+        return { label, path };
+    });
 
     return (
-        <Flex align='center' gap='1'>
+        <Flex align='center' gap='2' p='2' style={{ borderBottom: '1px solid var(--gray-a5)' }}>
             <Link href='/'>
-                <Text size='2' color='gray'>
-                    Home
-                </Text>
+                <Text size='2' color='gray'>Home</Text>
             </Link>
+            <ChevronRightIcon width='16' height='16' />
+            
             {currentOrganization && (
-                <Text size='2' color='gray'>
-                    {currentOrganization.name}
-                </Text>
+                <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                        <Button variant="soft">
+                            {currentOrganization.name}
+                            <CaretDownIcon />
+                        </Button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content>
+                        {organizations.map(org => (
+                            <DropdownMenu.Item 
+                                key={org.id} 
+                                onSelect={() => handleSetCurrentOrg(org.id)}
+                                disabled={org.id === currentOrganization.id}
+                            >
+                                {org.name}
+                            </DropdownMenu.Item>
+                        ))}
+                        <DropdownMenu.Separator />
+                        <DropdownMenu.Item onSelect={() => router.push('/org/create')}>
+                            Create New Organization
+                        </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                </DropdownMenu.Root>
             )}
-            {breadcrumbs.map((crumb, index) => (
-                <Fragment key={crumb.path}>
-                    <ChevronRightIcon width='16' height='16' />
-                    <Link href={crumb.path}>
-                        <Text
-                            size='2'
-                            color={
-                                index === breadcrumbs.length - 1
-                                    ? 'blue'
-                                    : 'gray'
-                            }
-                        >
-                            {crumb.label}
-                        </Text>
-                    </Link>
-                </Fragment>
-            ))}
+
+            {breadcrumbs.map((crumb, index) => {
+                // Don't show the root 'Boards' or 'Orgs' link as it's implied by the org dropdown
+                if (crumb.label === 'Boards' || crumb.label === 'Orgs') return null;
+
+                return (
+                    <Fragment key={crumb.path}>
+                        <ChevronRightIcon width='16' height='16' />
+                        <Link href={crumb.path}>
+                            <Text
+                                size='2'
+                                color={index === breadcrumbs.length - 1 ? 'blue' : 'gray'}
+                            >
+                                {crumb.label}
+                            </Text>
+                        </Link>
+                    </Fragment>
+                );
+            })}
         </Flex>
     );
 }
