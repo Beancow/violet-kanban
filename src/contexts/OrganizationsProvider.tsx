@@ -17,6 +17,7 @@ interface OrganizationsContextType {
     currentOrganizationId: string | null;
     currentOrganization: Organization | null;
     setCurrentOrganization: (organizationId: string) => void;
+    refetchOrganizations: () => Promise<void>;
 }
 
 const OrganizationsContext = createContext<OrganizationsContextType>({
@@ -25,6 +26,7 @@ const OrganizationsContext = createContext<OrganizationsContextType>({
     currentOrganizationId: null,
     currentOrganization: null,
     setCurrentOrganization: () => {},
+    refetchOrganizations: async () => {},
 });
 
 export function OrganizationsProvider({ children }: { children: ReactNode }) {
@@ -32,15 +34,38 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [currentOrganizationId, setCurrentOrganizationId] = useState<string | null>(
         () => {
-            const storedOrgId = typeof window !== 'undefined' ? localStorage.getItem('currentOrganizationId') : null;
-            return storedOrgId;
+            if (typeof window !== 'undefined') {
+                return localStorage.getItem('currentOrganizationId');
+            }
+            return null;
         }
     );
     const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(null);
     const { authUser } = useAuth();
 
+    const fetchOrgs = useCallback(async () => {
+        if (authUser) {
+            setLoading(true);
+            const { data, success } = await getOrganizationsForUserServerAction(
+                authUser.uid
+            );
+            if (success && data) {
+                setOrganizations(data);
+                if (!currentOrganizationId || !data.some(org => org.id === currentOrganizationId)) {
+                    // No-op, useRequireOrganization will handle redirection if needed.
+                } else {
+                    const org = data.find(o => o.id === currentOrganizationId);
+                    setCurrentOrganizationState(org || null);
+                }
+            }
+            setLoading(false);
+        } else {
+            setOrganizations([]);
+            setLoading(false);
+        }
+    }, [authUser, currentOrganizationId]);
+
     const setCurrentOrganization = useCallback((organizationId: string) => {
-        
         localStorage.setItem('currentOrganizationId', organizationId);
         setCurrentOrganizationId(organizationId);
     }, []);
@@ -51,32 +76,8 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
     }, [currentOrganizationId, organizations]);
 
     useEffect(() => {
-        const fetchOrgs = async () => {
-            if (authUser) {
-                setLoading(true); // Set loading to true before fetching
-                    const { data, success } = await getOrganizationsForUserServerAction(
-                    authUser.uid
-                );
-                    if (success && data) {
-                    setOrganizations(data);
-                    // Set current organization if none is set or if the current one is no longer valid
-                    if (!currentOrganizationId || !data.some(org => org.id === currentOrganizationId)) {
-                        // Do not automatically set currentOrganizationId here.
-                        // The useRequireOrganization hook will handle redirection if needed.
-                    } else {
-                        const org = data.find(o => o.id === currentOrganizationId);
-                        setCurrentOrganizationState(org || null);
-                    }
-                }
-                setLoading(false); // Set loading to false after fetching (success or failure)
-            } else {
-                    setOrganizations([]); // Clear organizations if no authUser
-                setLoading(false); // Set loading to false if no authUser
-            }
-        };
         fetchOrgs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [authUser]);
+    }, [authUser, fetchOrgs]);
 
     return (
         <OrganizationsContext.Provider
@@ -86,6 +87,7 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
                 currentOrganizationId,
                 currentOrganization,
                 setCurrentOrganization,
+                refetchOrganizations: fetchOrgs,
             }}
         >
             {children}

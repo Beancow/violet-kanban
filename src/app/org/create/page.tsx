@@ -10,7 +10,7 @@ export default function CreateOrganizationPage() {
     const router = useRouter();
     const { user } = useUser();
     const { authUser } = useAuth();
-    const { setCurrentOrganization } = useOrganizations();
+    const { setCurrentOrganization, refetchOrganizations } = useOrganizations();
 
     const handleCreateOrganization = async (formData: FormData) => {
         if (!user || !authUser) {
@@ -30,7 +30,11 @@ export default function CreateOrganizationPage() {
 
         if (result.success) {
             alert('Organization created successfully!');
+            // Refetch the organizations list to include the new one
+            await refetchOrganizations();
+            // Set the new org as the current one
             setCurrentOrganization(result.data.orgId);
+            // Redirect to the boards page
             router.push('/boards');
         } else {
             alert(`Error creating organization: ${result.error?.message}`);
