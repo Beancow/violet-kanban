@@ -1,6 +1,6 @@
-import type { Boards, Organization, Card, User } from './appState.type';
+import type { Board, BoardList, BoardCard, User } from './appState.type';
 
-type WorkerMessage =
+export type WorkerMessage =
     | {
           type: 'WORKER_READY';
           timestamp: string;
@@ -13,17 +13,17 @@ type WorkerMessage =
       }
     | {
           type: 'SYNC_BOARD_DATA';
-          payload: Boards[] | Array<Boards>;
+          payload: Board[] | Array<Board>;
           timestamp: string;
       }
     | {
           type: 'SYNC_TODO_DATA';
-          payload: Card[] | Array<Card>;
+          payload: BoardCard[] | Array<BoardCard>;
           timestamp: string;
       }
     | {
           type: 'SYNC_ORGANIZATION_DATA';
-          payload: Organization[] | Array<Organization>;
+          payload: any[] | Array<any>;
           timestamp: string;
       }
     | {
@@ -36,6 +36,16 @@ type WorkerMessage =
           timestamp: string;
           error: Error;
       }
+    | { 
+        type: 'ACTION_SUCCESS', 
+        payload: { 
+            timestamp: number; 
+            tempId?: string; 
+            board?: Board; 
+            list?: BoardList; 
+            card?: BoardCard 
+        } 
+    }
     | {
           type: 'SYNC_RESULT';
           docId: string;
@@ -54,10 +64,19 @@ type WorkerMessage =
           type: 'PROCESSING_ERROR';
           payload: string;
       }
-    | {
-          type: 'ERROR';
-          error: Error;
-          payload?: Record<string, unknown>;
-      };
+    | { 
+        type: 'ERROR', 
+        error: Error, 
+        payload?: { 
+            timestamp: number 
+        } 
+    }
+    | { 
+        type: 'FULL_DATA_RECEIVED', 
+        payload: { 
+            boards: Board[], 
+            lists: BoardList[], 
+            cards: BoardCard[] 
+        } 
+    };
 
-export { type WorkerMessage };

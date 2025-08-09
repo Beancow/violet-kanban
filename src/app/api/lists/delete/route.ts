@@ -4,8 +4,8 @@ import { getAuthAndOrgContext } from "@/lib/serverUtils";
 export async function POST(request: Request) {
   try {
     const { orgId } = await getAuthAndOrgContext(request);
-    const { listId } = await request.json(); // Still need listId from body for now, will refactor later
-    await deleteListServerAction(orgId, listId);
+    const { boardId, listId } = await request.json();
+    await deleteListServerAction(orgId, boardId, listId);
     return new Response("List deleted", { status: 200 });
   } catch (error) {
     console.error("Error deleting list:", error);

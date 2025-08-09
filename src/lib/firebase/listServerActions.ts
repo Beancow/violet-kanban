@@ -80,13 +80,11 @@ export async function getListsServerAction({ orgId, boardId }: { orgId: string; 
 
 export async function createListServerAction({
     data,
-    uid,
     orgId,
     boardId,
     tempId,
 }: {
     data: Omit<BoardList, 'id'>;
-    uid: string;
     orgId: string;
     boardId: string;
     tempId: string;
@@ -145,17 +143,18 @@ export async function deleteListServerAction(
     const q = cardsRef.where('listId', '==', listId);
     const batch = adminFirestore.batch();
 
-    const cardsSnapshot = await q.get();
-    cardsSnapshot.docs.forEach((cardDoc) => {
-        const cardRef = adminFirestore.doc(
-            `organizations/${orgId}/boards/${boardId}/cards/${cardDoc.id}`
-        );
-        batch.update(cardRef, { listId: null, updatedAt: adminFirestore.FieldValue.serverTimestamp() });
-    });
-
-    batch.delete(listRef);
-
     try {
+        const cardsSnapshot = await q.get();
+        cardsSnapshot.docs.forEach((cardDoc) => {
+            const cardRef = adminFirestore.doc(
+                `organizations/${orgId}/boards/${boardId}/cards/${cardDoc.id}`
+            );
+            // Correct logic: Orphan the card, do not delete it.
+            batch.update(cardRef, { listId: null, updatedAt: adminFirestore.FieldValue.serverTimestamp() });
+        });
+
+        batch.delete(listRef);
+
         await batch.commit();
         revalidatePath(`/board/${boardId}`); // Revalidate the board page after deletion
         return { success: true };
