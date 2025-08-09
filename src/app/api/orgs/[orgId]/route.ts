@@ -2,7 +2,7 @@ import { getOrganizationServerAction } from '@/lib/firebase/orgServerActions';
 import { NextResponse, NextRequest } from 'next/server';
 import { getAuthAndOrgContext } from '@/lib/serverUtils';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, { params }: { params: { orgId: string } }) {
     try {
         const { uid, orgId } = await getAuthAndOrgContext(request);
 

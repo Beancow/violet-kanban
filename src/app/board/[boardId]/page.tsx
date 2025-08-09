@@ -1,11 +1,14 @@
 
 'use client';
 
-import { Board, BoardCard, BoardList } from '@/types/appState.type';
-import { Box, Text, Dialog } from '@radix-ui/themes';
-import { useParams, useRouter } from 'next/navigation';
+import { Board, BoardCard } from '@/types/appState.type';
+import { Box, Text } from '@radix-ui/themes';
+import { useParams } from 'next/navigation';
+import { useBoardData } from '@/contexts/BoardDataProvider';
+import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useUser } from '@/contexts/UserProvider';
-import { useData } from '@/contexts/DataProvider';
+import { useAuth } from '@/contexts/AuthProvider';
+import { useSync } from '@/contexts/SyncProvider';
 import { LooseCardsMenu } from '@/app/components/menus/LooseCardsMenu';
 import { CardDetails } from '@/app/components/menus/CardDetails';
 import { useState, useEffect, useCallback } from 'react';
@@ -13,47 +16,29 @@ import { useAppToast } from '@/hooks/useToast';
 import OrganizationGate from '@/app/components/guards/OrganizationGate';
 import BoardContent from '@/app/components/board/BoardContent';
 import LoadingPage from '@/components/LoadingPage';
-import { ListForm } from '@/app/components/forms/ListForm';
 
 export default function BoardPage() {
     const params = useParams();
     const { boardId } = params;
     const { user } = useUser();
-    const { boards, lists, cards, createList, deleteList, createCard, deleteCard, restoreCard, updateCardOrder, updateList, setIsEditing, actionQueue } = useData();
-    const router = useRouter();
+    const { authUser } = useAuth();
+    const { currentOrganizationId } = useOrganizations();
+    const { addActionToQueue, setIsEditing } = useSync();
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedCard, setSelectedCard] = useState<BoardCard | null>(null);
-    const [editingList, setEditingList] = useState<BoardList | null>(null);
     const [showAddCardDialog, setShowAddCardDialog] = useState<string | null>(null);
     const [showAddListDialog, setShowAddListDialog] = useState(false);
     const { showToast } = useAppToast();
 
     useEffect(() => {
-        if (typeof boardId === 'string' && boardId.startsWith('temp_')) {
-            const actionInQueue = actionQueue.find(a => a.payload.tempId === boardId);
-            if (!actionInQueue) {
-                // The action is no longer in the queue, so the board should be reconciled.
-                // We need to find the permanent board to redirect to.
-                // This is tricky. Let's find the optimistic board first.
-                const optimisticBoard = boards.find(b => b.id === boardId);
-                if (!optimisticBoard) {
-                    // It's gone, which means it was likely reconciled.
-                    // We can't easily find the new ID without more info.
-                    // A full solution would store a map of tempId -> newId.
-                    // For now, let's push the user back to the boards page.
-                    router.push('/boards');
-                }
-            }
-        }
-    }, [boardId, actionQueue, boards, router]);
-
-    useEffect(() => {
         setIsEditing(showAddCardDialog !== null || showAddListDialog);
     }, [showAddCardDialog, showAddListDialog, setIsEditing]);
 
+    const { boards, lists, cards, loading: boardsLoading, handleDeleteList, handleUpdateCard } = useBoardData();
+
     useEffect(() => {
-        if (boards) {
+        if (!boardsLoading && boards) {
             const currentBoard = boards.find(b => b.id === boardId);
             if (currentBoard) {
                 const boardLists = lists.filter(l => l.boardId === currentBoard.id);
@@ -64,7 +49,7 @@ export default function BoardPage() {
             }
             setLoading(false);
         }
-    }, [boards, lists, cards, boardId]);
+    }, [boards, lists, cards, boardsLoading, boardId]);
 
     const handleCreateList = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -76,44 +61,28 @@ export default function BoardPage() {
         const formData = new FormData(event.currentTarget);
         const title = formData.get('title') as string;
         const description = formData.get('description') as string;
-        
-        createList(boardId as string, title, description, board?.lists?.length || 0);
+        const tempId = `temp-${Date.now()}`;
+
+        const newList: Omit<List, 'id'> = {
+            title,
+            description,
+            position: board?.lists?.length || 0,
+            boardId: boardId as string,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        addActionToQueue({
+            type: 'create-list',
+            payload: {
+                boardId: boardId as string,
+                data: { ...newList, id: tempId },
+            },
+            timestamp: Date.now(),
+        });
 
         showToast('Success', 'List added to queue!');
         setShowAddListDialog(false);
-    };
-
-    const handleEditList = (list: BoardList) => {
-        setEditingList(list);
-    };
-
-    const handleUpdateList = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!user || !boardId || !editingList) {
-            showToast('Error', 'You must be logged in to update a list.');
-            return;
-        }
-
-        const formData = new FormData(event.currentTarget);
-        const title = formData.get('title') as string;
-        const description = formData.get('description') as string;
-        
-        updateList(boardId as string, editingList.id, { title, description });
-
-        showToast('Success', 'List update added to queue!');
-        setEditingList(null);
-    };
-
-    const handleDeleteList = (listId: string) => {
-        if (!boardId) return;
-        deleteList(boardId as string, listId);
-        showToast('Success', 'List deletion added to queue!');
-    };
-
-    const handleUpdateListTitle = (listId: string, newTitle: string) => {
-        if (!boardId) return;
-        updateList(boardId as string, listId, { title: newTitle });
-        showToast('Success', 'List title update added to queue!');
     };
 
     const handleCreateCard = async (
@@ -121,32 +90,81 @@ export default function BoardPage() {
         listId: string
     ) => {
         event.preventDefault();
-        if (!user || !boardId) {
-            showToast('Error', 'You must be logged in to create a card.');
+        if (!user || !currentOrganizationId || !authUser) {
+            showToast(
+                'Error',
+                'You must be logged in and belong to an organization to create a card.'
+            );
             return;
         }
 
-        const formData = new FormData(event.currentTarget);
-        const title = formData.get('title') as string;
-        const description = formData.get('description') as string;
-        
-        createCard(listId, boardId as string, title, description, board?.cards?.length || 0);
+        const response = await fetch('/api/cards/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+                'X-Organization-Id': currentOrganizationId || '',
+            },
+            body: JSON.stringify({
+                data,
+                boardId: boardId as string,
+                listId: listId as string,
+            }),
+        });
 
-        showToast('Success', 'Card added to queue!');
-        setShowAddCardDialog(null);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            // You might want to update the local board state here
+            setShowAddCardDialog(null); // Close the dialog on successful creation
+        } else {
+            console.error('Error creating card:', result.error);
+        }
     };
 
     const handleDeleteCard = async (cardId: string) => {
-        if (!boardId) return;
-        deleteCard(boardId as string, cardId);
-        showToast('Success', 'Card deletion added to queue!');
-        setSelectedCard(null);
+        if (currentOrganizationId) {
+            const response = await fetch('/api/cards/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orgId: currentOrganizationId,
+                    boardId: boardId as string,
+                    cardId,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // You might want to update the local board state here
+                setSelectedCard(null);
+            }
+        }
     };
 
     const handleRestoreCard = async (cardId: string) => {
-        if (!boardId) return;
-        restoreCard(boardId as string, cardId);
-        showToast('Success', 'Card restoration added to queue!');
+        if (currentOrganizationId) {
+            const response = await fetch('/api/cards/restore', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orgId: currentOrganizationId,
+                    boardId: boardId as string,
+                    cardId,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // You might want to update the local board state here
+            }
+        }
     };
 
     const handleUpdateCardOrder = useCallback(async (listId: string, newOrder: string[]) => {
@@ -163,15 +181,16 @@ export default function BoardPage() {
         // Update local state optimistically
         setBoard(prevBoard => prevBoard ? { ...prevBoard, cards: updatedCards } : null);
 
-        // Call the new sync provider method
-        updateCardOrder(boardId as string, newOrder);
-        showToast('Success', 'Card reordering added to queue!');
-    }, [board, boardId, updateCardOrder, showToast]);
-    
+        // Update backend
+        for (const [index, cardId] of newOrder.entries()) {
+            await handleUpdateCard(boardId as string, cardId, { priority: index });
+        }
+    }, [board, boardId, handleUpdateCard]);
+
     if (loading) {
         return <LoadingPage dataType="Board" />;
     }
-    
+
     if (!board) {
         return <Text>Board not found</Text>;
     }
@@ -201,19 +220,7 @@ export default function BoardPage() {
                     showAddListDialog={showAddListDialog}
                     setShowAddListDialog={setShowAddListDialog}
                     onUpdateCardOrder={handleUpdateCardOrder}
-                    onUpdateListTitle={handleUpdateListTitle}
-                    onEditList={handleEditList}
                 />
-                <Dialog.Root open={editingList !== null} onOpenChange={() => setEditingList(null)}>
-                    <Dialog.Content style={{ maxWidth: 450 }}>
-                        <Dialog.Title>Edit List</Dialog.Title>
-                        <ListForm
-                            user={user}
-                            onSubmit={handleUpdateList}
-                            list={editingList}
-                        />
-                    </Dialog.Content>
-                </Dialog.Root>
             </Box>
         </OrganizationGate>
     );

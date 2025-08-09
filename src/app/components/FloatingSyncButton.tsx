@@ -1,30 +1,24 @@
 'use client';
 import { useState } from 'react';
-import { useData } from '@/contexts/DataProvider';
+import { useSync } from '@/contexts/SyncProvider';
 import ActionQueue from '@/components/ActionQueue';
 import styles from './FloatingSyncButton.module.css';
-import { IconButton, Flex } from '@radix-ui/themes';
-import { Cross2Icon, UpdateIcon } from '@radix-ui/react-icons';
+import { Button, IconButton } from '@radix-ui/themes';
+import { Cross2Icon } from '@radix-ui/react-icons';
 
 export default function FloatingSyncButton() {
     const [isOpen, setIsOpen] = useState(false);
-    const { actionQueue, isSyncing } = useData();
+    const { actionQueue, processActionQueue } = useSync();
 
     const togglePanel = () => setIsOpen(!isOpen);
 
     return (
         <div>
             <button className={styles.floatingButton} onClick={togglePanel}>
-                <Flex align="center" gap="2">
-                    {isSyncing ? (
-                        <UpdateIcon className={styles.spinner} />
-                    ) : (
-                        'Sync'
-                    )}
-                    {actionQueue.length > 0 && (
-                        <span className={styles.badge}>{actionQueue.length}</span>
-                    )}
-                </Flex>
+                Sync
+                {actionQueue.length > 0 && (
+                    <span className={styles.badge}>{actionQueue.length}</span>
+                )}
             </button>
 
             <div className={`${styles.sidePanel} ${isOpen ? styles.open : ''}`}>
@@ -36,6 +30,9 @@ export default function FloatingSyncButton() {
                 </div>
                 <div className={styles.panelContent}>
                     <ActionQueue />
+                    <Button onClick={processActionQueue} disabled={actionQueue.length === 0} style={{ width: '100%', marginTop: '1rem' }}>
+                        Sync Now
+                    </Button>
                 </div>
             </div>
         </div>

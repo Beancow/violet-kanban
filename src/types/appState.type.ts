@@ -113,24 +113,6 @@ export type AddMemberToOrganizationResult =
     | { success: true; data: { message: string } }
     | { success: false; error: Error };
 
-export type CreateBoardResult = {
-    success: boolean;
-    data?: {
-        tempId: string;
-        board: Board;
-    };
-    error?: Error;
-};
-
-export type CreateCardResult = {
-    success: boolean;
-    data?: {
-        tempId: string;
-        card: BoardCard;
-    };
-    error?: Error;
-};
-
 export type {
     BoardList,
     Board,

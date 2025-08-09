@@ -13,9 +13,7 @@ import {
     ChevronRightIcon,
     Cross1Icon,
     ReloadIcon,
-    TrashIcon,
 } from '@radix-ui/react-icons';
-import { useData } from '@/contexts/DataProvider';
 
 
 import BoardCardItem from '@/app/components/board/BoardCardItem';
@@ -24,17 +22,14 @@ interface LooseCardsMenuProps {
     cards: BoardCard[];
     onRestore: (cardId: string) => void;
     onSelectCard: (card: BoardCard) => void;
-    boardId: string;
 }
 
 export function LooseCardsMenu({
     cards,
     onRestore,
     onSelectCard,
-    boardId,
 }: LooseCardsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const { softDeleteCard } = useData();
 
     
 
@@ -77,22 +72,11 @@ export function LooseCardsMenu({
                 <Flex direction='column' gap='3' mb='4'>
                         {looseCards.length > 0 ? (
                             looseCards.map((card) => (
-                                <Flex key={card.id} align="center" gap="2">
-                                    <Box style={{ flexGrow: 1 }}>
-                                        <BoardCardItem
-                                            card={card}
-                                            onSelectCard={onSelectCard}
-                                        />
-                                    </Box>
-                                    <IconButton
-                                        size="1"
-                                        color="red"
-                                        variant="soft"
-                                        onClick={() => softDeleteCard(boardId, card.id)}
-                                    >
-                                        <TrashIcon />
-                                    </IconButton>
-                                </Flex>
+                                <BoardCardItem
+                                    key={card.id}
+                                    card={card}
+                                    onSelectCard={onSelectCard}
+                                />
                             ))
                         ) : (
                             <Text size='2' color='gray'>

@@ -20,12 +20,6 @@ export async function createBoardServerAction({
     orgId: string;
     tempId: string;
 }): Promise<CreateBoardResult> {
-    if (!orgId || !uid) {
-        const error = new Error('Organization ID and User ID are required to create a board.');
-        sentry.captureException(error);
-        return { success: false, error };
-    }
-
     try {
         const adminFirestore = await getAdminFirestore();
         const boardsCollection = adminFirestore.collection(`organizations/${orgId}/boards`);
@@ -68,36 +62,5 @@ export async function getBoardsForOrganizationServerAction(orgId: string) {
         console.error('Error fetching boards for organization:', error);
         sentry.captureException(error);
         return { success: false, error: new Error('Failed to fetch boards', { cause: error }) };
-    }
-}
-
-export async function updateBoardServerAction(orgId: string, boardId: string, data: Partial<Board>) {
-    try {
-        const adminFirestore = await getAdminFirestore();
-        const boardRef = adminFirestore.doc(`organizations/${orgId}/boards/${boardId}`);
-        await boardRef.update({
-            ...data,
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
-        });
-        revalidatePath(`/board/${boardId}`);
-        return { success: true };
-    } catch (error) {
-        sentry.captureException(error);
-        console.error('Error updating board:', error);
-        return { success: false, error: new Error('Failed to update board', { cause: error }) };
-    }
-}
-
-export async function deleteBoardServerAction(orgId: string, boardId: string) {
-    try {
-        const adminFirestore = await getAdminFirestore();
-        const boardRef = adminFirestore.doc(`organizations/${orgId}/boards/${boardId}`);
-        await boardRef.delete();
-        revalidatePath('/boards');
-        return { success: true };
-    } catch (error) {
-        sentry.captureException(error);
-        console.error('Error deleting board:', error);
-        return { success: false, error: new Error('Failed to delete board', { cause: error }) };
     }
 }

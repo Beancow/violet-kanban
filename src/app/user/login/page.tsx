@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-    GoogleAuthProvider,
-    signInWithEmailAndPassword,
-    signInWithPopup,
-} from 'firebase/auth';
+import { useEffect } from 'react';
+import { EmailAuthProvider, GoogleAuthProvider } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase/firebase-config';
-import { Box, Card, Heading, Text, Button, Flex, TextField } from '@radix-ui/themes';
+import { Box, Card, Heading, Text } from '@radix-ui/themes';
+
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import LoadingPage from '@/components/LoadingPage';
@@ -15,37 +12,37 @@ import LoadingPage from '@/components/LoadingPage';
 export default function LoginPage() {
     const { authUser, loading } = useAuth();
     const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!loading && authUser) {
-            router.push('/user/post-login');
+        if (loading) {
+            return;
         }
+
+        if (authUser) {
+            router.push('/user/post-login');
+            return;
+        }
+
+        import('firebaseui').then(firebaseui => {
+            const uiConfig: firebaseui.auth.Config = {
+                signInFlow: 'popup',
+                signInSuccessUrl: '/user/post-login',
+                signInOptions: [
+                    GoogleAuthProvider.PROVIDER_ID,
+                    EmailAuthProvider.PROVIDER_ID,
+                ],
+                callbacks: {
+                    // We don't need a callback here anymore.
+                    // The useEffect hook will react to the auth state change and redirect.
+                    signInSuccessWithAuthResult: () => false,
+                },
+            };
+            const ui =
+                firebaseui.auth.AuthUI.getInstance() ||
+                new firebaseui.auth.AuthUI(firebaseAuth);
+            ui.start('#firebaseui-auth-container', uiConfig);
+        });
     }, [authUser, loading, router]);
-
-    const handleLogin = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setError(null);
-        try {
-            await signInWithEmailAndPassword(firebaseAuth, email, password);
-            router.push('/user/post-login');
-        } catch (err) {
-            setError((err as Error).message);
-        }
-    };
-
-    const handleGoogleSignIn = async () => {
-        setError(null);
-        try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(firebaseAuth, provider);
-            router.push('/user/post-login');
-        } catch (err) {
-            setError((err as Error).message);
-        }
-    };
 
     if (loading || authUser) {
         return <LoadingPage />;
@@ -68,33 +65,7 @@ export default function LoginPage() {
                 <Text as='p' align='center' color='gray' mb='5'>
                     Sign in to continue to the Kanban Board
                 </Text>
-                <form onSubmit={handleLogin}>
-                    <Flex direction='column' gap='3'>
-                        <TextField.Root
-                            placeholder='Email'
-                            type='email'
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                        />
-                        <TextField.Root
-                            placeholder='Password'
-                            type='password'
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                        />
-                        {error && (
-                            <Text size='2' color='red'>
-                                {error}
-                            </Text>
-                        )}
-                        <Button type='submit'>Sign In</Button>
-                    </Flex>
-                </form>
-                <Flex direction='column' gap='3' mt='4'>
-                    <Button variant='soft' onClick={handleGoogleSignIn}>
-                        Sign In with Google
-                    </Button>
-                </Flex>
+                <div id='firebaseui-auth-container'></div>
             </Card>
         </Box>
     );

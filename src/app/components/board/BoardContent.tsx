@@ -18,8 +18,6 @@ interface BoardContentProps {
     showAddListDialog: boolean;
     setShowAddListDialog: (show: boolean) => void;
     onUpdateCardOrder: (listId: string, newOrder: string[]) => void;
-    onUpdateListTitle: (listId: string, newTitle: string) => void;
-    onEditList: (list: BoardList) => void;
 }
 
 export default function BoardContent({
@@ -34,8 +32,6 @@ export default function BoardContent({
     showAddListDialog,
     setShowAddListDialog,
     onUpdateCardOrder,
-    onUpdateListTitle,
-    onEditList,
 }: BoardContentProps) {
     return (
         <Box pt='8'>
@@ -56,8 +52,6 @@ export default function BoardContent({
                                 showAddCardDialog={showAddCardDialog}
                                 setShowAddCardDialog={setShowAddCardDialog}
                                 onUpdateCardOrder={onUpdateCardOrder}
-                                onUpdateListTitle={onUpdateListTitle}
-                                onEditList={onEditList}
                             />
                         ))
                     ) : (

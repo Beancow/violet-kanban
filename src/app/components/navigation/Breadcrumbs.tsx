@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { Fragment } from 'react';
 import { Flex, Text } from '@radix-ui/themes';
 import { ChevronRightIcon } from '@radix-ui/react-icons';
-import { useData } from '@/contexts/DataProvider';
+import { useBoardData } from '@/contexts/BoardDataProvider';
 
 export default function Breadcrumbs() {
     const pathname = usePathname();
-    const { boards } = useData();
+    const { boards } = useBoardData();
     const pathSegments = pathname.split('/').filter(Boolean);
 
     const breadcrumbs = pathSegments.map((segment, index) => {
