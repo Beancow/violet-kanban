@@ -7,50 +7,52 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { BoardForm } from '@/app/components/forms/BoardForm';
 import { Board } from '@/types/appState.type';
 import LoadingPage from '@/components/LoadingPage';
+import { useAppToast } from '@/hooks/useToast';
+import { useSync } from '@/contexts/SyncProvider';
+import useLocalStorage from '@/hooks/useLocalStorage';
 
 export default function CreateBoardPage() {
     const router = useRouter();
     const { user, loading: userLoading } = useUser();
     const { authUser } = useAuth();
     const { currentOrganizationId, loading: orgsLoading } = useOrganizations();
+    const { showToast } = useAppToast();
+    const { addActionToQueue: addAction } = useSync();
+    const [boards, setBoards] = useLocalStorage<Board[]>('boards', []);
 
     const handleCreateBoard = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        console.log('CreateBoardPage: user:', user);
-        console.log('CreateBoardPage: authUser:', authUser);
-        console.log('CreateBoardPage: currentOrganizationId:', currentOrganizationId);
         if (!user || !authUser || !currentOrganizationId) {
-            alert('You must be logged in and belong to an organization to create a board.');
+            showToast('Error', 'You must be logged in and belong to an organization to create a board.');
             return;
         }
 
         const formData = new FormData(event.currentTarget);
+        const newBoardId = `temp_${new Date().getTime()}`;
         
-        const boardData: Omit<Board, 'id'> = {
+        const boardData: Board = {
+            id: newBoardId,
             title: formData.get('title') as string,
             description: formData.get('description') as string,
-            organizationId: currentOrganizationId, // Use the current organization ID
+            organizationId: currentOrganizationId,
             ownerId: user.id,
             createdAt: new Date(),
             updatedAt: new Date(),
             tags: [],
         };
 
-        const result = await fetch('/api/boards/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Organization-Id': currentOrganizationId,
-            },
-            body: JSON.stringify({ data: boardData }),
-        }).then(res => res.json());
+        // Optimistic UI update
+        setBoards([...boards, boardData]);
 
-        if (result.success) {
-            alert('Board created successfully!');
-            router.push('/boards'); // Redirect to boards list
-        } else {
-            alert(`Error creating board: ${result.error?.message}`);
-        }
+        // Add to sync queue with the correct payload structure
+        addAction({
+            type: 'create-board',
+            payload: { data: boardData, tempId: newBoardId },
+            timestamp: new Date().toISOString(),
+        });
+
+        showToast('Success', 'Board created successfully! Syncing in background...');
+        router.push('/boards');
     };
 
     if (userLoading || orgsLoading) {

@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type WorkerMessage } from '@/types/worker.type';
 
@@ -5,25 +6,10 @@ export function useWebWorker() {
     const workerRef = useRef<Worker | null>(null);
     const [isWorkerReady, setIsWorkerReady] = useState(false);
     const [workerError, setWorkerError] = useState<string | null>(null);
-    const [lastPayloadCount, setLastPayloadCount] = useState<number>(0);
-
-    const updatePayloadCount = useCallback(
-        (payload: WorkerMessage['payload']) => {
-            if (Array.isArray(payload)) {
-                setLastPayloadCount(payload.length);
-            } else if (typeof payload === 'object' && payload !== null) {
-                setLastPayloadCount(Object.keys(payload).length);
-            } else if (typeof payload === 'string') {
-                setLastPayloadCount(1);
-            } else {
-                setLastPayloadCount(0);
-            }
-            console.log('Payload count updated:', lastPayloadCount);
-        },
-        [lastPayloadCount]
-    );
+    const [lastMessage, setLastMessage] = useState<WorkerMessage | null>(null);
 
     useEffect(() => {
+        console.log('Setting up web worker...');
         if (typeof Worker !== 'undefined') {
             try {
                 workerRef.current = new window.Worker('/dataSyncWorker.js');
@@ -32,90 +18,16 @@ export function useWebWorker() {
                     e: MessageEvent<WorkerMessage>
                 ) => {
                     if (!e || !e.data) {
-                        console.warn('Received empty message from worker');
+                        console.warn('Received empty or invalid message from worker');
                         return;
                     }
+                    console.log('Received message from worker:', e.data); // Log every message
+                    setLastMessage(e.data);
 
-                    const workerMessage = e.data;
-
-                    switch (workerMessage.type) {
-                        case 'WORKER_READY':
-                            console.log('Web Worker is ready:', workerMessage);
-                            setIsWorkerReady(true);
-                            setWorkerError(null);
-                            updatePayloadCount(null);
-                            break;
-                        case 'SYNC_USER_DATA':
-                            console.log(
-                                'Web Worker is ready:',
-                                workerMessage.payload
-                            );
-                            setIsWorkerReady(true);
-                            setWorkerError(null);
-                            updatePayloadCount(workerMessage.payload);
-                            break;
-                        case 'SYNC_USER_DATA':
-                            console.log(
-                                'User data synced:',
-                                workerMessage.payload
-                            );
-                            break;
-                        case 'SYNC_CANCEL':
-                            console.log(
-                                'Sync cancelled:',
-                                workerMessage.payload
-                            );
-                            updatePayloadCount(null);
-                            break;
-                        case 'SYNC_ERROR':
-                            console.error('Sync error:', workerMessage.payload);
-                            setWorkerError(workerMessage.payload);
-                            updatePayloadCount(null);
-                            break;
-                        case 'PROCESSING_COMPLETE':
-                            console.log(
-                                'Processing completed:',
-                                workerMessage.payload
-                            );
-                            updatePayloadCount(workerMessage.payload);
-                            setWorkerError(null);
-                            break;
-                        case 'PROCESSING_ERROR':
-                            console.error(
-                                'Processing error:',
-                                workerMessage.payload
-                            );
-                            setWorkerError(workerMessage.payload);
-                            updatePayloadCount(null);
-                            break;
-                        case 'SYNC_DATA':
-                            console.log('Data synced:', workerMessage.payload);
-                            updatePayloadCount(workerMessage.payload);
-                            break;
-                        case 'SYNC_ORGANIZATION_DATA':
-                            console.log(
-                                'Organization data synced:',
-                                workerMessage.payload
-                            );
-                            updatePayloadCount(workerMessage.payload);
-                            break;
-                        case 'SYNC_BOARD_DATA':
-                            updatePayloadCount(workerMessage.payload);
-                            break;
-                        case 'SYNC_TODO_DATA':
-                            updatePayloadCount(workerMessage.payload);
-                            break;
-                        case 'ERROR':
-                            console.error('Worker error:', workerMessage);
-                            setWorkerError(workerMessage.error.message);
-                            updatePayloadCount(null);
-                            break;
-                        default:
-                            console.warn(
-                                'Unknown worker message type:',
-                                workerMessage
-                            );
-                            break;
+                    // Explicitly check for WORKER_READY here
+                    if (e.data.type === 'WORKER_READY') {
+                        console.log('WORKER IS READY, setting state.');
+                        setIsWorkerReady(true);
                     }
                 };
 
@@ -124,35 +36,40 @@ export function useWebWorker() {
                     setWorkerError('Web Worker encountered an error');
                     setIsWorkerReady(false);
                 };
-            } catch {
+            } catch (err) {
+                console.error('Failed to create web worker:', err);
                 setWorkerError('Failed to create web worker');
             }
         } else {
-            
+            console.warn('Web Workers are not supported in this environment.');
             setWorkerError('Web Workers are not supported');
         }
 
         return () => {
             if (workerRef.current) {
+                console.log('Terminating web worker.');
                 workerRef.current.terminate();
                 workerRef.current = null;
             }
         };
-    }, [updatePayloadCount]);
+    }, []);
 
-    const syncData = useCallback(
+    const postMessage = useCallback(
         (message: WorkerMessage) => {
-            if (workerRef.current && isWorkerReady) {
+            if (workerRef.current) {
+                console.log('Posting message to worker:', message);
                 workerRef.current.postMessage(message);
+            } else {
+                console.error('Could not post message: Worker is not available.');
             }
         },
-        [isWorkerReady]
+        []
     );
 
     return {
         isWorkerReady,
         workerError,
-        lastPayloadCount,
-        syncData,
+        lastMessage,
+        postMessage,
     };
 }

@@ -5,17 +5,19 @@ import { useUser } from '@/contexts/UserProvider';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import OrganizationForm from '@/app/components/forms/OrganizationForm';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useAppToast } from '@/hooks/useToast';
 
 export default function CreateOrganizationPage() {
     const router = useRouter();
     const { user } = useUser();
     const { authUser } = useAuth();
     const { setCurrentOrganization, refetchOrganizations } = useOrganizations();
+    const { showToast } = useAppToast();
 
     const handleCreateOrganization = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!user || !authUser) {
-            alert('You must be logged in to create an organization.');
+            showToast('Error', 'You must be logged in to create an organization.');
             return;
         }
 
@@ -33,12 +35,12 @@ export default function CreateOrganizationPage() {
         }).then(res => res.json());
 
         if (result.success) {
-            alert('Organization created successfully!');
+            showToast('Success', 'Organization created successfully!');
             await refetchOrganizations();
             setCurrentOrganization(result.data.orgId);
             router.push('/boards');
         } else {
-            alert(`Error creating organization: ${result.error?.message}`);
+            showToast('Error', `Error creating organization: ${result.error?.message}`);
         }
     };
 

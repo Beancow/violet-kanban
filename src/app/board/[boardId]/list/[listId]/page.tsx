@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { Box, Button, Flex, Text, TextArea, TextField } from '@radix-ui/themes';
+import { useAppToast } from '@/hooks/useToast';
 
 export default function CreateListPage() {
     const params = useParams();
@@ -12,11 +13,12 @@ export default function CreateListPage() {
     const { authUser } = useAuth();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const { showToast } = useAppToast();
 
     const handleCreateList = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!user || !boardId || !authUser) {
-            alert('You must be logged in and select a board to create a list.');
+            showToast('Error', 'You must be logged in and select a board to create a list.');
             return;
         }
 
@@ -31,11 +33,11 @@ export default function CreateListPage() {
         });
 
         if (result.success) {
-            alert('List created successfully!');
+            showToast('Success', 'List created successfully!');
             setTitle('');
             setDescription('');
         } else {
-            alert(`Error creating list: ${result.error?.message}`);
+            showToast('Error', `Error creating list: ${result.error?.message}`);
         }
     };
 

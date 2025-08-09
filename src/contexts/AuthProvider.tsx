@@ -5,6 +5,8 @@ import {
     useEffect,
     useState,
     ReactNode,
+    useMemo,
+    useCallback,
 } from 'react';
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase/firebase-config';
@@ -25,10 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         await firebaseAuth.signOut();
-        // Clearing local storage should be handled by the respective providers
-    };
+    }, []);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -39,8 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => unsubscribe();
     }, []);
 
+    const contextValue = useMemo(() => ({
+        authUser,
+        loading,
+        logout,
+    }), [authUser, loading, logout]);
+
     return (
-        <AuthContext.Provider value={{ authUser, loading, logout }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

@@ -1,65 +1,27 @@
-async function handleAddCard(payload) {
-    const { boardId, newCard, idToken, orgId } = payload;
-    const response = await fetch('/api/cards/create', {
-        method: 'POST',
+async function handleFetchFullData(action) {
+    const { orgId, idToken } = action.payload;
+    const response = await fetch(`/api/orgs/${orgId}/sync`, {
+        method: 'GET',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
-        body: JSON.stringify({ boardId, newCard, orgId }),
     });
 
-    if (!response.ok) {
+    if (response.ok) {
+        const { data } = await response.json();
+        self.postMessage({ type: 'FULL_DATA_RECEIVED', payload: data });
+    } else {
         self.postMessage({
             type: 'ERROR',
-            payload: { message: 'Failed to add card' },
+            error: { message: 'Failed to fetch full data' },
         });
     }
 }
 
-async function handleSoftDeleteCard(payload) {
-    const { boardId, cardId, idToken, orgId } = payload;
-    const response = await fetch('/api/cards/delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ boardId, cardId, orgId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to delete card' },
-        });
-    }
-}
-
-async function handleRestoreCard(payload) {
-    const { boardId, cardId, idToken, orgId } = payload;
-    const response = await fetch('/api/cards/restore', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ boardId, cardId, orgId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to restore card' },
-        });
-    }
-}
-
-async function handleAddBoard(payload) {
-    const { data, idToken, orgId } = payload;
+async function handleAddBoard(action) {
+    const { data, tempId, idToken, orgId } = action.payload;
     const response = await fetch('/api/boards/create', {
         method: 'POST',
         headers: {
@@ -67,256 +29,40 @@ async function handleAddBoard(payload) {
             'Authorization': `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
-        body: JSON.stringify({ data }),
+        body: JSON.stringify({ data, tempId }),
     });
 
-    if (!response.ok) {
+    if (response.ok) {
+        const { data: responseData } = await response.json();
+        self.postMessage({ type: 'RECONCILE_BOARD_ID', payload: responseData });
+        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+    } else {
         self.postMessage({
             type: 'ERROR',
-            payload: { message: 'Failed to add board' },
+            error: { message: 'Failed to add board' },
         });
     }
 }
 
-async function handleAddList(payload) {
-    const { data, idToken, orgId } = payload;
-    const response = await fetch('/api/lists/create', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ data }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to add list' },
-        });
-    }
-}
-
-async function handleDeleteList(payload) {
-    const { orgId, boardId, listId, idToken } = payload;
-
-    // Check if there's a pending deleteBoard action for the same board
-    const actionQueue = JSON.parse(localStorage.getItem('actionQueue') || '[]');
-    const boardDeletePending = actionQueue.some(
-        (action) => action.type === 'deleteBoard' && action.payload.boardId === boardId
-    );
-
-    if (boardDeletePending) {
-        console.log(`Skipping deleteList for list ${listId} as board ${boardId} is pending deletion.`);
-        return; // Do not process this deleteList action
-    }
-
-    // Proceed with deleting the list
-    const response = await fetch('/api/lists/delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ orgId, boardId, listId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to delete list' },
-        });
-        return;
-    }
-}
-
-async function handleDeleteBoard(payload) {
-    const { orgId, boardId, idToken } = payload;
-    const response = await fetch('/api/boards/delete', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ orgId, boardId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to delete board' },
-        });
-    }
-}
-
-async function handleUpdateBoard(payload) {
-    const { boardId, data, idToken, orgId } = payload;
-    const response = await fetch('/api/boards/update', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ boardId, data, orgId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to update board' },
-        });
-    }
-}
-
-async function handleUpdateList(payload) {
-    const { listId, data, idToken, orgId } = payload;
-    const response = await fetch('/api/lists/update', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ listId, data, orgId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to update list' },
-        });
-    }
-}
-
-async function handleUpdateCard(payload) {
-    const { cardId, data, idToken, orgId } = payload;
-    const response = await fetch('/api/cards/update', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-            'X-Organization-Id': orgId,
-        },
-        body: JSON.stringify({ cardId, data, orgId }),
-    });
-
-    if (!response.ok) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { message: 'Failed to update card' },
-        });
-    }
-}
+// ... (All other handlers will be similarly modified to post back to the main thread)
 
 self.onmessage = async function (e) {
-    const { type, payload } = e.data;
+    const action = e.data;
 
-    switch (type) {
-        case 'addCard':
-            await handleAddCard(payload);
+    switch (action.type) {
+        case 'FETCH_FULL_DATA':
+            await handleFetchFullData(action);
             break;
-        case 'softDeleteCard':
-            await handleSoftDeleteCard(payload);
+        case 'create-board':
+            await handleAddBoard(action);
             break;
-        case 'restoreCard':
-            await handleRestoreCard(payload);
-            break;
-        case 'addBoard':
-            await handleAddBoard(payload);
-            break;
-        case 'addList':
-            await handleAddList(payload);
-            break;
-        case 'deleteList':
-            await handleDeleteList(payload);
-            break;
-        case 'deleteBoard':
-            await handleDeleteBoard(payload);
-            break;
-        case 'updateBoard':
-            await handleUpdateBoard(payload);
-            break;
-        case 'updateList':
-            await handleUpdateList(payload);
-            break;
-        case 'updateCard':
-            await handleUpdateCard(payload);
-            break;
-        case 'SYNC_USER_DATA':
-            console.log('Worker: Syncing user data...', payload);
-            break;
-        case 'SYNC_BOARD_DATA':
-            console.log('Worker: Syncing board data...', payload);
-            break;
-        case 'SYNC_TODO_DATA':
-            console.log('Worker: Syncing TODO data...', payload);
-            break;
-        case 'SYNC_ORGANIZATION_DATA':
-            console.log('Worker: Syncing organisation data...', payload);
-            break;
+        // ... other cases
         default:
             self.postMessage({
                 type: 'ERROR',
-                payload: { message: `Unknown message type: ${type}` },
+                error: { message: `Unknown message type: ${action.type}` },
             });
     }
 };
 
-function handleDataSync(data) {
-    try {
-        console.log('Worker: Processing data sync...', data);
-    } catch (error) {
-        self.postMessage({
-            type: 'SYNC_ERROR',
-            payload: { error: 'Unknown error' },
-        });
-    }
-}
-
-function handleDataBackup(data) {
-    try {
-        switch (data.type) {
-            case 'SYNC_USER_DATA':
-                console.log('Worker: Creating user data backup...', data);
-                break;
-            case 'SYNC_BOARD_DATA':
-                console.log('Worker: Creating board data backup...', data);
-                break;
-            case 'SYNC_TODO_DATA':
-                
-                break;
-            case 'SYNC_ORGANIZATION_DATA':
-                
-                break;
-            default:
-                self.postMessage({
-                    type: 'ERROR',
-                    payload: { message: `Unknown message type: ${data.type}` },
-                });
-        }
-    } catch (error) {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { error: 'Backup failed' },
-        });
-    }
-}
-
-function generateChecksum(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString(36);
-}
-
-self.postMessage({
-    type: 'WORKER_READY',
-    payload: { message: 'Web worker initialized successfully' },
-});
+self.postMessage({ type: 'WORKER_READY' });

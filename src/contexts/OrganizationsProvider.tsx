@@ -8,15 +8,16 @@ import {
     useCallback,
 } from 'react';
 import { Organization } from '@/types/appState.type';
+import useLocalStorage from '@/hooks/useLocalStorage';
+import { useAuth } from './AuthProvider';
 import { getOrganizationsForUserServerAction } from '@/lib/firebase/orgServerActions';
-import { useAuth } from '@/contexts/AuthProvider';
 
 interface OrganizationsContextType {
     organizations: Organization[];
     loading: boolean;
     currentOrganizationId: string | null;
     currentOrganization: Organization | null;
-    setCurrentOrganization: (organizationId: string) => void;
+    setCurrentOrganization: (organizationId: string | null) => void;
     refetchOrganizations: () => Promise<void>;
 }
 
@@ -30,54 +31,31 @@ const OrganizationsContext = createContext<OrganizationsContextType>({
 });
 
 export function OrganizationsProvider({ children }: { children: ReactNode }) {
-    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [organizations, setOrganizations] = useLocalStorage<Organization[]>('organizations', []);
     const [loading, setLoading] = useState(true);
-    const [currentOrganizationId, setCurrentOrganizationId] = useState<string | null>(
-        () => {
-            if (typeof window !== 'undefined') {
-                return localStorage.getItem('currentOrganizationId');
-            }
-            return null;
-        }
-    );
+    const [currentOrganizationId, setCurrentOrganizationId] = useLocalStorage<string | null>('currentOrganizationId', null);
     const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(null);
     const { authUser } = useAuth();
 
     const fetchOrgs = useCallback(async () => {
         if (authUser) {
             setLoading(true);
-            const { data, success } = await getOrganizationsForUserServerAction(
-                authUser.uid
-            );
+            const { data, success } = await getOrganizationsForUserServerAction(authUser.uid);
             if (success && data) {
                 setOrganizations(data);
-                if (!currentOrganizationId || !data.some(org => org.id === currentOrganizationId)) {
-                    // No-op, useRequireOrganization will handle redirection if needed.
-                } else {
-                    const org = data.find(o => o.id === currentOrganizationId);
-                    setCurrentOrganizationState(org || null);
-                }
             }
             setLoading(false);
-        } else {
-            setOrganizations([]);
-            setLoading(false);
         }
-    }, [authUser, currentOrganizationId]);
+    }, [authUser, setOrganizations]);
 
-    const setCurrentOrganization = useCallback((organizationId: string) => {
-        localStorage.setItem('currentOrganizationId', organizationId);
-        setCurrentOrganizationId(organizationId);
-    }, []);
+    useEffect(() => {
+        fetchOrgs();
+    }, [fetchOrgs]);
 
     useEffect(() => {
         const org = organizations.find(o => o.id === currentOrganizationId);
         setCurrentOrganizationState(org || null);
     }, [currentOrganizationId, organizations]);
-
-    useEffect(() => {
-        fetchOrgs();
-    }, [authUser, fetchOrgs]);
 
     return (
         <OrganizationsContext.Provider
@@ -86,7 +64,7 @@ export function OrganizationsProvider({ children }: { children: ReactNode }) {
                 loading,
                 currentOrganizationId,
                 currentOrganization,
-                setCurrentOrganization,
+                setCurrentOrganization: setCurrentOrganizationId,
                 refetchOrganizations: fetchOrgs,
             }}
         >

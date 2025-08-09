@@ -4,11 +4,13 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Organization } from '@/types/appState.type';
 import { Box, Button, Flex, Text, TextField } from '@radix-ui/themes';
+import { useAppToast } from '@/hooks/useToast';
 
 export default function OrganizationPage() {
     const params = useParams();
     const [organization, setOrganization] = useState<Organization | null>(null);
     const [loading, setLoading] = useState(true);
+    const { showToast } = useAppToast();
 
     useEffect(() => {
         const fetchOrganization = async () => {
@@ -38,24 +40,24 @@ export default function OrganizationPage() {
         }).then(res => res.json());
 
         if (result.success) {
-            alert('Organization updated successfully!');
+            showToast('Success', 'Organization updated successfully!');
         } else {
-            alert(`Error updating organization: ${result.error?.message}`);
+            showToast('Error', `Error updating organization: ${result.error?.message}`);
         }
     };
 
     const handleDeleteOrganization = async () => {
-        if (!organization || !confirm('Are you sure you want to delete this organization?')) return;
+        if (!organization) return;
 
         const result = await fetch(`/api/orgs/${organization.id}/delete`, {
             method: 'POST',
         }).then(res => res.json());
 
         if (result.success) {
-            alert('Organization deleted successfully!');
+            showToast('Success', 'Organization deleted successfully!');
             // Redirect or update UI as needed
         } else {
-            alert(`Error deleting organization: ${result.error?.message}`);
+            showToast('Error', `Error deleting organization: ${result.error?.message}`);
         }
     };
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Board, BoardCard } from '@/types/appState.type';
@@ -11,14 +12,12 @@ import { useSync } from '@/contexts/SyncProvider';
 import { LooseCardsMenu } from '@/app/components/menus/LooseCardsMenu';
 import { CardDetails } from '@/app/components/menus/CardDetails';
 import { useState, useEffect, useCallback } from 'react';
-
-
-import { useRequireOrganization } from '@/hooks/useRequireOrganization';
+import { useAppToast } from '@/hooks/useToast';
+import OrganizationGate from '@/app/components/guards/OrganizationGate';
 import BoardContent from '@/app/components/board/BoardContent';
 import LoadingPage from '@/components/LoadingPage';
 
 export default function BoardPage() {
-    useRequireOrganization();
     const params = useParams();
     const { boardId } = params;
     const { user } = useUser();
@@ -31,6 +30,7 @@ export default function BoardPage() {
     const [showAddCardDialog, setShowAddCardDialog] = useState<string | null>(
         null
     ); // State to control which list's dialog is open
+    const { showToast } = useAppToast();
 
     useEffect(() => {
         setIsEditing(showAddCardDialog !== null);
@@ -52,7 +52,8 @@ export default function BoardPage() {
     ) => {
         event.preventDefault();
         if (!user || !currentOrganizationId || !authUser) {
-            alert(
+            showToast(
+                'Error',
                 'You must be logged in and belong to an organization to create a card.'
             );
             return;
@@ -156,27 +157,29 @@ export default function BoardPage() {
     }
 
     return (
-        <Box>
-            <LooseCardsMenu
-                cards={board.cards || []}
-                onRestore={handleRestoreCard}
-                onSelectCard={setSelectedCard}
-            />
-            <CardDetails
-                card={selectedCard}
-                onClose={() => setSelectedCard(null)}
-                onDelete={handleDeleteCard}
-            />
-            <BoardContent
-                board={board}
-                user={user}
-                onDeleteList={handleDeleteList}
-                onSelectCard={setSelectedCard}
-                onCreateCard={handleCreateCard}
-                showAddCardDialog={showAddCardDialog}
-                setShowAddCardDialog={setShowAddCardDialog}
-                onUpdateCardOrder={handleUpdateCardOrder}
-            />
-        </Box>
+        <OrganizationGate>
+            <Box>
+                <LooseCardsMenu
+                    cards={board.cards || []}
+                    onRestore={handleRestoreCard}
+                    onSelectCard={setSelectedCard}
+                />
+                <CardDetails
+                    card={selectedCard}
+                    onClose={() => setSelectedCard(null)}
+                    onDelete={handleDeleteCard}
+                />
+                <BoardContent
+                    board={board}
+                    user={user}
+                    onDeleteList={handleDeleteList}
+                    onSelectCard={setSelectedCard}
+                    onCreateCard={handleCreateCard}
+                    showAddCardDialog={showAddCardDialog}
+                    setShowAddCardDialog={setShowAddCardDialog}
+                    onUpdateCardOrder={handleUpdateCardOrder}
+                />
+            </Box>
+        </OrganizationGate>
     );
 }

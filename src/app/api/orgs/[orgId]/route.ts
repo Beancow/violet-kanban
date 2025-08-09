@@ -4,8 +4,8 @@ import { getAuthAndOrgContext } from '@/lib/serverUtils';
 
 export async function GET(request: NextRequest, { params }: { params: { orgId: string } }) {
     try {
-        const { uid } = await getAuthAndOrgContext(request);
-        const { orgId } = params;
+        const { uid, orgId } = await getAuthAndOrgContext(request);
+
         const result = await getOrganizationServerAction(orgId, uid);
         if (!result.success) {
             return NextResponse.json({ success: false, error: result.error?.message }, { status: 404 });

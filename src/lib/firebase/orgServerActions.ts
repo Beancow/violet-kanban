@@ -1,5 +1,7 @@
+
 'use server';
 import { revalidatePath } from 'next/cache';
+import * as admin from 'firebase-admin';
 import {
     Organization,
     CreateOrganizationResult,
@@ -24,8 +26,9 @@ export async function getOrganizationServerAction(orgId: string, uid: string) {
         );
 
         const orgDocSnapshot = await orgDocRef.get();
-        console.log(`Organization ${orgId} exists: ${orgDocSnapshot.exists()}`);
-        if (!orgDocSnapshot.exists()) {
+        const organization = orgDocSnapshot.data();
+
+        if (!organization) {
             sentry.captureException(
                 new Error(`Organization with ID ${orgId} does not exist.`)
             );
@@ -33,20 +36,6 @@ export async function getOrganizationServerAction(orgId: string, uid: string) {
                 success: false,
                 error: new Error(
                     `Organization with ID ${orgId} does not exist.`
-                ),
-            };
-        }
-        const organization: Organization = orgDocSnapshot.data();
-        if (!organization) {
-            sentry.captureException(
-                new Error(
-                    `Failed to convert organization document for ${orgId}`
-                )
-            );
-            return {
-                success: false,
-                error: new Error(
-                    `Failed to convert organization document for ${orgId}`
                 ),
             };
         }
@@ -85,6 +74,7 @@ export async function createOrganizationServerAction(
     data: { [key: string]: string },
     uid: string
 ): Promise<CreateOrganizationResult> {
+    console.log('--- createOrganizationServerAction: Received data ---', data);
     try {
         const userResult = await getUserServerAction(uid);
         if (!userResult.success || !userResult.data) {
@@ -101,8 +91,8 @@ export async function createOrganizationServerAction(
             id: newOrgRef.id,
             name: data.name,
             type: data.type as 'personal' | 'company',
-            createdAt: adminFirestore.FieldValue.serverTimestamp(),
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             createdBy: {
                 userId: user.id,
                 name: user.displayName,
@@ -118,6 +108,7 @@ export async function createOrganizationServerAction(
             },
         };
 
+        console.log('--- createOrganizationServerAction: Creating new org ---', newOrg);
         batch.set(newOrgRef, newOrg);
 
         await batch.commit();
@@ -133,7 +124,7 @@ export async function createOrganizationServerAction(
         };
     } catch (error) {
         sentry.captureException(error);
-        console.error('Error creating organization:', error);
+        console.error('--- createOrganizationServerAction: Error ---', error);
         return {
             success: false,
             error: new Error('Failed to create organization', { cause: error }),
@@ -234,7 +225,7 @@ export async function updateOrganizationServerAction(
         const updatedOrg = {
             name: data.get('name') as string,
             type: data.get('type') as 'personal' | 'company',
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             data: {
                 companyName: data.get('companyName') as string,
                 companyWebsite: data.get('companyWebsite') as string,
