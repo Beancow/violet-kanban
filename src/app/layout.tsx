@@ -4,7 +4,7 @@ import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
 import AppProviders from '@/contexts/AppProviders';
-import Breadcrumbs from '@/app/components/navigation/Breadcrumbs';
+import Header from '@/app/components/navigation/Header';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -23,7 +23,7 @@ export default function RootLayout({
             <body className={inter.className}>
                 <Theme>
                     <AppProviders>
-                        <Breadcrumbs />
+                        <Header />
                         {children}
                     </AppProviders>
                 </Theme>

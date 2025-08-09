@@ -83,33 +83,19 @@ export async function createListServerAction({
     uid,
     orgId,
     boardId,
+    tempId,
 }: {
-    data: FormData;
+    data: Omit<BoardList, 'id'>;
     uid: string;
     orgId: string;
     boardId: string;
+    tempId: string;
 }) {
-    const title = data.get('title')?.valueOf();
-    const description = data.get('description')?.valueOf();
-
-    if (typeof title !== 'string' || typeof description !== 'string') {
-        throw new Error('Invalid data');
-    }
-
     const creationDate = new Date();
 
     const list: Omit<BoardList, 'id'> = {
-        title,
-        description,
-        position: 0,
+        ...data,
         boardId,
-        data: {
-            ownerId: uid,
-            boardId,
-            isArchived: false,
-            isDeleted: false,
-            backgroundColor: '#ffffff',
-        },
         createdAt: creationDate,
         updatedAt: creationDate,
     };
@@ -129,7 +115,10 @@ export async function createListServerAction({
         revalidatePath(`/board/${boardId}`); // Revalidate the board page to show new list
         return {
             success: true,
-            data: newList,
+            data: {
+                tempId,
+                list: newList,
+            },
         };
     } catch (error) {
         sentry.captureException(error);

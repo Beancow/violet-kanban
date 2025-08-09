@@ -20,7 +20,7 @@ async function handleFetchFullData(action) {
     }
 }
 
-async function handleAddBoard(action) {
+async function handleCreateBoard(action) {
     const { data, tempId, idToken, orgId } = action.payload;
     const response = await fetch('/api/boards/create', {
         method: 'POST',
@@ -39,7 +39,32 @@ async function handleAddBoard(action) {
     } else {
         self.postMessage({
             type: 'ERROR',
-            error: { message: 'Failed to add board' },
+            error: { message: 'Failed to create board' },
+        });
+    }
+}
+
+async function handleCreateList(action) {
+    const { data, idToken, orgId } = action.payload;
+    const tempId = data.id; // The tempId is the ID of the list data
+    const response = await fetch('/api/lists/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'X-Organization-Id': orgId,
+        },
+        body: JSON.stringify({ data, tempId }),
+    });
+
+    if (response.ok) {
+        const { data: responseData } = await response.json();
+        self.postMessage({ type: 'RECONCILE_LIST_ID', payload: responseData });
+        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+    } else {
+        self.postMessage({
+            type: 'ERROR',
+            error: { message: 'Failed to add list' },
         });
     }
 }
@@ -54,7 +79,10 @@ self.onmessage = async function (e) {
             await handleFetchFullData(action);
             break;
         case 'create-board':
-            await handleAddBoard(action);
+            await handleCreateBoard(action);
+            break;
+        case 'create-list':
+            await handleCreateList(action);
             break;
         // ... other cases
         default:

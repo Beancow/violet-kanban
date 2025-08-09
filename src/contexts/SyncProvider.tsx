@@ -108,6 +108,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
                     return newBoards;
                 });
                 break;
+
+            case 'RECONCILE_LIST_ID':
+                const { tempId: listTempId, list } = lastMessage.payload;
+                setLists(prevLists => {
+                    const newLists = [...prevLists];
+                    const listIndex = newLists.findIndex(l => l.id === listTempId);
+                    if (listIndex !== -1) {
+                        newLists[listIndex] = list;
+                    }
+                    return newLists;
+                });
+                break;
         }
     }, [lastMessage, actionQueue, setActionQueue, showToast, setBoards, setLists, setCards, currentOrganizationId]);
 

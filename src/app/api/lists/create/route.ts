@@ -4,15 +4,15 @@ import { getAuthAndOrgContext } from "@/lib/serverUtils";
 
 export async function POST(request: Request) {
     const { uid, orgId } = await getAuthAndOrgContext(request);
-    const body = await request.json();
-    const { data } = body;
+    const { data, tempId } = await request.json();
 
-    const formData = new FormData();
-    for (const key in data) {
-        formData.append(key, data[key]);
-    }
-
-    const result = await createListServerAction({ data: formData, uid, orgId, boardId: data.boardId });
+    const result = await createListServerAction({
+        data,
+        uid,
+        orgId,
+        boardId: data.boardId,
+        tempId,
+    });
 
     return NextResponse.json(result);
 }

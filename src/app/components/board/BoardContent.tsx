@@ -1,9 +1,9 @@
 'use client';
 import { Board, BoardList, BoardCard, User } from '@/types/appState.type';
-import { Flex, Box, Heading, Text, IconButton } from '@radix-ui/themes';
-import Link from 'next/link';
+import { Flex, Box, Heading, Text, IconButton, Dialog } from '@radix-ui/themes';
 import { PlusIcon } from '@radix-ui/react-icons';
 import BoardListColumn from './BoardListColumn';
+import { ListForm } from '../forms/ListForm';
 
 
 interface BoardContentProps {
@@ -12,8 +12,11 @@ interface BoardContentProps {
     onDeleteList: (listId: string) => void;
     onSelectCard: (card: BoardCard) => void;
     onCreateCard: (event: React.FormEvent<HTMLFormElement>, listId: string) => Promise<void>;
+    onCreateList: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
     showAddCardDialog: string | null;
     setShowAddCardDialog: (listId: string | null) => void;
+    showAddListDialog: boolean;
+    setShowAddListDialog: (show: boolean) => void;
     onUpdateCardOrder: (listId: string, newOrder: string[]) => void;
 }
 
@@ -23,8 +26,11 @@ export default function BoardContent({
     onDeleteList,
     onSelectCard,
     onCreateCard,
+    onCreateList,
     showAddCardDialog,
     setShowAddCardDialog,
+    showAddListDialog,
+    setShowAddListDialog,
     onUpdateCardOrder,
 }: BoardContentProps) {
     return (
@@ -51,20 +57,21 @@ export default function BoardContent({
                     ) : (
                         <Text>No Lists found</Text>
                     )}
-                    <Link
-                        href={`/board/${board.id}/list/create`}
-                        style={{
-                            textDecoration: 'none',
-                        }}
-                    >
-                        <IconButton
-                            variant='solid'
-                            size='3'
-                            aria-label='Add new list'
-                        >
-                            <PlusIcon />
-                        </IconButton>
-                    </Link>
+                    <Dialog.Root open={showAddListDialog} onOpenChange={setShowAddListDialog}>
+                        <Dialog.Trigger>
+                            <IconButton
+                                variant='solid'
+                                size='3'
+                                aria-label='Add new list'
+                            >
+                                <PlusIcon />
+                            </IconButton>
+                        </Dialog.Trigger>
+                        <Dialog.Content style={{ maxWidth: 450, '--dialog-overlay-background': 'transparent' }}>
+                            <Dialog.Title>Create New List</Dialog.Title>
+                            <ListForm user={user} onSubmit={onCreateList} />
+                        </Dialog.Content>
+                    </Dialog.Root>
                 </Flex>
         </Box>
     );

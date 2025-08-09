@@ -23,28 +23,67 @@ export default function BoardPage() {
     const { user } = useUser();
     const { authUser } = useAuth();
     const { currentOrganizationId } = useOrganizations();
-    const { setIsEditing } = useSync();
+    const { addActionToQueue, setIsEditing } = useSync();
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedCard, setSelectedCard] = useState<BoardCard | null>(null);
-    const [showAddCardDialog, setShowAddCardDialog] = useState<string | null>(
-        null
-    ); // State to control which list's dialog is open
+    const [showAddCardDialog, setShowAddCardDialog] = useState<string | null>(null);
+    const [showAddListDialog, setShowAddListDialog] = useState(false);
     const { showToast } = useAppToast();
 
     useEffect(() => {
-        setIsEditing(showAddCardDialog !== null);
-    }, [showAddCardDialog, setIsEditing]);
+        setIsEditing(showAddCardDialog !== null || showAddListDialog);
+    }, [showAddCardDialog, showAddListDialog, setIsEditing]);
 
-    const { boards, loading: boardsLoading, handleDeleteList, handleUpdateCard } = useBoardData();
+    const { boards, lists, cards, loading: boardsLoading, handleDeleteList, handleUpdateCard } = useBoardData();
 
     useEffect(() => {
         if (!boardsLoading && boards) {
             const currentBoard = boards.find(b => b.id === boardId);
-            setBoard(currentBoard || null);
+            if (currentBoard) {
+                const boardLists = lists.filter(l => l.boardId === currentBoard.id);
+                const boardCards = cards.filter(c => c.boardId === currentBoard.id);
+                setBoard({ ...currentBoard, lists: boardLists, cards: boardCards });
+            } else {
+                setBoard(null);
+            }
             setLoading(false);
         }
-    }, [boards, boardsLoading, boardId]);
+    }, [boards, lists, cards, boardsLoading, boardId]);
+
+    const handleCreateList = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!user || !boardId) {
+            showToast('Error', 'You must be logged in to create a list.');
+            return;
+        }
+
+        const formData = new FormData(event.currentTarget);
+        const title = formData.get('title') as string;
+        const description = formData.get('description') as string;
+        const tempId = `temp-${Date.now()}`;
+
+        const newList: Omit<List, 'id'> = {
+            title,
+            description,
+            position: board?.lists?.length || 0,
+            boardId: boardId as string,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        addActionToQueue({
+            type: 'create-list',
+            payload: {
+                boardId: boardId as string,
+                data: { ...newList, id: tempId },
+            },
+            timestamp: Date.now(),
+        });
+
+        showToast('Success', 'List added to queue!');
+        setShowAddListDialog(false);
+    };
 
     const handleCreateCard = async (
         event: React.FormEvent<HTMLFormElement>,
@@ -175,8 +214,11 @@ export default function BoardPage() {
                     onDeleteList={handleDeleteList}
                     onSelectCard={setSelectedCard}
                     onCreateCard={handleCreateCard}
+                    onCreateList={handleCreateList}
                     showAddCardDialog={showAddCardDialog}
                     setShowAddCardDialog={setShowAddCardDialog}
+                    showAddListDialog={showAddListDialog}
+                    setShowAddListDialog={setShowAddListDialog}
                     onUpdateCardOrder={handleUpdateCardOrder}
                 />
             </Box>

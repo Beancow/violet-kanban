@@ -30,7 +30,7 @@ export const BoardDataProvider: React.FC<BoardDataProviderProps> = ({ children }
 
     actionQueue.forEach(action => {
         switch (action.type) {
-            case 'addBoard':
+            case 'create-board':
                 boards.push(action.payload.data);
                 break;
             case 'updateBoard':
@@ -46,7 +46,7 @@ export const BoardDataProvider: React.FC<BoardDataProviderProps> = ({ children }
                     boards.splice(boardToDeleteIndex, 1);
                 }
                 break;
-            case 'addList':
+            case 'create-list':
                 lists.push(action.payload.data);
                 break;
             case 'updateList':
