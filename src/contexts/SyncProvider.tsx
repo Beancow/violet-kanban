@@ -1,3 +1,4 @@
+'use client';
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { useWebWorker } from '@/hooks/useWebWorker';

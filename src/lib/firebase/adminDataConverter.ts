@@ -1,7 +1,3 @@
-'use server';
-
-import * as sentry from '@sentry/nextjs';
-
 // These interfaces are based on the Firebase Admin SDK for type safety in the server context.
 interface AdminDocumentData {
     [field: string]: unknown;
@@ -19,9 +15,6 @@ interface AdminFirestoreDataConverter<T> {
 
 export const adminDataConverter = <T>(): AdminFirestoreDataConverter<T> => ({
     toFirestore(data: T): AdminDocumentData {
-        if (data instanceof FormData) {
-            return Object.fromEntries(data.entries());
-        }
         if (data === null || data === undefined || !(data instanceof Object)) {
             throw new Error(
                 'Data must be an object or an instance of FormData'
@@ -29,11 +22,16 @@ export const adminDataConverter = <T>(): AdminFirestoreDataConverter<T> => ({
         }
         return { ...data };
     },
-    fromFirestore(snapshot: AdminQueryDocumentSnapshot): T {
+    fromFirestore(snapshot: AdminQueryDocumentSnapshot): Promise<T> {
         const data = snapshot.data();
-        sentry.captureMessage('Admin Snapshot Data:' + JSON.stringify(data), {
-            level: 'info',
-        });
-        return { ...data, id: snapshot.id } as T;
+        const convertedData = { ...data, id: snapshot.id } as T;
+
+        // Convert Firestore Timestamps to ISO strings
+        for (const key in convertedData) {
+            if (convertedData[key] && typeof convertedData[key] === 'object' && convertedData[key].toDate) {
+                convertedData[key] = convertedData[key].toDate().toISOString();
+            }
+        }
+        return convertedData;
     },
 });

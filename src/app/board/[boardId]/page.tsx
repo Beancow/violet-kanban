@@ -1,7 +1,10 @@
+'use client';
+
 import { Board, BoardCard } from '@/types/appState.type';
 import { Box, Text } from '@radix-ui/themes';
 import { useParams } from 'next/navigation';
 import { useBoardData } from '@/contexts/BoardDataProvider';
+import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useUser } from '@/contexts/UserProvider';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useSync } from '@/contexts/SyncProvider';
@@ -18,8 +21,9 @@ export default function BoardPage() {
     useRequireOrganization();
     const params = useParams();
     const { boardId } = params;
-    const { currentOrganizationId, user } = useUser();
+    const { user } = useUser();
     const { authUser } = useAuth();
+    const { currentOrganizationId } = useOrganizations();
     const { setIsEditing } = useSync();
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);

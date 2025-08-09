@@ -1,24 +1,22 @@
 'use client';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
-import { useBoards } from '@/contexts/BoardsProvider';
+import { useBoardData } from '@/contexts/BoardDataProvider';
 
 import { Box, Heading, Text, Button, Flex } from '@radix-ui/themes';
 import Link from 'next/link';
-import { useUser } from '@/contexts/UserProvider';
 import LoadingPage from '@/components/LoadingPage';
 import { useRequireOrganization } from '@/hooks/useRequireOrganization';
 
 export default function UserBoardsPage() {
     useRequireOrganization();
-    const { currentOrganizationId } = useUser();
-    const { organizations, loading: orgsLoading } = useOrganizations();
-    const { boards, loading: boardsLoading } = useBoards();
+    const { currentOrganizationId, organizations, loading: orgsLoading } = useOrganizations();
+    const { boards } = useBoardData();
     
     const currentOrg = organizations.find(
         (org) => org.id === currentOrganizationId
     );
 
-    if (orgsLoading || boardsLoading) {
+    if (orgsLoading) {
         return <LoadingPage dataType='boards' />;
     }
 

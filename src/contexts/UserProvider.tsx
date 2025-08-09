@@ -1,3 +1,5 @@
+"use client";
+
 import {
     createContext,
     useContext,
@@ -8,34 +10,22 @@ import {
 } from 'react';
 import { User } from '@/types/appState.type';
 import { useAuth } from '@/contexts/AuthProvider';
-import { getUserFromFirebaseDB } from '@/lib/firebase/userServerActions';
 
 interface UserContextType {
     user: User | null;
     loading: boolean;
-    currentOrganizationId: string | null;
     setCurrentBoard: (boardId: string) => void;
-    setCurrentOrganization: (organizationId: string) => void;
 }
 
 const UserContext = createContext<UserContextType>({
     user: null,
     loading: true,
-    currentOrganizationId: null,
     setCurrentBoard: () => {},
-    setCurrentOrganization: () => {},
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [currentOrganizationId, setCurrentOrganizationId] = useState<
-        string | null
-    >(
-        typeof window !== 'undefined' ?
-            localStorage.getItem('currentOrganizationId')
-        :   null
-    );
     const { authUser } = useAuth();
 
     const setCurrentBoard = useCallback((boardId: string) => {
@@ -44,20 +34,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
         );
     }, []);
 
-    const setCurrentOrganization = useCallback((organizationId: string) => {
-        localStorage.setItem('currentOrganizationId', organizationId);
-        setCurrentOrganizationId(organizationId);
-    }, []);
-
     useEffect(() => {
         const fetchUser = async () => {
             if (authUser) {
-                const { data, success } = await getUserFromFirebaseDB(
-                    authUser.uid
-                );
-                if (success && data) {
-                    setUser(data);
+                setLoading(true);
+                try {
+                    const idToken = await authUser.getIdToken();
+                    const response = await fetch('/api/user', {
+                        headers: {
+                            Authorization: `Bearer ${idToken}`,
+                        },
+                    });
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        setUser(result.data);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch user data:", error);
+                    setUser(null); // Clear user data on error
+                } finally {
+                    setLoading(false);
                 }
+            } else {
+                setUser(null);
                 setLoading(false);
             }
         };
@@ -69,9 +68,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             value={{
                 user,
                 loading,
-                currentOrganizationId,
                 setCurrentBoard,
-                setCurrentOrganization,
             }}
         >
             {children}

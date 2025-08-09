@@ -26,7 +26,7 @@ export function useWebWorker() {
     useEffect(() => {
         if (typeof Worker !== 'undefined') {
             try {
-                workerRef.current = new window.Worker('./dataSyncWorker.js');
+                workerRef.current = new window.Worker('/dataSyncWorker.js');
 
                 workerRef.current.onmessage = (
                     e: MessageEvent<WorkerMessage>

@@ -1,27 +1,37 @@
+'use server';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { firebaseDB } from '@/lib/firebase/firebase-config';
 import { User } from '@/types/appState.type';
+import { adminDataConverter } from './adminDataConverter';
 
-export async function getUserFromFirebaseDB(
-    userId: string
-): Promise<{ success: boolean; data?: User; error?: { message: string } }> {
+// Dynamic import for firebase-admin-init
+const getAdminFirestore = async () => {
+    const { getAdminFirestore } = await import('./firebase-admin-init');
+    return getAdminFirestore();
+};
+
+export async function getUserServerAction(userId: string): Promise<{ success: boolean; data?: User; error?: Error }> {
     try {
-        const userRef = doc(firebaseDB, 'users', userId);
+        const adminFirestore = await getAdminFirestore();
+        const userRef = adminFirestore.doc(`users/${userId}`).withConverter(adminDataConverter<User>());
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
             return { success: true, data: userSnap.data() as User };
         } else {
-            return { success: false, error: { message: 'User not found' } };
+            return { success: false, error: new Error('User not found') };
         }
     } catch (error) {
-        console.error('Error in getUser:', error);
+        console.error('Error in getUserServerAction:', error);
         return {
             success: false,
             error: new Error('Failed to fetch user', { cause: error }),
         };
     }
 }
+
+
+
 
 export async function createUser(
     user: User

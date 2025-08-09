@@ -5,8 +5,8 @@ import { useUser } from '@/contexts/UserProvider';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
 
 export function useRequireOrganization() {
-    const { currentOrganizationId, loading: userLoading } = useUser();
-    const { loading: orgsLoading } = useOrganizations();
+    const { loading: userLoading } = useUser();
+    const { loading: orgsLoading, currentOrganizationId } = useOrganizations();
     const router = useRouter();
     const pathname = usePathname();
 

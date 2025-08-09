@@ -1,4 +1,5 @@
 'use client';
+import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { Button, Flex, Card, Box, Heading, Text } from '@radix-ui/themes';
 import { Organization } from '@/types/appState.type';
 import { useRouter } from 'next/navigation';
@@ -12,7 +13,8 @@ export default function OrganizationList({
     organizations: Organization[];
     returnTo?: string | null;
 }) {
-    const { user, currentOrganizationId, setCurrentOrganization } = useUser();
+    const { user } = useUser();
+    const { currentOrganizationId, setCurrentOrganization } = useOrganizations();
     const router = useRouter();
 
     const handleSetDefaultOrg = async (orgId: string) => {
@@ -41,7 +43,7 @@ export default function OrganizationList({
             <Heading as='h1' size='6' align='center' mb='5'>
                 Your Organizations
             </Heading>
-            <Flex wrap='wrap' gap='4' justify='center'>
+            <Flex direction='column' gap='4' align='center'>
                 {organizations.map((org) => (
                     <Card key={org.id} style={{ cursor: 'pointer' }}>
                         <Box onClick={() => router.push(`/org/${org.id}`)}>

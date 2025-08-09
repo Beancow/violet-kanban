@@ -1,4 +1,5 @@
-import { getOrganizationServerAction } from '@/lib/firebase/orgServerActions';
+'use client';
+
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Organization } from '@/types/appState.type';
@@ -13,7 +14,7 @@ export default function OrganizationPage() {
         const fetchOrganization = async () => {
             if (params.orgId) {
                 setLoading(true);
-                const { data, success } = await getOrganizationServerAction(params.orgId as string);
+                const { data, success } = await fetch(`/api/orgs/${params.orgId}`).then(res => res.json());
                 if (success && data) {
                     setOrganization(data);
                 }
@@ -28,7 +29,13 @@ export default function OrganizationPage() {
         if (!organization) return;
 
         const formData = new FormData(event.currentTarget);
-        const result = await updateOrganizationServerAction(organization.id, formData);
+        const result = await fetch(`/api/orgs/${organization.id}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ formData: Object.fromEntries(formData.entries()) }),
+        }).then(res => res.json());
 
         if (result.success) {
             alert('Organization updated successfully!');
@@ -40,7 +47,9 @@ export default function OrganizationPage() {
     const handleDeleteOrganization = async () => {
         if (!organization || !confirm('Are you sure you want to delete this organization?')) return;
 
-        const result = await deleteOrganizationServerAction(organization.id);
+        const result = await fetch(`/api/orgs/${organization.id}/delete`, {
+            method: 'POST',
+        }).then(res => res.json());
 
         if (result.success) {
             alert('Organization deleted successfully!');
