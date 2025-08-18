@@ -1,16 +1,40 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
-import useLocalStorage from '@/hooks/useLocalStorage';
-import { useWebWorker } from '@/hooks/useWebWorker';
-import { Action } from '@/types/sync.type';
-import { Board, BoardList, BoardCard } from '@/types/appState.type';
-import { useAuth } from './AuthProvider';
+import React, {
+    createContext,
+    useCallback,
+    ReactNode,
+    useContext,
+    useReducer,
+    useEffect,
+} from 'react';
+import { dataReducer } from './reducers';
+import {
+    createBoardHelper,
+    updateBoardHelper,
+    deleteBoardHelper,
+} from './helpers/boardHelpers';
+import {
+    createCardHelper,
+    updateCardHelper,
+    deleteCardHelper,
+    softDeleteCardHelper,
+    restoreCardHelper,
+    updateCardOrderHelper,
+} from './helpers/cardHelpers';
+import {
+    createListHelper,
+    updateListHelper,
+    deleteListHelper,
+} from './helpers/listHelpers';
 import { DataState } from '@/types/reducer.type';
-import { rootReducer } from './reducers';
+import { Board, BoardCard, BoardList } from '@/types/appState.type';
+import { useOrganizations } from './OrganizationsProvider';
+import { mockBoards, mockLists, mockCards } from '@/mock/mockData';
 
 const initialState: DataState = {
+    tempIdMap: {},
     isSyncing: false,
     isEditing: false,
     actionQueue: [],
@@ -18,170 +42,219 @@ const initialState: DataState = {
     lists: [],
     cards: [],
     lastMessage: null,
-    tempIdMap: {},
+    timestamp: 0,
 };
 
-// --- Context ---
+const useMockToggle = process.env.NEXT_PUBLIC_USE_LOCAL_DATA === 'true';
 
 interface DataContextType extends DataState {
-    setIsEditing: (isEditing: boolean) => void;
+    setIsEditing: (editing: boolean) => void;
     createBoard: (title: string, description: string) => void;
     updateBoard: (boardId: string, data: Partial<Board>) => void;
     deleteBoard: (boardId: string) => void;
-    createCard: (listId: string, boardId: string, title: string, description: string, priority: number) => void;
-    updateCard: (boardId: string, cardId: string, data: Partial<BoardCard>) => void;
+    createCard: (
+        listId: string,
+        boardId: string,
+        title: string,
+        description: string,
+        priority: number
+    ) => void;
+    updateCard: (
+        boardId: string,
+        cardId: string,
+        data: Partial<BoardCard>
+    ) => void;
     deleteCard: (boardId: string, cardId: string) => void;
     softDeleteCard: (boardId: string, cardId: string) => void;
     restoreCard: (boardId: string, cardId: string) => void;
-    updateCardOrder: (boardId: string, newOrder: string[]) => void;
+    updateCardOrder: (
+        boardId: string,
+        listId: string,
+        cardOrder: string[]
+    ) => void;
+    createList: (
+        boardId: string,
+        title: string,
+        description: string,
+        position: number
+    ) => void;
+    updateList: (
+        boardId: string,
+        listId: string,
+        data: Partial<BoardList>
+    ) => void;
     deleteList: (boardId: string, listId: string) => void;
-    createList: (boardId: string, title: string, description: string, position: number) => void;
-    updateList: (boardId: string, listId: string, data: Partial<BoardList>) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-    const [storedQueue, setStoredQueue] = useLocalStorage<Action[]>('actionQueue', []);
-    const [storedBoards, setStoredBoards] = useLocalStorage<Board[]>('boards', []);
-    const [storedLists, setStoredLists] = useLocalStorage<BoardList[]>('lists', []);
-    const [storedCards, setStoredCards] = useLocalStorage<BoardCard[]>('cards', []);
-    const [tempIdMap, setTempIdMap] = useLocalStorage<{ [key: string]: string }>('tempIdMap', {});
-    
-    const [state, dispatch] = useReducer(rootReducer, {
-        ...initialState,
-        actionQueue: storedQueue,
-        boards: storedBoards,
-        lists: storedLists,
-        cards: storedCards,
-        tempIdMap,
-    });
-    
-    const { postMessage, lastMessage: workerLastMessage, isWorkerReady } = useWebWorker();
-    const { authUser } = useAuth();
-    const [currentOrganizationId] = useLocalStorage<string | null>('currentOrganizationId', null);
+    const [state, dispatchAction] = useReducer(dataReducer, initialState);
+    const { currentOrganizationId } = useOrganizations(); // <-- Use the hook!
 
     useEffect(() => {
-        setStoredQueue(state.actionQueue);
-        setStoredBoards(state.boards);
-        setStoredLists(state.lists);
-        setStoredCards(state.cards);
-        setTempIdMap(state.tempIdMap);
-    }, [state.actionQueue, state.boards, state.lists, state.cards, state.tempIdMap, setStoredQueue, setStoredBoards, setStoredLists, setStoredCards, setTempIdMap]);
-
-    const dispatchAction = useCallback((action: Action) => {
-        dispatch({ type: 'ADD_ACTION', payload: action });
+        if (useMockToggle) {
+            dispatchAction({
+                type: 'set-mock-data',
+                payload: {
+                    boards: mockBoards,
+                    lists: mockLists,
+                    cards: mockCards,
+                },
+            });
+        }
     }, []);
 
-    const setIsEditing = useCallback((isEditing: boolean) => {
-        dispatch({ type: 'SET_STATE', payload: { isEditing } });
-    }, []);
+    // Board actions
+    const createBoard = useCallback(
+        (title: string, description: string) => {
+            const organizationId = currentOrganizationId || '';
+            const newBoard = createBoardHelper(
+                title,
+                description,
+                organizationId
+            );
+            dispatchAction({
+                type: 'create-board',
+                payload: { data: newBoard, tempId: newBoard.id },
+            });
+        },
+        [dispatchAction, currentOrganizationId]
+    );
 
-    const createBoard = useCallback((title: string, description: string) => {
-        const timestamp = Date.now();
-        const tempId = `temp_${timestamp}`;
-        const newBoard: Board = {
-            id: tempId, title, description, createdAt: new Date(timestamp), updatedAt: new Date(timestamp),
-            ownerId: authUser?.uid || '', organizationId: currentOrganizationId || '',
-        };
-        dispatchAction({
-            type: 'create-board',
-            payload: { data: newBoard, tempId },
-            timestamp,
-        });
-    }, [dispatchAction, authUser, currentOrganizationId]);
+    const updateBoard = useCallback(
+        (boardId: string, data: Partial<Board>) => {
+            dispatchAction(updateBoardHelper(boardId, data));
+        },
+        [dispatchAction]
+    );
 
-    const deleteBoard = useCallback((boardId: string) => {
-        dispatchAction({ type: 'delete-board', payload: { boardId }, timestamp: Date.now() });
-    }, [dispatchAction]);
-    
-    const updateBoard = useCallback((boardId: string, data: Partial<Board>) => {
-        dispatchAction({ type: 'update-board', payload: { boardId, data }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    const deleteBoard = useCallback(
+        (boardId: string) => {
+            dispatchAction(deleteBoardHelper(boardId));
+        },
+        [dispatchAction]
+    );
 
-    const createCard = useCallback((listId: string, boardId: string, title: string, description: string, priority: number) => {
-        const timestamp = Date.now();
-        const tempId = `temp-${timestamp}`;
-        const newCard: BoardCard = {
-            id: tempId, title, description, listId, boardId, createdAt: new Date(timestamp), updatedAt: new Date(timestamp), priority,
-            completed: false, ownerId: authUser?.uid || '', userId: authUser?.uid || '',
-        };
-        dispatchAction({
-            type: 'create-card',
-            payload: { boardId, listId, data: newCard, tempId },
-            timestamp,
-        });
-    }, [dispatchAction, authUser]);
+    // Card actions
+    const createCard = useCallback(
+        (
+            listId: string,
+            boardId: string,
+            title: string,
+            description: string,
+            priority: number
+        ) => {
+            const newCard = createCardHelper(
+                listId,
+                title,
+                description,
+                priority
+            );
+            dispatchAction({
+                type: 'create-card',
+                payload: { boardId, listId, data: newCard, tempId: newCard.id },
+            });
+        },
+        [dispatchAction]
+    );
 
-    const updateCard = useCallback((boardId: string, cardId: string, data: Partial<BoardCard>) => {
-        dispatchAction({ type: 'update-card', payload: { boardId, cardId, data }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    const updateCard = useCallback(
+        (boardId: string, cardId: string, data: Partial<BoardCard>) => {
+            dispatchAction(updateCardHelper(boardId, cardId, data));
+        },
+        [dispatchAction]
+    );
 
-    const deleteCard = useCallback((boardId: string, cardId: string) => {
-        dispatchAction({ type: 'delete-card', payload: { boardId, cardId }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    const deleteCard = useCallback(
+        (boardId: string, cardId: string) => {
+            dispatchAction(deleteCardHelper(boardId, cardId));
+        },
+        [dispatchAction]
+    );
 
-    const softDeleteCard = useCallback((boardId: string, cardId: string) => {
-        dispatchAction({ type: 'soft-delete-card', payload: { boardId, cardId }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    const softDeleteCard = useCallback(
+        (boardId: string, cardId: string) => {
+            dispatchAction(softDeleteCardHelper(boardId, cardId));
+        },
+        [dispatchAction]
+    );
 
-    const restoreCard = useCallback((boardId: string, cardId: string) => {
-        dispatchAction({ type: 'restore-card', payload: { boardId, cardId }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    const restoreCard = useCallback(
+        (boardId: string, cardId: string) => {
+            dispatchAction(restoreCardHelper(boardId, cardId));
+        },
+        [dispatchAction]
+    );
 
-    const updateCardOrder = useCallback((boardId: string, newOrder: string[]) => {
-        for (const [index, cardId] of newOrder.entries()) {
-            updateCard(boardId, cardId, { priority: index });
-        }
-    }, [updateCard]);
+    const updateCardOrder = useCallback(
+        (boardId: string, listId: string, cardOrder: string[]) => {
+            dispatchAction(updateCardOrderHelper(boardId, listId, cardOrder));
+        },
+        [dispatchAction]
+    );
 
-    const deleteList = useCallback((boardId: string, listId: string) => {
-        dispatchAction({ type: 'delete-list', payload: { boardId, listId }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    // List actions
+    const createList = useCallback(
+        (
+            boardId: string,
+            title: string,
+            description: string,
+            position: number
+        ) => {
+            const newList = createListHelper(title, description, position);
+            dispatchAction({
+                type: 'create-list',
+                payload: { boardId, data: newList, tempId: newList.id },
+            });
+        },
+        [dispatchAction]
+    );
 
-    const createList = useCallback((boardId: string, title: string, description: string, position: number) => {
-        const timestamp = Date.now();
-        const tempId = `temp_${timestamp}`;
-        const newList: Omit<BoardList, 'id'> = {
-            title, description, boardId, position, createdAt: new Date(timestamp), updatedAt: new Date(timestamp),
-        };
-        dispatchAction({
-            type: 'create-list',
-            payload: { data: { ...newList, id: tempId }, tempId },
-            timestamp,
-        });
-    }, [dispatchAction]);
+    const updateList = useCallback(
+        (boardId: string, listId: string, data: Partial<BoardList>) => {
+            dispatchAction(updateListHelper(boardId, listId, data));
+        },
+        [dispatchAction]
+    );
 
-    const updateList = useCallback((boardId: string, listId: string, data: Partial<BoardList>) => {
-        dispatchAction({ type: 'update-list', payload: { boardId, listId, data }, timestamp: Date.now() });
-    }, [dispatchAction]);
+    const deleteList = useCallback(
+        (boardId: string, listId: string) => {
+            dispatchAction(deleteListHelper(boardId, listId));
+        },
+        [dispatchAction]
+    );
 
-    // Effect to process the next action in the queue
-    useEffect(() => {
-        const { actionQueue, isSyncing, isEditing } = state;
-        if (actionQueue.length > 0 && !isSyncing && !isEditing && navigator.onLine && isWorkerReady && authUser) {
-            const processNextAction = async () => {
-                dispatch({ type: 'START_SYNC' });
-                const actionToProcess = actionQueue[0];
-                const idToken = await authUser.getIdToken();
-                const orgId = currentOrganizationId;
-                const payload = { ...actionToProcess.payload, idToken, orgId };
-                postMessage({ ...actionToProcess, payload });
-            };
-            processNextAction();
-        }
-    }, [state.actionQueue, state.isSyncing, state.isEditing, isWorkerReady, authUser, currentOrganizationId, postMessage]);
+    // Add setIsEditing function
+    const setIsEditing = useCallback(
+        (editing: boolean) => {
+            dispatchAction({
+                type: 'set-is-editing',
+                payload: { isEditing: editing },
+            });
+        },
+        [dispatchAction]
+    );
 
-    // Effect to handle messages from the worker
-    useEffect(() => {
-        if (!workerLastMessage) return;
-        dispatch({ type: 'SET_LAST_MESSAGE', payload: { lastMessage: workerLastMessage } });
-    }, [workerLastMessage, dispatch]); // state is not needed here because the reducer will handle the state update
+    const contextValue: DataContextType = {
+        ...state,
+        setIsEditing,
+        createBoard,
+        updateBoard,
+        deleteBoard,
+        createCard,
+        updateCard,
+        deleteCard,
+        softDeleteCard,
+        restoreCard,
+        updateCardOrder,
+        createList,
+        updateList,
+        deleteList,
+    };
 
     return (
-        <DataContext.Provider
-            value={{ ...state, setIsEditing, createBoard, updateBoard, deleteBoard, createCard, updateCard, deleteCard, softDeleteCard, restoreCard, updateCardOrder, deleteList, createList, updateList }}
-        >
+        <DataContext.Provider value={contextValue}>
             {children}
         </DataContext.Provider>
     );
