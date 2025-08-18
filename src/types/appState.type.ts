@@ -1,5 +1,6 @@
 type BoardList = {
     id: string;
+    boardId: string;
     title: string;
     description?: string;
     position: number;

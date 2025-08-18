@@ -267,3 +267,13 @@ export const useData = () => {
     }
     return context;
 };
+
+// In DataProvider or a custom hook
+function useBoardData(boardId: string) {
+    const { boards, lists, cards } = useData();
+    const board = boards.find((b) => b.id === boardId);
+    const boardLists = lists.filter((list) => list.boardId === boardId);
+    const getCardsForList = (listId: string) =>
+        cards.filter((card) => card.listId === listId);
+    return { board, boardLists, getCardsForList };
+}

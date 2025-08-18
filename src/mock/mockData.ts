@@ -14,12 +14,14 @@ export const mockBoards: Board[] = [
         lists: [
             {
                 id: 'list-1',
+                boardId: 'board-1',
                 title: 'To Do',
                 description: 'Tasks to start',
                 position: 1,
             },
             {
                 id: 'list-2',
+                boardId: 'board-1',
                 title: 'Done',
                 description: 'Finished tasks',
                 position: 2,
