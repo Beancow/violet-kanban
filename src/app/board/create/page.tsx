@@ -19,13 +19,18 @@ export default function CreateBoardPage() {
     const { createBoard } = useData();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleCreateBoard = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleCreateBoard = async (
+        event: React.FormEvent<HTMLFormElement>
+    ) => {
         event.preventDefault();
         if (isSubmitting) return; // Prevent double submission
         setIsSubmitting(true);
 
         if (!user || !authUser || !currentOrganizationId) {
-            showToast('Error', 'You must be logged in and belong to an organization to create a board.');
+            showToast(
+                'Error',
+                'You must be logged in and belong to an organization to create a board.'
+            );
             setIsSubmitting(false);
             return;
         }
@@ -41,10 +46,8 @@ export default function CreateBoardPage() {
     };
 
     if (userLoading || orgsLoading) {
-        return <LoadingPage />;
+        return <LoadingPage dataType='board' />;
     }
 
-    return (
-        <BoardForm user={user} onSubmit={handleCreateBoard} />
-    );
+    return <BoardForm user={user} onSubmit={handleCreateBoard} />;
 }

@@ -2,6 +2,7 @@
 import { useParams } from 'next/navigation';
 import { useData } from '@/contexts/DataProvider';
 import { BoardListComponent } from '@/components/BoardList';
+import LooseCardsPanel from '@/app/components/LooseCardsPanel';
 import styles from './BoardPage.module.css';
 
 export default function BoardPage() {
@@ -12,6 +13,16 @@ export default function BoardPage() {
     if (!board) return <div>Board not found.</div>;
 
     const boardLists = lists.filter((list) => list.boardId === boardId);
+
+    const looseCards = cards.filter(
+        (card) =>
+            card.boardId === boardId &&
+            (card.listId === null ||
+                card.listId === undefined ||
+                !Array.from(boardLists.map((list) => list.id)).includes(
+                    card.listId
+                ))
+    );
 
     return (
         <div className={styles.boardPage}>
@@ -31,6 +42,7 @@ export default function BoardPage() {
                         );
                     })}
                 </div>
+                <LooseCardsPanel cards={looseCards} />
             </div>
         </div>
     );

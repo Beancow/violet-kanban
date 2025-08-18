@@ -4,6 +4,8 @@ import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
 import AppProviders from '@/contexts/AppProviders';
+import { FloatingSyncButton } from '@/app/components/FloatingSyncButton';
+import { SyncManager } from '@/components/SyncManager';
 import Header from '@/app/components/navigation/Header';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -19,11 +21,13 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang='en'>
             <body className={inter.className}>
                 <Theme>
                     <AppProviders>
                         <Header />
+                        <FloatingSyncButton />
+                        <SyncManager />
                         {children}
                     </AppProviders>
                 </Theme>

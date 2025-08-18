@@ -4,11 +4,12 @@ type BoardList = {
     title: string;
     description?: string;
     position: number;
+    organizationId: string;
 };
 
 type Board = {
     id: string;
-    organizationId: string; // Reference to parent organization
+    organizationId: string;
     title: string;
     description?: string;
     createdAt?: Date | string;
@@ -22,8 +23,12 @@ type BoardCard = {
     title: string;
     description?: string;
     priority?: number;
-    listId: string; // This links the card to its parent list
-    completed?: boolean; // <-- Add this field
+    listId: string | null;
+    boardId: string;
+    organizationId: string;
+    completed?: boolean;
+    isDeleted?: boolean;
+    isArchived?: boolean;
     createdAt?: Date | string;
     updatedAt?: Date | string;
 };
@@ -38,15 +43,6 @@ type User = {
     currentListId: string | null;
     createdAt?: Date;
     updatedAt?: Date;
-};
-
-type OrganizationMember = {
-    id: string;
-    name: string;
-    photoURL?: string;
-    updatedAt: Date;
-    createdAt: Date;
-    role: 'owner' | 'admin' | 'editor' | 'member';
 };
 
 type Creator = {
@@ -96,11 +92,4 @@ export type CreateCardResult = {
     error?: Error;
 };
 
-export type {
-    BoardList,
-    Board,
-    BoardCard,
-    User,
-    Organization,
-    OrganizationMember,
-};
+export type { BoardList, Board, BoardCard, User, Organization };

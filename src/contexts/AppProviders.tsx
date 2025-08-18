@@ -3,21 +3,13 @@ import { AuthProvider, useAuth } from '@/contexts/AuthProvider';
 import { UserProvider } from '@/contexts/UserProvider';
 import { OrganizationsProvider } from '@/contexts/OrganizationsProvider';
 import { DataProvider } from '@/contexts/DataProvider';
-import FloatingSyncButton from '@/app/components/FloatingSyncButton';
 import React, { ReactNode } from 'react';
 import LoadingPage from '@/components/LoadingPage';
 import LoginPage from '@/app/user/login/page';
 import { AppToastProvider } from './ToastProvider';
-import { SyncManager } from '@/components/SyncManager';
 
 function AppContent({ children }: { children: ReactNode }) {
-    return (
-        <>
-            <FloatingSyncButton />
-            <SyncManager />
-            {children}
-        </>
-    );
+    return <>{children}</>;
 }
 
 function AuthGate({ children }: { children: ReactNode }) {

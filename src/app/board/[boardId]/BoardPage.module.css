@@ -4,13 +4,13 @@
     padding: 32px 0;
 }
 
-.boardPage__container {
+.boardPage_container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 24px;
 }
 
-.boardPage__title {
+.boardPage_title {
     font-size: 2.5rem;
     font-weight: 700;
     margin-bottom: 32px;
@@ -18,7 +18,7 @@
     letter-spacing: -1px;
 }
 
-.boardPage__lists {
+.boardPage_lists {
     display: flex;
     gap: 24px;
     overflow-x: auto;
