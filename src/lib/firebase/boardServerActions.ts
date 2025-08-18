@@ -3,6 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { Board, CreateBoardResult } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@sentry/nextjs';
+import { BoardSchema } from '@/schema/boardSchema';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const getAdminFirestore = async () => {
     const { getAdminFirestore } = await import('./firebase-admin-init');
@@ -21,20 +23,34 @@ export async function createBoardServerAction({
     tempId: string;
 }): Promise<CreateBoardResult> {
     if (!orgId || !uid) {
-        const error = new Error('Organization ID and User ID are required to create a board.');
+        const error = new Error(
+            'Organization ID and User ID are required to create a board.'
+        );
         sentry.captureException(error);
         return { success: false, error };
     }
 
+    const result = BoardSchema.safeParse(data);
+    if (!result.success) {
+        return {
+            success: false,
+            error: new Error(
+                'Invalid board data: ' + JSON.stringify(result.error.format())
+            ),
+        };
+    }
+    const validBoard = result.data;
+
     try {
         const adminFirestore = await getAdminFirestore();
-        const boardsCollection = adminFirestore.collection(`organizations/${orgId}/boards`);
+        const boardsCollection = adminFirestore.collection(
+            `organizations/${orgId}/boards`
+        );
         const newBoardRef = boardsCollection.doc();
 
         const newBoard: Board = {
-            ...data,
+            ...validBoard,
             id: newBoardRef.id,
-            ownerId: uid,
             organizationId: orgId,
         };
 
@@ -60,44 +76,63 @@ export async function createBoardServerAction({
 export async function getBoardsForOrganizationServerAction(orgId: string) {
     try {
         const adminFirestore = await getAdminFirestore();
-        const boardsCollection = adminFirestore.collection(`organizations/${orgId}/boards`).withConverter(adminDataConverter<Board>());
+        const boardsCollection = adminFirestore
+            .collection(`organizations/${orgId}/boards`)
+            .withConverter(adminDataConverter<Board>());
         const querySnapshot = await boardsCollection.get();
-        const boards = querySnapshot.docs.map(doc => doc.data());
+        const boards = querySnapshot.docs.map((doc) => doc.data());
         return { success: true, data: boards };
     } catch (error) {
         console.error('Error fetching boards for organization:', error);
         sentry.captureException(error);
-        return { success: false, error: new Error('Failed to fetch boards', { cause: error }) };
+        return {
+            success: false,
+            error: new Error('Failed to fetch boards', { cause: error }),
+        };
     }
 }
 
-export async function updateBoardServerAction(orgId: string, boardId: string, data: Partial<Board>) {
+export async function updateBoardServerAction(
+    orgId: string,
+    boardId: string,
+    data: Partial<Board>
+) {
     try {
         const adminFirestore = await getAdminFirestore();
-        const boardRef = adminFirestore.doc(`organizations/${orgId}/boards/${boardId}`);
+        const boardRef = adminFirestore.doc(
+            `organizations/${orgId}/boards/${boardId}`
+        );
         await boardRef.update({
             ...data,
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
         revalidatePath(`/board/${boardId}`);
         return { success: true };
     } catch (error) {
         sentry.captureException(error);
         console.error('Error updating board:', error);
-        return { success: false, error: new Error('Failed to update board', { cause: error }) };
+        return {
+            success: false,
+            error: new Error('Failed to update board', { cause: error }),
+        };
     }
 }
 
 export async function deleteBoardServerAction(orgId: string, boardId: string) {
     try {
         const adminFirestore = await getAdminFirestore();
-        const boardRef = adminFirestore.doc(`organizations/${orgId}/boards/${boardId}`);
+        const boardRef = adminFirestore.doc(
+            `organizations/${orgId}/boards/${boardId}`
+        );
         await boardRef.delete();
         revalidatePath('/boards');
         return { success: true };
     } catch (error) {
         sentry.captureException(error);
         console.error('Error deleting board:', error);
-        return { success: false, error: new Error('Failed to delete board', { cause: error }) };
+        return {
+            success: false,
+            error: new Error('Failed to delete board', { cause: error }),
+        };
     }
 }

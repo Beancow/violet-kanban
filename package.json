@@ -5,7 +5,7 @@
     "description": "A Kanban board application built with Next.js and Radix UI.",
     "author": "Avery",
     "scripts": {
-        "dev": "npm run-script migrate && next dev",
+        "dev": "next dev --turbopack",
         "build": "next build",
         "start": "next start",
         "lint": "next lint",

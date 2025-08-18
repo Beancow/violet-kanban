@@ -1,62 +1,30 @@
 type BoardList = {
     id: string;
-    boardId: string;
     title: string;
     description?: string;
-    createdAt: Date;
-    updatedAt: Date;
     position: number;
-    data: {
-        ownerId: string;
-        boardId: string;
-        isArchived?: boolean;
-        isDeleted?: boolean;
-        backgroundColor?: string;
-    };
 };
 
 type Board = {
     id: string;
+    organizationId: string; // Reference to parent organization
     title: string;
     description?: string;
-    tags?: string[];
-    createdAt: Date;
-    updatedAt: Date;
-    ownerId: string;
-    organizationId?: string;
-    members?: {
-        userId: string;
-        name: string;
-        role: 'owner' | 'admin' | 'member' | 'observer';
-        joinedAt: Date;
-        leftAt?: Date;
-    }[];
-    lists?: BoardList[];
-    cards?: BoardCard[];
-    orphanedCards?: BoardCard[];
-    data?: {
-        color?: string;
-        icon?: string;
-        backgroundImage?: string;
-    };
-    archived?: boolean;
-    deleted?: boolean;
-    isPublic?: boolean;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    lists: BoardList[];
+    cards: BoardCard[];
 };
 
 type BoardCard = {
     id: string;
     title: string;
     description?: string;
-    completed: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-    boardId: string;
-    listId: string | null;
-    userId: string;
-    ownerId: string;
-    isDeleted?: boolean;
     priority?: number;
+    listId: string; // This links the card to its parent list
+    completed?: boolean; // <-- Add this field
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
 };
 
 type User = {
@@ -89,20 +57,16 @@ type Creator = {
 type Organization = {
     id: string;
     name: string;
-    type: 'personal' | 'company';
-    members: {
-        [userId: string]: {
-            role: 'owner' | 'admin' | 'editor' | 'member';
-        };
+    orgType?: 'personal' | 'company' | 'private';
+    members?: {
+        [userId: string]: 'owner' | 'admin' | 'editor' | 'member';
     };
-    createdAt: Date;
-    updatedAt: Date;
-    createdBy: Creator;
-    data?: {
-        companyName: string;
-        companyWebsite: string;
-        logoURL?: string;
-    };
+    companyName?: string;
+    companyWebsite?: string;
+    logoURL?: string;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    createdBy?: Creator;
 };
 
 export type CreateOrganizationResult =
