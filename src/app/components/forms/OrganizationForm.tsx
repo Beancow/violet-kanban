@@ -5,7 +5,7 @@ import { Flex, Text, Select, TextField, Button, Grid } from '@radix-ui/themes';
 import { z } from 'zod';
 import type { Organization } from '@/types/appState.type';
 import { OrganizationSchema } from '@/schema/organizationSchema';
-import { Pencil1Icon, Pencil2Icon } from '@radix-ui/react-icons';
+import { Pencil1Icon } from '@radix-ui/react-icons';
 
 const ORG_TYPES = [
     { value: 'company', label: 'Company' },
@@ -60,30 +60,6 @@ export default function OrganizationForm({
                 </Flex>
                 <Flex direction='column'>
                     <Text as='label' size='2' mb='1'>
-                        Company Name
-                    </Text>
-                    <TextField.Root
-                        {...register('companyName')}
-                        placeholder='Company Name'
-                    />
-                    {errors.companyName && (
-                        <Text color='red'>{errors.companyName.message}</Text>
-                    )}
-                </Flex>
-                <Flex direction='column'>
-                    <Text as='label' size='2' mb='1'>
-                        Company Website
-                    </Text>
-                    <TextField.Root
-                        {...register('companyWebsite')}
-                        placeholder='Company Website'
-                    />
-                    {errors.companyWebsite && (
-                        <Text color='red'>{errors.companyWebsite.message}</Text>
-                    )}
-                </Flex>
-                <Flex direction='column'>
-                    <Text as='label' size='2' mb='1'>
                         Organization Type
                     </Text>
                     <Select.Root
@@ -111,6 +87,38 @@ export default function OrganizationForm({
                         <Text color='red'>{errors.orgType.message}</Text>
                     )}
                 </Flex>
+                {orgType === 'company' && (
+                    <Flex direction='column'>
+                        <Text as='label' size='2' mb='1'>
+                            Company Name
+                        </Text>
+                        <TextField.Root
+                            {...register('companyName')}
+                            placeholder='Company Name'
+                        />
+                        {errors.companyName && (
+                            <Text color='red'>
+                                {errors.companyName.message}
+                            </Text>
+                        )}
+                    </Flex>
+                )}
+                {orgType === 'company' && (
+                    <Flex direction='column'>
+                        <Text as='label' size='2' mb='1'>
+                            Company Website
+                        </Text>
+                        <TextField.Root
+                            {...register('companyWebsite')}
+                            placeholder='Company Website'
+                        />
+                        {errors.companyWebsite && (
+                            <Text color='red'>
+                                {errors.companyWebsite.message}
+                            </Text>
+                        )}
+                    </Flex>
+                )}
                 <Flex direction='column'>
                     <Text as='label' size='2' mb='1'>
                         Logo URL
