@@ -7,7 +7,15 @@ import {
     signInWithPopup,
 } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase/firebase-config';
-import { Box, Card, Heading, Text, Button, Flex, TextField } from '@radix-ui/themes';
+import {
+    Box,
+    Card,
+    Heading,
+    Text,
+    Button,
+    Flex,
+    TextField,
+} from '@radix-ui/themes';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import LoadingPage from '@/components/LoadingPage';
@@ -74,13 +82,13 @@ export default function LoginPage() {
                             placeholder='Email'
                             type='email'
                             value={email}
-                            onChange={e => setEmail(e.target.value)}
+                            onChange={(e) => setEmail(e.target.value)}
                         />
                         <TextField.Root
                             placeholder='Password'
                             type='password'
                             value={password}
-                            onChange={e => setPassword(e.target.value)}
+                            onChange={(e) => setPassword(e.target.value)}
                         />
                         {error && (
                             <Text size='2' color='red'>

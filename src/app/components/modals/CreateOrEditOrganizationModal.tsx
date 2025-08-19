@@ -1,8 +1,6 @@
-'use client';
 import { Dialog } from '@radix-ui/themes';
 import type { Organization } from '@/types/appState.type';
-import OrganizationForm from '@/components/forms/OrganizationForm';
-import { OrganizationSchema } from '@/schema/organizationSchema';
+import OrganizationForm from '@/app/components/forms/OrganizationForm';
 
 interface CreateOrganizationModalProps {
     open: boolean;
@@ -17,24 +15,20 @@ export default function CreateOrganizationModal({
     onOpenChange,
     onCreate,
     organization,
-    isEdit = false,
 }: CreateOrganizationModalProps) {
-    const onSubmit = async (data: any) => {
-        const result = OrganizationSchema.safeParse(data);
-        console.log('Zod validation result:', result);
-        // If using handleSubmit from react-hook-form, errors should be handled automatically
-    };
-
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Content>
                 <Dialog.Title>
-                    {isEdit ? 'Edit Organization' : 'Create Organization'}
+                    {organization?.id
+                        ? 'Edit Organization'
+                        : 'Create Organization'}
                 </Dialog.Title>
                 <OrganizationForm
                     organization={organization}
-                    isEdit={isEdit}
-                    onSubmit={onSubmit}
+                    onSubmit={(orgData) => {
+                        onCreate(orgData);
+                    }}
                 />
             </Dialog.Content>
         </Dialog.Root>

@@ -22,11 +22,13 @@ export const AppToastProvider = ({ children }: { children: ReactNode }) => {
 
     const showToast = useCallback((title: string, description?: string) => {
         const id = new Date().toISOString() + Math.random();
-        setToasts(prevToasts => [...prevToasts, { id, title, description }]);
+        setToasts((prevToasts) => [...prevToasts, { id, title, description }]);
     }, []);
 
     const removeToast = useCallback((id: string) => {
-        setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
+        setToasts((prevToasts) =>
+            prevToasts.filter((toast) => toast.id !== id)
+        );
     }, []);
 
     return (
@@ -34,9 +36,16 @@ export const AppToastProvider = ({ children }: { children: ReactNode }) => {
             {children}
             <RadixToastProvider>
                 {toasts.map(({ id, title, description }) => (
-                    <ToastRoot key={id} onOpenChange={() => removeToast(id)} open={true} duration={5000}>
+                    <ToastRoot
+                        key={id}
+                        onOpenChange={() => removeToast(id)}
+                        open={true}
+                        duration={5000}
+                    >
                         <ToastTitle>{title}</ToastTitle>
-                        {description && <ToastDescription>{description}</ToastDescription>}
+                        {description && (
+                            <ToastDescription>{description}</ToastDescription>
+                        )}
                         <ToastClose />
                     </ToastRoot>
                 ))}
