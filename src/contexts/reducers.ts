@@ -127,7 +127,8 @@ export function rootReducer(
 
             switch (lastMessage.type) {
                 case 'ACTION_SUCCESS': {
-                    const { timestamp, tempId, board, list, card } = lastMessage.payload;
+                    const { timestamp, tempId, board, list, card } =
+                        lastMessage.payload;
 
                     if (tempId && board) {
                         const newMap = {
@@ -139,7 +140,10 @@ export function rootReducer(
                             b.id === tempId ? board : b
                         );
                         newState.actionQueue = state.actionQueue.map((act) => {
-                            if ((act.payload as { boardId: string }).boardId === tempId) {
+                            if (
+                                (act.payload as { boardId: string }).boardId ===
+                                tempId
+                            ) {
                                 return {
                                     ...act,
                                     payload: {
@@ -160,7 +164,10 @@ export function rootReducer(
                             l.id === tempId ? list : l
                         );
                         newState.actionQueue = state.actionQueue.map((act) => {
-                            if ((act.payload as { listId: string }).listId === tempId) {
+                            if (
+                                (act.payload as { listId: string }).listId ===
+                                tempId
+                            ) {
                                 return {
                                     ...act,
                                     payload: {
@@ -181,7 +188,10 @@ export function rootReducer(
                             c.id === tempId ? card : c
                         );
                         newState.actionQueue = state.actionQueue.map((act) => {
-                            if ((act.payload as { cardId: string }).cardId === tempId) {
+                            if (
+                                (act.payload as { cardId: string }).cardId ===
+                                tempId
+                            ) {
                                 return {
                                     ...act,
                                     payload: {

@@ -7,7 +7,6 @@ interface CreateOrganizationModalProps {
     onOpenChange: (open: boolean) => void;
     onCreate: (orgData: any) => void;
     organization?: Organization;
-    isEdit?: boolean;
 }
 
 export default function CreateOrganizationModal({

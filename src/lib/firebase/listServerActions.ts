@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { BoardList } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@sentry/nextjs';
+import { FieldValue } from 'firebase-admin/firestore';
 
 // Dynamic import for firebase-admin-init
 const getAdminFirestore = async () => {
@@ -17,9 +18,9 @@ export async function getListServerAction(
 ) {
     try {
         const adminFirestore = await getAdminFirestore();
-        const listCollectionRef = adminFirestore.doc(
-            `organizations/${orgId}/boards/${boardId}/lists/${listId}`
-        ).withConverter(adminDataConverter<BoardList>());
+        const listCollectionRef = adminFirestore
+            .doc(`organizations/${orgId}/boards/${boardId}/lists/${listId}`)
+            .withConverter(adminDataConverter<BoardList>());
 
         const listDocs = await listCollectionRef.get();
         const listData = listDocs.data();
@@ -49,12 +50,18 @@ export async function getListServerAction(
     }
 }
 
-export async function getListsServerAction({ orgId, boardId }: { orgId: string; boardId: string; }) {
+export async function getListsServerAction({
+    orgId,
+    boardId,
+}: {
+    orgId: string;
+    boardId: string;
+}) {
     try {
         const adminFirestore = await getAdminFirestore();
-        const listsCollection = adminFirestore.collection(
-            `organizations/${orgId}/boards/${boardId}/lists`
-        ).withConverter(adminDataConverter<BoardList>());
+        const listsCollection = adminFirestore
+            .collection(`organizations/${orgId}/boards/${boardId}/lists`)
+            .withConverter(adminDataConverter<BoardList>());
 
         const listsSnapshot = await listsCollection.get();
         const listsList: BoardList[] = listsSnapshot.docs.map((doc) => ({
@@ -81,36 +88,31 @@ export async function getListsServerAction({ orgId, boardId }: { orgId: string; 
 export async function createListServerAction({
     data,
     orgId,
-    boardId,
     tempId,
 }: {
     data: Omit<BoardList, 'id'>;
     orgId: string;
-    boardId: string;
     tempId: string;
 }) {
-    const creationDate = new Date();
-
     const list: Omit<BoardList, 'id'> = {
         ...data,
-        boardId,
-        createdAt: creationDate,
-        updatedAt: creationDate,
+        createdAt: FieldValue.serverTimestamp().toString(),
+        updatedAt: FieldValue.serverTimestamp().toString(),
     };
     try {
         const adminFirestore = await getAdminFirestore();
-        const response = await adminFirestore.collection(
-            `organizations/${orgId}/boards/${boardId}/lists`
-        ).add({
-            ...list,
-        });
+        const response = await adminFirestore
+            .collection(`organizations/${orgId}/boards/${data.boardId}/lists`)
+            .add({
+                ...list,
+            });
 
         const newList: BoardList = {
             ...list,
             id: response.id,
         };
 
-        revalidatePath(`/board/${boardId}`); // Revalidate the board page to show new list
+        revalidatePath(`/board/${data.boardId}`); // Revalidate the board page to show new list
         return {
             success: true,
             data: {
@@ -150,7 +152,10 @@ export async function deleteListServerAction(
                 `organizations/${orgId}/boards/${boardId}/cards/${cardDoc.id}`
             );
             // Correct logic: Orphan the card, do not delete it.
-            batch.update(cardRef, { listId: null, updatedAt: adminFirestore.FieldValue.serverTimestamp() });
+            batch.update(cardRef, {
+                listId: null,
+                updatedAt: FieldValue.serverTimestamp(),
+            });
         });
 
         batch.delete(listRef);
@@ -164,6 +169,39 @@ export async function deleteListServerAction(
         return {
             success: false,
             error: new Error('Failed to delete list', { cause: error }),
+        };
+    }
+}
+
+export async function updateListServerAction({
+    orgId,
+    boardId,
+    listId,
+    data,
+}: {
+    orgId: string;
+    boardId: string;
+    listId: string;
+    data: Partial<BoardList>;
+}) {
+    const adminFirestore = await getAdminFirestore();
+    const listRef = adminFirestore.doc(
+        `organizations/${orgId}/boards/${boardId}/lists/${listId}`
+    );
+
+    try {
+        await listRef.update({
+            ...data,
+            updatedAt: FieldValue.serverTimestamp(),
+        });
+        revalidatePath(`/board/${boardId}`); // Revalidate the board page after update
+        return { success: true };
+    } catch (error) {
+        sentry.captureException(error);
+        console.error('Error updating list:', error);
+        return {
+            success: false,
+            error: new Error('Failed to update list', { cause: error }),
         };
     }
 }

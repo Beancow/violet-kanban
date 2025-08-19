@@ -1,5 +1,5 @@
+import { User } from '@/types/appState.type';
 import { getAdminAuth } from './firebase/firebase-admin-init';
-import { NextRequest } from 'next/server';
 
 /**
  * Extracts the UID from the Authorization header.
@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server';
  * @param request The NextRequest object.
  * @returns The user's UID.
  */
-export async function getUidFromAuthHeader(request: NextRequest): Promise<string> {
+export async function getUserFromAuthHeader(request: Request): Promise<User> {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         throw new Error('Authorization header missing or malformed');
@@ -16,7 +16,13 @@ export async function getUidFromAuthHeader(request: NextRequest): Promise<string
     try {
         const adminAuth = await getAdminAuth();
         const decodedToken = await adminAuth.verifyIdToken(idToken);
-        return decodedToken.uid;
+        const user: User = {
+            id: decodedToken.uid,
+            email: decodedToken?.email ?? '',
+            name: decodedToken?.name ?? '',
+            displayName: decodedToken?.displayName ?? '',
+        };
+        return user;
     } catch (error) {
         console.error('Error verifying ID token:', error);
         throw new Error('Invalid or expired authentication token');
@@ -29,13 +35,13 @@ export async function getUidFromAuthHeader(request: NextRequest): Promise<string
  * @param request The NextRequest object.
  * @returns An object containing the uid and orgId.
  */
-export async function getAuthAndOrgContext(request: NextRequest) {
-    const uid = await getUidFromAuthHeader(request);
+export async function getAuthAndOrgContext(request: Request) {
+    const user = await getUserFromAuthHeader(request);
     const orgId = request.headers.get('x-organization-id');
 
     if (!orgId) {
         throw new Error('X-Organization-Id header missing');
     }
 
-    return { uid, orgId };
+    return { user, orgId };
 }

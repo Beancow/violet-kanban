@@ -5,6 +5,9 @@ type BoardList = {
     description?: string;
     position: number;
     organizationId: string;
+    createdBy?: Creator;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 type Board = {
@@ -16,6 +19,7 @@ type Board = {
     updatedAt?: Date | string;
     lists: BoardList[];
     cards: BoardCard[];
+    createdBy?: Creator;
 };
 
 type BoardCard = {
@@ -29,8 +33,9 @@ type BoardCard = {
     completed?: boolean;
     isDeleted?: boolean;
     isArchived?: boolean;
-    createdAt?: Date | string;
-    updatedAt?: Date | string;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: Creator;
 };
 
 type User = {
@@ -39,8 +44,6 @@ type User = {
     name: string;
     email: string;
     photoURL?: string;
-    currentBoardId: string | null;
-    currentListId: string | null;
     createdAt?: Date;
     updatedAt?: Date;
 };

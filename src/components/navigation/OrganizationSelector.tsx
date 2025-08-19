@@ -1,15 +1,17 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button } from '@radix-ui/themes';
 import { CaretDownIcon } from '@radix-ui/react-icons';
 import CreateOrEditOrganizationModal from '@/components/modals/CreateOrEditOrganizationModal';
+import { useData } from '@/contexts/DataProvider';
 
 export default function OrganizationSelector() {
     const router = useRouter();
-    const { organizations, currentOrganization, setCurrentOrganization } =
+    const { organizations, currentOrganizationId, setCurrentOrganization } =
         useOrganizations();
+    const { queueCreateOrganization } = useData();
     const [modalOpen, setModalOpen] = useState(false);
 
     const handleSetCurrentOrg = (orgId: string) => {
@@ -19,19 +21,22 @@ export default function OrganizationSelector() {
     };
 
     const handleCreateOrganization = (orgData: any) => {
-        console.log(orgData);
+        queueCreateOrganization(orgData);
+        setModalOpen(false);
+        router.push('/boards');
     };
 
-    if (!currentOrganization) {
-        return null;
-    }
+    const currentOrganization = useMemo(
+        () => organizations.find((org) => org.id === currentOrganizationId),
+        [organizations, currentOrganizationId]
+    );
 
     return (
         <>
             <DropdownMenu.Root>
                 <DropdownMenu.Trigger>
                     <Button variant='soft'>
-                        {currentOrganization.name}
+                        {currentOrganization?.name ?? 'Select Organization'}
                         <CaretDownIcon />
                     </Button>
                 </DropdownMenu.Trigger>
@@ -40,7 +45,7 @@ export default function OrganizationSelector() {
                         <DropdownMenu.Item
                             key={org.id}
                             onSelect={() => handleSetCurrentOrg(org.id)}
-                            disabled={org.id === currentOrganization.id}
+                            disabled={org.id === currentOrganization?.id}
                         >
                             {org.name}
                         </DropdownMenu.Item>

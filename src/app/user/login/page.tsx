@@ -29,7 +29,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (!loading && authUser) {
-            router.push('/user/post-login');
+            router.push('/user');
         }
     }, [authUser, loading, router]);
 
@@ -38,7 +38,7 @@ export default function LoginPage() {
         setError(null);
         try {
             await signInWithEmailAndPassword(firebaseAuth, email, password);
-            router.push('/user/post-login');
+            router.push('/user');
         } catch (err) {
             setError((err as Error).message);
         }
@@ -49,14 +49,14 @@ export default function LoginPage() {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(firebaseAuth, provider);
-            router.push('/user/post-login');
+            router.push('/user');
         } catch (err) {
             setError((err as Error).message);
         }
     };
 
     if (loading || authUser) {
-        return <LoadingPage />;
+        return <LoadingPage dataType='user' />;
     }
 
     return (

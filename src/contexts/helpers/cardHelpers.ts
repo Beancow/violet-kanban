@@ -16,6 +16,8 @@ export function createCardHelper(
         completed: false,
         createdAt: new Date(timestamp).toISOString(),
         updatedAt: new Date(timestamp).toISOString(),
+        boardId: '',
+        organizationId: '',
     };
 }
 

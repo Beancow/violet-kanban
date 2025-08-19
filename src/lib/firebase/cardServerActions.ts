@@ -1,9 +1,9 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { BoardCard, CreateCardResult } from '@/types/appState.type';
+import { BoardCard, CreateCardResult, User } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
+import { FieldValue } from 'firebase-admin/firestore';
 
-// Dynamic import for firebase-admin-init
 const getAdminFirestore = async () => {
     const { getAdminFirestore } = await import('./firebase-admin-init');
     return getAdminFirestore();
@@ -11,25 +11,24 @@ const getAdminFirestore = async () => {
 
 export const createCardServerAction = async ({
     data,
-    uid,
+    user,
     orgId,
-    boardId,
     listId,
+    boardId,
     tempId,
 }: {
     data: Omit<BoardCard, 'id'>;
-    uid: string;
+    user: User;
     orgId: string;
-    boardId: string;
     listId: string;
+    boardId: string;
     tempId: string;
 }): Promise<CreateCardResult> => {
-    const newTimeStamp = new Date();
-
     try {
         const adminFirestore = await getAdminFirestore();
 
-        if (!orgId || !boardId || !listId || !uid) {
+        // Only require orgId, boardId, user.id, and tempId
+        if (!orgId || !boardId || !user?.id || !tempId) {
             const error = new Error('Missing required IDs for card creation.');
             return { success: false, error };
         }
@@ -42,10 +41,18 @@ export const createCardServerAction = async ({
         const newCard: BoardCard = {
             ...data,
             id: newCardRef.id,
-            ownerId: uid,
-            createdAt: newTimeStamp,
-            updatedAt: newTimeStamp,
+            listId,
+            boardId,
+            organizationId: orgId,
+            createdAt: FieldValue.serverTimestamp().toString(),
+            updatedAt: FieldValue.serverTimestamp().toString(),
+            createdBy: {
+                userId: user.id,
+                name: user.name,
+                email: user.email,
+            },
         };
+        console.log('new card created:', newCard);
 
         await newCardRef.set(newCard);
 
@@ -75,10 +82,10 @@ export const softDeleteCardServerAction = async (
         const cardDocRef = adminFirestore.doc(
             `organizations/${orgId}/boards/${boardId}/cards/${cardId}`
         );
-        await adminFirestore.updateDoc(cardDocRef, {
+        await cardDocRef.update({
             isDeleted: true,
             listId: null,
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
         revalidatePath(`/board/${boardId}`);
         return { success: true };
@@ -98,9 +105,9 @@ export const restoreCardServerAction = async (
         const cardDocRef = adminFirestore.doc(
             `organizations/${orgId}/boards/${boardId}/cards/${cardId}`
         );
-        await adminFirestore.updateDoc(cardDocRef, {
+        await cardDocRef.update({
             isDeleted: false,
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
         revalidatePath(`/board/${boardId}`);
         return { success: true };
@@ -121,9 +128,9 @@ export const updateCardListIdServerAction = async (
         const cardDocRef = adminFirestore.doc(
             `organizations/${orgId}/boards/${boardId}/cards/${cardId}`
         );
-        await adminFirestore.updateDoc(cardDocRef, {
+        await cardDocRef.update({
             listId: newListId,
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
         revalidatePath(`/board/${boardId}`);
         return { success: true };
@@ -143,9 +150,9 @@ export async function getCardsServerAction({
     console.log(`Fetching cards for org: ${orgId}, board: ${boardId}`);
     try {
         const adminFirestore = await getAdminFirestore();
-        const cardsCollectionRef = adminFirestore.collection(
-            `organizations/${orgId}/boards/${boardId}/cards`
-        ).withConverter(adminDataConverter<BoardCard>());
+        const cardsCollectionRef = adminFirestore
+            .collection(`organizations/${orgId}/boards/${boardId}/cards`)
+            .withConverter(adminDataConverter<BoardCard>());
         const cardsSnapshot = await cardsCollectionRef.get();
         const cardsList: BoardCard[] = cardsSnapshot.docs.map((doc) => ({
             ...doc.data(),
@@ -164,20 +171,25 @@ export async function getCardsServerAction({
     }
 }
 
-export const updateCardServerAction = async (
-    orgId: string,
-    boardId: string,
-    cardId: string,
-    data: Partial<BoardCard>
-) => {
+export const updateCardServerAction = async ({
+    orgId,
+    boardId,
+    cardId,
+    data,
+}: {
+    orgId: string;
+    boardId: string;
+    cardId: string;
+    data: Partial<BoardCard>;
+}) => {
     try {
         const adminFirestore = await getAdminFirestore();
         const cardDocRef = adminFirestore.doc(
             `organizations/${orgId}/boards/${boardId}/cards/${cardId}`
         );
-        await adminFirestore.updateDoc(cardDocRef, {
+        await cardDocRef.update({
             ...data,
-            updatedAt: adminFirestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
         revalidatePath(`/board/${boardId}`);
         return { success: true };

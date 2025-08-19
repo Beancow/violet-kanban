@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { Board, CreateBoardResult } from '@/types/appState.type';
+import { Board, CreateBoardResult, User } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@sentry/nextjs';
 import { BoardSchema } from '@/schema/boardSchema';
@@ -13,16 +13,16 @@ const getAdminFirestore = async () => {
 
 export async function createBoardServerAction({
     data,
-    uid,
+    user,
     orgId,
     tempId,
 }: {
     data: Omit<Board, 'id'>;
-    uid: string;
+    user: User;
     orgId: string;
     tempId: string;
 }): Promise<CreateBoardResult> {
-    if (!orgId || !uid) {
+    if (!orgId || !user?.id) {
         const error = new Error(
             'Organization ID and User ID are required to create a board.'
         );
@@ -50,8 +50,17 @@ export async function createBoardServerAction({
 
         const newBoard: Board = {
             ...validBoard,
+            createdAt: FieldValue.serverTimestamp().toString(),
+            updatedAt: FieldValue.serverTimestamp().toString(),
             id: newBoardRef.id,
             organizationId: orgId,
+            createdBy: {
+                userId: user.id,
+                name: user.name,
+                email: user.email,
+            },
+            lists: [],
+            cards: [],
         };
 
         await newBoardRef.set(newBoard);

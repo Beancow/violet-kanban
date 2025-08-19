@@ -13,6 +13,13 @@ export const boardCardSchema = z.object({
     isArchived: z.boolean().optional(),
     createdAt: z.union([z.string(), z.date()]).optional(),
     updatedAt: z.union([z.string(), z.date()]).optional(),
+    createdBy: z
+        .object({
+            userId: z.string(),
+            name: z.string(),
+            email: z.string(),
+        })
+        .optional(),
 });
 
 export type BoardCardSchema = typeof boardCardSchema;

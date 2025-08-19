@@ -1,5 +1,13 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
+// Convert Action to WorkerMessage for the worker
+function actionToWorkerMessage(action: Action): any {
+    // Most actions can be sent as-is, but you may want to map/rename types if needed
+    // For now, just pass through, but you can customize if needed
+    return {
+        ...action,
+    };
+}
+/* eslint-disable react-hooks/exhaustive-deps */
 
 import React, {
     createContext,
@@ -8,8 +16,10 @@ import React, {
     useContext,
     useReducer,
     useEffect,
+    useRef,
 } from 'react';
 import useLocalStorage from '@/hooks/useLocalStorage';
+import { useWebWorker } from '@/hooks/useWebWorker';
 import { Action } from '@/types/sync.type';
 import { dataReducer } from './reducers';
 import {
@@ -31,7 +41,12 @@ import {
     deleteListHelper,
 } from './helpers/listHelpers';
 import { DataState } from '@/types/reducer.type';
-import { Board, BoardCard, BoardList } from '@/types/appState.type';
+import {
+    Board,
+    BoardCard,
+    BoardList,
+    Organization,
+} from '@/types/appState.type';
 import { useOrganizations } from './OrganizationsProvider';
 import { mockBoards, mockLists, mockCards } from '@/mock/mockData';
 
@@ -49,7 +64,7 @@ const initialState: DataState = {
 
 const useMockToggle = process.env.NEXT_PUBLIC_USE_LOCAL_DATA === 'true';
 
-interface DataContextType extends DataState {
+export interface DataContextType extends DataState {
     setIsEditing: (editing: boolean) => void;
     createBoard: (title: string, description: string) => void;
     updateBoard: (boardId: string, data: Partial<Board>) => void;
@@ -101,18 +116,23 @@ interface DataContextType extends DataState {
         data: Partial<BoardList>
     ) => void;
     queueDeleteCard: (boardId: string, cardId: string) => void;
+    queueCreateOrganization: (orgData: Omit<Organization, 'id'>) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-    // Persist actionQueue in localStorage
-    const [persistedQueue, setPersistedQueue] = useLocalStorage<Action[]>('actionQueue', []);
+    const [persistedQueue, setPersistedQueue] = useLocalStorage<Action[]>(
+        'actionQueue',
+        []
+    );
     const [state, dispatchAction] = useReducer(dataReducer, {
         ...initialState,
         actionQueue: persistedQueue,
     });
     const { currentOrganizationId } = useOrganizations();
+    const { isWorkerReady, postMessage, lastMessage } = useWebWorker();
+    const syncingRef = useRef(false);
 
     useEffect(() => {
         if (useMockToggle) {
@@ -127,7 +147,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Sync reducer's actionQueue to localStorage whenever it changes
+    useEffect(() => {
+        if (!useMockToggle && currentOrganizationId) {
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'fetch-org-data',
+                    payload: { organizationId: currentOrganizationId },
+                    timestamp: Date.now(),
+                },
+            });
+        }
+    }, [useMockToggle, currentOrganizationId, dispatchAction]);
+
+    // Sequential queue processing effect
+    useEffect(() => {
+        // Only process if worker is ready, not currently syncing, and there are actions
+        if (isWorkerReady && !state.isSyncing && state.actionQueue.length > 0) {
+            // Mark syncing
+            syncingRef.current = true;
+            dispatchAction({ type: 'START_SYNC' });
+            // Convert and send the first action in the queue to the worker
+            postMessage(actionToWorkerMessage(state.actionQueue[0]));
+        }
+    }, [isWorkerReady, state.isSyncing, state.actionQueue, postMessage]);
+
+    // Listen for worker completion and clear syncing state
+    useEffect(() => {
+        if (
+            lastMessage &&
+            (lastMessage.type === 'ACTION_SUCCESS' ||
+                lastMessage.type === 'ERROR')
+        ) {
+            syncingRef.current = false;
+            dispatchAction({
+                type: 'SET_LAST_MESSAGE',
+                payload: { lastMessage },
+            });
+        }
+        if (lastMessage && lastMessage.type === 'FULL_DATA_RECEIVED') {
+            dispatchAction({
+                type: 'SET_LAST_MESSAGE',
+                payload: { lastMessage },
+            });
+        }
+    }, [lastMessage]);
+
     useEffect(() => {
         setPersistedQueue(state.actionQueue);
     }, [state.actionQueue, setPersistedQueue]);
@@ -362,6 +427,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         [dispatchAction]
     );
 
+    const queueCreateOrganization = useCallback(
+        (orgData: any) => {
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'create-organization',
+                    payload: orgData,
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
+
     const contextValue: DataContextType = {
         ...state,
         setIsEditing,
@@ -384,6 +463,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         queueCreateList,
         queueUpdateList,
         queueDeleteCard,
+        queueCreateOrganization,
     };
 
     return (

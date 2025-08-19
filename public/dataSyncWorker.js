@@ -1,10 +1,41 @@
+async function handleCreateOrganization(action) {
+    const { payload, timestamp } = action;
+    // Remove idToken from payload before sending to backend
+    const { idToken, ...orgData } = payload;
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+    if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+    }
+    const response = await fetch('/api/orgs/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(orgData),
+    });
+
+    if (response.ok) {
+        const result = await response.json();
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp, ...result.data },
+        });
+    } else {
+        const error = await response.json();
+        self.postMessage({
+            type: 'ERROR',
+            payload: { timestamp },
+            error: { message: error?.error || 'Failed to create organization' },
+        });
+    }
+}
 async function handleFetchFullData(action) {
     const { orgId, idToken } = action.payload;
     const response = await fetch(`/api/orgs/${orgId}/sync`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
     });
@@ -26,7 +57,7 @@ async function handleCreateBoard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ data, tempId }),
@@ -34,9 +65,9 @@ async function handleCreateBoard(action) {
 
     if (response.ok) {
         const { data: responseData } = await response.json(); // { tempId, board }
-        self.postMessage({ 
-            type: 'ACTION_SUCCESS', 
-            payload: { ...responseData, timestamp: action.timestamp } 
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { ...responseData, timestamp: action.timestamp },
         });
     } else {
         self.postMessage({
@@ -54,7 +85,7 @@ async function handleCreateList(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ data, boardId, tempId }),
@@ -62,9 +93,9 @@ async function handleCreateList(action) {
 
     if (response.ok) {
         const { data: responseData } = await response.json(); // { tempId, list }
-        self.postMessage({ 
-            type: 'ACTION_SUCCESS', 
-            payload: { ...responseData, timestamp: action.timestamp } 
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { ...responseData, timestamp: action.timestamp },
         });
     } else {
         self.postMessage({
@@ -82,7 +113,7 @@ async function handleCreateCard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ data, boardId, listId, tempId }),
@@ -90,9 +121,9 @@ async function handleCreateCard(action) {
 
     if (response.ok) {
         const { data: responseData } = await response.json(); // { tempId, card }
-        self.postMessage({ 
-            type: 'ACTION_SUCCESS', 
-            payload: { ...responseData, timestamp: action.timestamp } 
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { ...responseData, timestamp: action.timestamp },
         });
     } else {
         self.postMessage({
@@ -109,14 +140,17 @@ async function handleUpdateCard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId, cardId, data }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -132,14 +166,17 @@ async function handleDeleteCard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId, cardId }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -155,14 +192,17 @@ async function handleSoftDeleteCard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId, cardId }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -178,14 +218,17 @@ async function handleRestoreCard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId, cardId }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -201,14 +244,17 @@ async function handleDeleteList(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId, listId }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -224,14 +270,17 @@ async function handleUpdateBoard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId, data }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -247,14 +296,17 @@ async function handleDeleteBoard(action) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
             'X-Organization-Id': orgId,
         },
         body: JSON.stringify({ boardId }),
     });
 
     if (response.ok) {
-        self.postMessage({ type: 'ACTION_SUCCESS', payload: { timestamp: action.timestamp } });
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: { timestamp: action.timestamp },
+        });
     } else {
         self.postMessage({
             type: 'ERROR',
@@ -296,14 +348,17 @@ self.onmessage = async function (e) {
                 await handleUpdateCard(action);
                 break;
             case 'delete-card':
-            await handleDeleteCard(action);
-            break;
-        case 'soft-delete-card':
-            await handleSoftDeleteCard(action);
-            break;
-        case 'restore-card':
-            await handleRestoreCard(action);
-            break;
+                await handleDeleteCard(action);
+                break;
+            case 'soft-delete-card':
+                await handleSoftDeleteCard(action);
+                break;
+            case 'restore-card':
+                await handleRestoreCard(action);
+                break;
+            case 'create-organization':
+                await handleCreateOrganization(action);
+                break;
             default:
                 self.postMessage({
                     type: 'ERROR',
@@ -316,7 +371,10 @@ self.onmessage = async function (e) {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
-            error: { message: error.message || 'An unknown error occurred in the worker' },
+            error: {
+                message:
+                    error.message || 'An unknown error occurred in the worker',
+            },
         });
     }
 };
