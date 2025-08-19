@@ -17,7 +17,11 @@
             "@/*": ["./src/*"],
             "@/components/*": ["./src/components/*"],
             "@/hooks/*": ["./src/hooks/*"],
-            "@/types/*": ["./src/types/*"]
+            "@/types/*": ["./src/types/*"],
+            "@/schemas/*": ["./src/schemas/*"],
+            "@/utils/*": ["./src/utils/*"],
+            "@/lib/*": ["./src/lib/*"],
+            "@/tests/*": ["./src/tests/*"]
         },
         "incremental": true,
         "plugins": [
@@ -44,7 +48,8 @@
         "src/**/*.ts",
         "src/**/*.tsx",
         ".next/types/**/*.ts",
-        "src/types/**/*.d.ts"
+        "src/types/**/*.d.ts",
+        "src/schema/organization.schema"
     ],
     "exclude": ["node_modules", "public/**/*", ".next"]
 }

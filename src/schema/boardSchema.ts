@@ -19,12 +19,8 @@ export const BoardCardSchema = z.object({
 });
 
 export const BoardSchema = z.object({
-    id: z.string(),
-    organizationId: z.string(),
-    title: z.string(),
-    description: z.string().optional(),
-    createdAt: z.union([z.string(), z.date()]).optional(),
-    updatedAt: z.union([z.string(), z.date()]).optional(),
-    lists: z.array(BoardListSchema),
-    cards: z.array(BoardCardSchema),
+    title: z.string().min(2, 'Board title must be at least 2 characters'),
+    description: z.string().min(5, 'Description must be at least 5 characters'),
 });
+
+export type BoardFormValues = z.infer<typeof BoardSchema>;

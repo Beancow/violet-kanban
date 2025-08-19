@@ -7,6 +7,7 @@ import {
     Text,
     Select,
     TextField,
+    Grid,
 } from '@radix-ui/themes';
 import {
     CreateOrganizationResult,
@@ -14,8 +15,8 @@ import {
     User,
 } from '@/types/appState.type';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { OrganizationSchema } from '@/schema/organizationSchema';
 
 type OrganizationFormValues = {
     name: string;
@@ -24,21 +25,6 @@ type OrganizationFormValues = {
     companyWebsite?: string;
     logoURL?: string;
 };
-
-const OrganizationSchema = z.object({
-    name: z.string().min(1, 'Organization name is required'),
-    orgType: z.enum(['personal', 'company', 'private']),
-    companyName: z
-        .string()
-        .min(2, 'Company name must be at least 2 characters long')
-        .optional()
-        .or(z.literal('')),
-    companyWebsite: z
-        .url('Company website must be a valid URL')
-        .optional()
-        .or(z.literal('')),
-    logoURL: z.url('Logo URL must be a valid URL').optional().or(z.literal('')),
-});
 
 export default function OrganizationForm({
     user,
@@ -74,7 +60,7 @@ export default function OrganizationForm({
     // For Radix Select, manually update orgType
     const orgType = watch('orgType');
 
-    console.log(errors);
+    console.log('Form errors:', errors);
 
     return (
         <Card size='4' style={{ width: 425, margin: '0 auto' }}>
@@ -97,97 +83,111 @@ export default function OrganizationForm({
             )}
 
             <form onSubmit={handleSubmit(onSubmit)}>
-                <Flex direction='column' gap='3'>
-                    <Text as='label' size='2' mb='1' weight='bold'>
-                        Organization Name
-                    </Text>
-                    <TextField.Root>
-                        <input
-                            {...register('name')}
-                            placeholder='Enter organization name'
-                            style={{ all: 'unset', width: '100%' }}
-                        />
-                    </TextField.Root>
-                    {errors.name && (
-                        <Text as='div' size='2' color='red'>
-                            {errors.name.message}
+                <Grid
+                    columns={{ xs: '1', sm: 'auto 1fr' }}
+                    gap='4'
+                    width='100%'
+                    mb='4'
+                >
+                    <Flex direction='column' gap='3'>
+                        <Text as='label' size='2' mb='1' weight='bold'>
+                            Organization Name
                         </Text>
-                    )}
-
-                    <Text as='label' size='2' mb='1' weight='bold'>
-                        Organization Type
-                    </Text>
-                    <Select.Root
-                        value={orgType}
-                        onValueChange={(value) =>
-                            setValue(
-                                'orgType',
-                                value as OrganizationFormValues['orgType']
-                            )
-                        }
-                    >
-                        <Select.Trigger />
-                        <Select.Content>
-                            <Select.Item value='personal'>Personal</Select.Item>
-                            <Select.Item value='company'>Company</Select.Item>
-                            <Select.Item value='private'>Private</Select.Item>
-                        </Select.Content>
-                    </Select.Root>
-                    {errors.orgType && (
-                        <Text as='div' size='2' color='red'>
-                            {errors.orgType.message}
-                        </Text>
-                    )}
-
-                    <Text as='label' size='2' mb='1' weight='bold'>
-                        Company Name
-                    </Text>
-                    <TextField.Root>
-                        <TextField.Slot>
+                        <TextField.Root>
                             <input
-                                {...register('companyName')}
+                                {...register('name')}
+                                placeholder='Enter organization name'
                                 style={{ all: 'unset', width: '100%' }}
                             />
-                        </TextField.Slot>
-                    </TextField.Root>
-                    {errors.companyName && (
-                        <Text as='div' size='2' color='red'>
-                            {errors.companyName.message}
-                        </Text>
-                    )}
+                        </TextField.Root>
+                        {errors.name && (
+                            <Text as='div' size='2' color='red'>
+                                {errors.name.message}
+                            </Text>
+                        )}
 
-                    <Text as='label' size='2' mb='1' weight='bold'>
-                        Company Website
-                    </Text>
-                    <TextField.Root>
-                        <input
-                            {...register('companyWebsite')}
-                            placeholder='Enter company website'
-                            style={{ all: 'unset', width: '100%' }}
-                        />
-                    </TextField.Root>
-                    {errors.companyWebsite && (
-                        <Text as='div' size='2' color='red'>
-                            {errors.companyWebsite.message}
+                        <Text as='label' size='2' mb='1' weight='bold'>
+                            Company Name
                         </Text>
-                    )}
+                        <TextField.Root>
+                            <TextField.Slot>
+                                <input
+                                    {...register('companyName')}
+                                    style={{ all: 'unset', width: '100%' }}
+                                />
+                            </TextField.Slot>
+                        </TextField.Root>
+                        {errors.companyName && (
+                            <Text as='div' size='2' color='red'>
+                                {errors.companyName.message}
+                            </Text>
+                        )}
 
-                    <Text as='label' size='2' mb='1' weight='bold'>
-                        Logo URL
-                    </Text>
-                    <TextField.Root>
-                        <input
-                            {...register('logoURL')}
-                            placeholder='Enter logo URL'
-                            style={{ all: 'unset', width: '100%' }}
-                        />
-                    </TextField.Root>
-                    {errors.logoURL && (
-                        <Text as='div' size='2' color='red'>
-                            {errors.logoURL.message}
+                        <Text as='label' size='2' mb='1' weight='bold'>
+                            Company Website
                         </Text>
-                    )}
-                </Flex>
+                        <TextField.Root>
+                            <input
+                                {...register('companyWebsite')}
+                                placeholder='Enter company website'
+                                style={{ all: 'unset', width: '100%' }}
+                            />
+                        </TextField.Root>
+                        {errors.companyWebsite && (
+                            <Text as='div' size='2' color='red'>
+                                {errors.companyWebsite.message}
+                            </Text>
+                        )}
+                    </Flex>
+                    <Flex direction='column' gap='3'>
+                        <Text as='label' size='2' mb='1' weight='bold'>
+                            Organization Type
+                        </Text>
+                        <Select.Root
+                            value={orgType}
+                            onValueChange={(value) =>
+                                setValue(
+                                    'orgType',
+                                    value as OrganizationFormValues['orgType']
+                                )
+                            }
+                        >
+                            <Select.Trigger />
+                            <Select.Content>
+                                <Select.Item value='personal'>
+                                    Personal
+                                </Select.Item>
+                                <Select.Item value='company'>
+                                    Company
+                                </Select.Item>
+                                <Select.Item value='private'>
+                                    Private
+                                </Select.Item>
+                            </Select.Content>
+                        </Select.Root>
+                        {errors.orgType && (
+                            <Text as='div' size='2' color='red'>
+                                {errors.orgType.message}
+                            </Text>
+                        )}
+
+                        <Text as='label' size='2' mb='1' weight='bold'>
+                            Logo URL
+                        </Text>
+                        <TextField.Root>
+                            <input
+                                {...register('logoURL')}
+                                placeholder='Enter logo URL'
+                                style={{ all: 'unset', width: '100%' }}
+                            />
+                        </TextField.Root>
+                        {errors.logoURL && (
+                            <Text as='div' size='2' color='red'>
+                                {errors.logoURL.message}
+                            </Text>
+                        )}
+                    </Flex>
+                </Grid>
 
                 <Flex gap='3' mt='6' justify='end'>
                     {organization && onDelete && (

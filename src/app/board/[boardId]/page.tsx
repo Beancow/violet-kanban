@@ -26,9 +26,9 @@ export default function BoardPage() {
 
     return (
         <div className={styles.boardPage}>
-            <div className={styles.boardPage__container}>
-                <h1 className={styles.boardPage__title}>{board.title}</h1>
-                <div className={styles.boardPage__lists}>
+            <div className={styles.boardPage_container}>
+                <h1 className={styles.boardPage_title}>{board.title}</h1>
+                <div className={styles.boardPage_lists}>
                     {boardLists.map((list) => {
                         const cardsInList = cards.filter(
                             (card) => card.listId === list.id

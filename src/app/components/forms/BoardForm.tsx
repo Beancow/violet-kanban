@@ -1,75 +1,83 @@
 'use client';
-import { Flex, Card, Heading, Text, Button } from '@radix-ui/themes';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+    Flex,
+    Card,
+    Heading,
+    Text,
+    Button,
+    TextField,
+    TextArea,
+    IconButton,
+} from '@radix-ui/themes';
 import { Board, User } from '@/types/appState.type';
-import * as Form from '@radix-ui/react-form';
+import { BoardSchema, BoardFormValues } from '@/schema/boardSchema';
+import { useUser } from '@/contexts/UserProvider';
+import { Pencil2Icon } from '@radix-ui/react-icons';
 
-export function BoardForm({ 
-    user,
+export function BoardForm({
     onSubmit,
     board,
-}: { 
-    user: User | null;
-    onSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
-    board?: Board; 
+}: {
+    onSubmit: (data: BoardFormValues) => void;
+    board?: Board;
 }) {
+    const { user } = useUser();
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<BoardFormValues>({
+        resolver: zodResolver(BoardSchema),
+        defaultValues: {
+            title: board?.title ?? '',
+            description: board?.description ?? '',
+        },
+    });
+
     return (
-        <Card size='4' style={{ width: 425, margin: '0 auto' }}>
-            <Heading as='h1' size='6' align='center' mb='5'>
-                {board ? 'Update' : 'Create'} Board
-            </Heading>
-
-            {user && (
-                <Flex direction='column' gap='1' mb='4'>
-                    <Text as='div' size='2' weight='bold'>
-                        Current User
+        <form onSubmit={handleSubmit(onSubmit)}>
+            <Flex direction='column' gap='3'>
+                <div>
+                    <Text as='div' size='2' mb='1' weight='bold'>
+                        Board Title
                     </Text>
-                    <Text as='div' size='2' color='gray'>
-                        Email: {user.email}
+                    <TextField.Root
+                        {...register('title')}
+                        placeholder='Enter board title'
+                    />
+                    {errors.title && (
+                        <Text as='div' size='1' color='red'>
+                            {errors.title.message}
+                        </Text>
+                    )}
+                </div>
+                <div>
+                    <Text as='div' size='2' mb='1' weight='bold'>
+                        Description
                     </Text>
-                    <Text as='div' size='2' color='gray'>
-                        UID: {user.id}
-                    </Text>
+                    <TextArea
+                        {...register('description')}
+                        placeholder='Enter board description'
+                    />
+                    {errors.description && (
+                        <Text as='div' size='1' color='red'>
+                            {errors.description.message}
+                        </Text>
+                    )}
+                </div>
+                <Flex justify='end' m='0'>
+                    <Button
+                        color='green'
+                        type='submit'
+                        style={{ width: 'auto' }}
+                    >
+                        <Pencil2Icon />
+                        {board?.id ? 'Update' : 'Create'} Board
+                    </Button>
                 </Flex>
-            )}
-
-            <Form.Root onSubmit={onSubmit}>
-                <Flex direction='column' gap='3'>
-                    <Form.Field name='title'>
-                        <Form.Label asChild>
-                            <Text as='div' size='2' mb='1' weight='bold'>
-                                Board Title
-                            </Text>
-                        </Form.Label>
-                        <Form.Control asChild>
-                            <input
-                                name='title'
-                                placeholder='Enter board title'
-                                defaultValue={board?.title}
-                                required
-                            />
-                        </Form.Control>
-                    </Form.Field>
-                    <Form.Field name='description'>
-                        <Form.Label asChild>
-                            <Text as='div' size='2' mb='1' weight='bold'>
-                                Description
-                            </Text>
-                        </Form.Label>
-                        <Form.Control asChild>
-                            <textarea
-                                name='description'
-                                placeholder='Enter board description'
-                                defaultValue={board?.description}
-                                required
-                                rows={3}
-                            />
-                        </Form.Control>
-                    </Form.Field>
-                </Flex>
-                <Button color='green'>
-                    {board ? 'Update' : 'Create'} Board
-                </Button>
-            </Form.Root>
-        </Card>
+            </Flex>
+        </form>
     );
 }

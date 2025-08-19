@@ -19,8 +19,6 @@ export default function OrganizationSelector() {
     };
 
     const handleCreateOrganization = (orgData: any) => {
-        // Add your organization creation logic here
-        // For example: createOrganization(orgData);
         console.log(orgData);
     };
 

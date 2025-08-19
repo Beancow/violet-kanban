@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+'use client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Flex, Text, Select, TextField, Button } from '@radix-ui/themes';
+import { z } from 'zod';
 import type { Organization } from '@/types/appState.type';
+import { OrganizationSchema } from '@/schema/organizationSchema';
 
 const ORG_TYPES = [
     { value: 'company', label: 'Company' },
@@ -8,10 +12,12 @@ const ORG_TYPES = [
     { value: 'private', label: 'Private' },
 ];
 
+type OrganizationFormValues = z.infer<typeof OrganizationSchema>;
+
 interface OrganizationFormProps {
     organization?: Organization;
     isEdit?: boolean;
-    onSubmit: (orgData: any) => void;
+    onSubmit: (orgData: OrganizationFormValues) => void;
 }
 
 export default function OrganizationForm({
@@ -19,76 +25,69 @@ export default function OrganizationForm({
     isEdit = false,
     onSubmit,
 }: OrganizationFormProps) {
-    const [name, setName] = useState(organization?.name ?? '');
-    const [companyName, setCompanyName] = useState(
-        organization?.companyName ?? ''
-    );
-    const [companyWebsite, setCompanyWebsite] = useState(
-        organization?.companyWebsite ?? ''
-    );
-    const [orgType, setOrgType] = useState(organization?.orgType ?? 'company');
-    const [logoURL, setLogoURL] = useState(organization?.logoURL ?? '');
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        setValue,
+        watch,
+    } = useForm<OrganizationFormValues>({
+        resolver: zodResolver(OrganizationSchema),
+        defaultValues: {
+            name: organization?.name ?? '',
+            orgType: organization?.orgType ?? 'company',
+            companyName: organization?.companyName ?? '',
+            companyWebsite: organization?.companyWebsite ?? '',
+            logoURL: organization?.logoURL ?? '',
+        },
+    });
 
-    useEffect(() => {
-        if (organization) {
-            setName(organization.name ?? '');
-            setCompanyName(organization.companyName ?? '');
-            setCompanyWebsite(organization.companyWebsite ?? '');
-            setOrgType(organization.orgType ?? 'company');
-            setLogoURL(organization.logoURL ?? '');
-        }
-    }, [organization]);
-
-    const handleChangeOrgType = (value: string) => {
-        setOrgType(value as 'company' | 'personal' | 'private');
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSubmit({
-            ...organization,
-            name,
-            companyName,
-            companyWebsite,
-            orgType,
-            logoURL,
-        });
-    };
+    const orgType = watch('orgType');
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
             <Flex direction='column' gap='3'>
                 <Text as='label' size='2' mb='1'>
                     Organization Name
                 </Text>
                 <TextField.Root
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
+                    {...register('name')}
                     placeholder='Organization Name'
                 />
+                {errors.name && <Text color='red'>{errors.name.message}</Text>}
                 <Text as='label' size='2' mb='1'>
                     Company Name
                 </Text>
                 <TextField.Root
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
+                    {...register('companyName')}
                     placeholder='Company Name'
                 />
+                {errors.companyName && (
+                    <Text color='red'>{errors.companyName.message}</Text>
+                )}
+
                 <Text as='label' size='2' mb='1'>
                     Company Website
                 </Text>
                 <TextField.Root
-                    value={companyWebsite}
-                    onChange={(e) => setCompanyWebsite(e.target.value)}
+                    {...register('companyWebsite')}
                     placeholder='Company Website'
                 />
+                {errors.companyWebsite && (
+                    <Text color='red'>{errors.companyWebsite.message}</Text>
+                )}
+
                 <Text as='label' size='2' mb='1'>
                     Organization Type
                 </Text>
                 <Select.Root
                     value={orgType}
-                    onValueChange={handleChangeOrgType}
+                    onValueChange={(value) =>
+                        setValue(
+                            'orgType',
+                            value as OrganizationFormValues['orgType']
+                        )
+                    }
                 >
                     <Select.Trigger />
                     <Select.Content>
@@ -99,14 +98,21 @@ export default function OrganizationForm({
                         ))}
                     </Select.Content>
                 </Select.Root>
+                {errors.orgType && (
+                    <Text color='red'>{errors.orgType.message}</Text>
+                )}
+
                 <Text as='label' size='2' mb='1'>
                     Logo URL
                 </Text>
                 <TextField.Root
-                    value={logoURL}
-                    onChange={(e) => setLogoURL(e.target.value)}
+                    {...register('logoURL')}
                     placeholder='Logo URL'
                 />
+                {errors.logoURL && (
+                    <Text color='red'>{errors.logoURL.message}</Text>
+                )}
+
                 <Button type='submit' variant='solid' color='green'>
                     {isEdit ? 'Save Changes' : 'Create'}
                 </Button>
