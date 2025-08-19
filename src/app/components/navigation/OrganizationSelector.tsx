@@ -4,7 +4,7 @@ import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button } from '@radix-ui/themes';
 import { CaretDownIcon } from '@radix-ui/react-icons';
-import CreateOrganizationModal from '@/app/components/modals/CreateOrganizationModal';
+import CreateOrEditOrganizationModal from '@/app/components/modals/CreateOrEditOrganizationModal';
 
 export default function OrganizationSelector() {
     const router = useRouter();
@@ -21,6 +21,7 @@ export default function OrganizationSelector() {
     const handleCreateOrganization = (orgData: any) => {
         // Add your organization creation logic here
         // For example: createOrganization(orgData);
+        console.log(orgData);
     };
 
     if (!currentOrganization) {
@@ -52,7 +53,7 @@ export default function OrganizationSelector() {
                     </DropdownMenu.Item>
                 </DropdownMenu.Content>
             </DropdownMenu.Root>
-            <CreateOrganizationModal
+            <CreateOrEditOrganizationModal
                 open={modalOpen}
                 onOpenChange={setModalOpen}
                 onCreate={handleCreateOrganization}
