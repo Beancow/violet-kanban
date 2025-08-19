@@ -17,24 +17,26 @@ export default function Breadcrumbs() {
         let label = segment; // Default to the segment itself
 
         if (prevSegment === 'board') {
-            const board = boards.find(b => b.id === segment);
-            label = board ? board.name : segment; // Use board name or fall back to ID
+            const board = boards.find((b) => b.id === segment);
+            label = board ? board.title : segment;
         } else if (segment === 'board') {
             label = 'Boards';
             path = '/boards';
         } else {
             label = segment.charAt(0).toUpperCase() + segment.slice(1);
         }
-        
+
         return { label, path, originalSegment: segment };
     });
 
     return (
         <Flex align='center' gap='2'>
             <Link href='/'>
-                <Text size='2' color='gray'>Home</Text>
+                <Text size='2' color='gray'>
+                    Home
+                </Text>
             </Link>
-            
+
             {breadcrumbs.map((crumb, index) => {
                 // This logic now correctly skips the "board" part of the path,
                 // as it has been replaced by the "Boards" link.
@@ -58,7 +60,11 @@ export default function Breadcrumbs() {
                         <Link href={crumb.path}>
                             <Text
                                 size='2'
-                                color={index === breadcrumbs.length - 1 ? 'blue' : 'gray'}
+                                color={
+                                    index === breadcrumbs.length - 1
+                                        ? 'blue'
+                                        : 'gray'
+                                }
                             >
                                 {crumb.label}
                             </Text>

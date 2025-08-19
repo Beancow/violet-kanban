@@ -2,7 +2,7 @@
 import { useParams } from 'next/navigation';
 import { useData } from '@/contexts/DataProvider';
 import { BoardListComponent } from '@/components/BoardList';
-import LooseCardsPanel from '@/app/components/LooseCardsPanel';
+import LooseCardsPanel from '@/components/LooseCardsPanel';
 import styles from './BoardPage.module.css';
 
 export default function BoardPage() {

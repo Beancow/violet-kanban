@@ -1,16 +1,19 @@
 'use client';
-import { Box, Card, Text, Flex, IconButton, Button } from '@radix-ui/themes';
+import { Box, Card, Flex, Button } from '@radix-ui/themes';
 import { BoardCard } from '@/types/appState.type';
-import { Cross1Icon, TrashIcon } from '@radix-ui/react-icons';
+import { TrashIcon } from '@radix-ui/react-icons';
+import { CardForm } from '../forms/CardForm';
+import { safeParse } from 'zod';
+import { boardCardSchema } from '@/schema/boardCardSchema';
 
 export function CardDetails({
     card,
+    onDelete,
     onClose,
-    onDelete
 }: {
-    card: BoardCard | null,
-    onClose: () => void,
-    onDelete: (cardId: string) => void
+    card: BoardCard | null;
+    onDelete: (cardId: string) => void;
+    onClose: () => void;
 }) {
     if (!card) return null;
 
@@ -30,15 +33,13 @@ export function CardDetails({
             }}
         >
             <Card style={{ minWidth: '300px', maxWidth: '500px' }}>
-                <Flex direction='row' justify='between' align='center' mb='3'>
-                    <Text size='4' weight='bold'>
-                        {card.title}
-                    </Text>
-                    <IconButton onClick={onClose} size='1' variant='soft'>
-                        <Cross1Icon />
-                    </IconButton>
-                </Flex>
-                <Text>{card.description}</Text>
+                <CardForm
+                    card={card}
+                    onSubmit={(data) => {
+                        console.log(safeParse(boardCardSchema, data));
+                    }}
+                    onClose={onClose}
+                />
                 <Flex justify='end' mt='4'>
                     <Button color='red' onClick={() => onDelete(card.id)}>
                         <TrashIcon />

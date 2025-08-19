@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog } from '@radix-ui/themes';
-import { BoardForm } from '@/app/components/forms/BoardForm';
+import { BoardForm } from '../forms/BoardForm';
 import { Board } from '@/types/appState.type';
 
 interface CreateBoardModalProps {

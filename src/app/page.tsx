@@ -1,4 +1,4 @@
-import OrganizationGate from './components/guards/OrganizationGate';
+import OrganizationGate from '@/components/guards/OrganizationGate';
 import { Button, Flex, Container } from '@radix-ui/themes';
 import Link from 'next/link';
 import styles from './page.module.css';

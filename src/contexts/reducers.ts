@@ -127,8 +127,7 @@ export function rootReducer(
 
             switch (lastMessage.type) {
                 case 'ACTION_SUCCESS': {
-                    const { timestamp, tempId, board, list } =
-                        lastMessage.payload;
+                    const { timestamp, tempId, board, list, card } = lastMessage.payload;
 
                     if (tempId && board) {
                         const newMap = {
@@ -139,12 +138,8 @@ export function rootReducer(
                         newState.boards = state.boards.map((b) =>
                             b.id === tempId ? board : b
                         );
-                        // Remap any subsequent actions in the queue
                         newState.actionQueue = state.actionQueue.map((act) => {
-                            if (
-                                (act.payload as { boardId: string }).boardId ===
-                                tempId
-                            ) {
+                            if ((act.payload as { boardId: string }).boardId === tempId) {
                                 return {
                                     ...act,
                                     payload: {
@@ -164,12 +159,8 @@ export function rootReducer(
                         newState.lists = state.lists.map((l) =>
                             l.id === tempId ? list : l
                         );
-                        // Remap any subsequent actions in the queue
                         newState.actionQueue = state.actionQueue.map((act) => {
-                            if (
-                                (act.payload as { listId: string }).listId ===
-                                tempId
-                            ) {
+                            if ((act.payload as { listId: string }).listId === tempId) {
                                 return {
                                     ...act,
                                     payload: {
@@ -180,8 +171,28 @@ export function rootReducer(
                             }
                             return act;
                         });
+                    } else if (tempId && card) {
+                        const newMap = {
+                            ...state.tempIdMap,
+                            [tempId]: card.id,
+                        };
+                        newState.tempIdMap = newMap;
+                        newState.cards = state.cards.map((c) =>
+                            c.id === tempId ? card : c
+                        );
+                        newState.actionQueue = state.actionQueue.map((act) => {
+                            if ((act.payload as { cardId: string }).cardId === tempId) {
+                                return {
+                                    ...act,
+                                    payload: {
+                                        ...(act.payload as ActionPayload),
+                                        cardId: card.id,
+                                    },
+                                };
+                            }
+                            return act;
+                        });
                     }
-                    // Add similar logic for cards if they also need to be reconciled
 
                     newState.actionQueue = newState.actionQueue.filter(
                         (a) => a.timestamp !== timestamp

@@ -9,6 +9,8 @@ import React, {
     useReducer,
     useEffect,
 } from 'react';
+import useLocalStorage from '@/hooks/useLocalStorage';
+import { Action } from '@/types/sync.type';
 import { dataReducer } from './reducers';
 import {
     createBoardHelper,
@@ -52,6 +54,8 @@ interface DataContextType extends DataState {
     createBoard: (title: string, description: string) => void;
     updateBoard: (boardId: string, data: Partial<Board>) => void;
     deleteBoard: (boardId: string) => void;
+    queueCreateBoard: (data: Partial<Board>) => void;
+    queueUpdateBoard: (boardId: string, data: Partial<Board>) => void;
     createCard: (
         listId: string,
         boardId: string,
@@ -72,6 +76,12 @@ interface DataContextType extends DataState {
         listId: string,
         cardOrder: string[]
     ) => void;
+    queueCreateCard: (boardId: string, data: Partial<BoardCard>) => void;
+    queueUpdateCard: (
+        boardId: string,
+        cardId: string,
+        data: Partial<BoardCard>
+    ) => void;
     createList: (
         boardId: string,
         title: string,
@@ -84,13 +94,25 @@ interface DataContextType extends DataState {
         data: Partial<BoardList>
     ) => void;
     deleteList: (boardId: string, listId: string) => void;
+    queueCreateList: (boardId: string, data: Partial<BoardList>) => void;
+    queueUpdateList: (
+        boardId: string,
+        listId: string,
+        data: Partial<BoardList>
+    ) => void;
+    queueDeleteCard: (boardId: string, cardId: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-    const [state, dispatchAction] = useReducer(dataReducer, initialState);
-    const { currentOrganizationId } = useOrganizations(); // <-- Use the hook!
+    // Persist actionQueue in localStorage
+    const [persistedQueue, setPersistedQueue] = useLocalStorage<Action[]>('actionQueue', []);
+    const [state, dispatchAction] = useReducer(dataReducer, {
+        ...initialState,
+        actionQueue: persistedQueue,
+    });
+    const { currentOrganizationId } = useOrganizations();
 
     useEffect(() => {
         if (useMockToggle) {
@@ -105,7 +127,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // Sync reducer's actionQueue to localStorage whenever it changes
+    useEffect(() => {
+        setPersistedQueue(state.actionQueue);
+    }, [state.actionQueue, setPersistedQueue]);
+
     // Board actions
+    // Queued Board actions
+    const queueCreateBoard = useCallback(
+        (data: Partial<Board>) => {
+            const tempId = data.id || Math.random().toString(36).slice(2);
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'create-board',
+                    payload: { data: { ...data, id: tempId }, tempId },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
+
+    const queueUpdateBoard = useCallback(
+        (boardId: string, data: Partial<Board>) => {
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'update-board',
+                    payload: { boardId, data },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
     const createBoard = useCallback(
         (title: string, description: string) => {
             const organizationId = currentOrganizationId || '';
@@ -136,7 +192,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
         [dispatchAction]
     );
 
-    // Card actions
+    // Queued Card actions
+    const queueCreateCard = useCallback(
+        (boardId: string, data: Partial<BoardCard>) => {
+            const tempId = data.id || Math.random().toString(36).slice(2);
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'create-card',
+                    payload: { boardId, data: { ...data, id: tempId }, tempId },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
+
+    const queueUpdateCard = useCallback(
+        (boardId: string, cardId: string, data: Partial<BoardCard>) => {
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'update-card',
+                    payload: { boardId, cardId, data },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
     const createCard = useCallback(
         (
             listId: string,
@@ -194,7 +278,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
         [dispatchAction]
     );
 
-    // List actions
+    // Queued List actions
+    const queueCreateList = useCallback(
+        (boardId: string, data: Partial<BoardList>) => {
+            const tempId = data.id || Math.random().toString(36).slice(2);
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'create-list',
+                    payload: { boardId, data: { ...data, id: tempId }, tempId },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
+
+    const queueUpdateList = useCallback(
+        (boardId: string, listId: string, data: Partial<BoardList>) => {
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'update-list',
+                    payload: { boardId, listId, data },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
     const createList = useCallback(
         (
             boardId: string,
@@ -236,21 +348,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
         [dispatchAction]
     );
 
+    const queueDeleteCard = useCallback(
+        (boardId: string, cardId: string) => {
+            dispatchAction({
+                type: 'ADD_ACTION',
+                payload: {
+                    type: 'delete-card',
+                    payload: { boardId, cardId },
+                    timestamp: Date.now(),
+                },
+            });
+        },
+        [dispatchAction]
+    );
+
     const contextValue: DataContextType = {
         ...state,
         setIsEditing,
         createBoard,
         updateBoard,
         deleteBoard,
+        queueCreateBoard,
+        queueUpdateBoard,
         createCard,
         updateCard,
         deleteCard,
         softDeleteCard,
         restoreCard,
         updateCardOrder,
+        queueCreateCard,
+        queueUpdateCard,
         createList,
         updateList,
         deleteList,
+        queueCreateList,
+        queueUpdateList,
+        queueDeleteCard,
     };
 
     return (
@@ -267,13 +400,3 @@ export const useData = () => {
     }
     return context;
 };
-
-// In DataProvider or a custom hook
-function useBoardData(boardId: string) {
-    const { boards, lists, cards } = useData();
-    const board = boards.find((b) => b.id === boardId);
-    const boardLists = lists.filter((list) => list.boardId === boardId);
-    const getCardsForList = (listId: string) =>
-        cards.filter((card) => card.listId === listId);
-    return { board, boardLists, getCardsForList };
-}

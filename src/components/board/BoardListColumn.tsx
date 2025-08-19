@@ -15,7 +15,7 @@ import {
     Pencil1Icon,
     GearIcon,
 } from '@radix-ui/react-icons';
-import BoardCardItem from './BoardCardItem';
+import { BoardCardItem } from './BoardCardItem';
 import {
     DndContext,
     closestCenter,
@@ -30,7 +30,7 @@ import {
     verticalListSortingStrategy,
     arrayMove,
 } from '@dnd-kit/sortable';
-import { CardForm } from '@/app/components/forms/CardForm';
+import { CardForm } from '../forms/CardForm';
 import { useState } from 'react';
 import { BoardCard, BoardList, User } from '@/types/appState.type';
 
@@ -155,8 +155,8 @@ export default function BoardListColumn({
                         <Dialog.Content style={{ maxWidth: 450 }}>
                             <Dialog.Title>Create New Card</Dialog.Title>
                             <CardForm
-                                user={user}
                                 onSubmit={(e) => onCreateCard(e, list.id)}
+                                onClose={() => {}}
                             />
                         </Dialog.Content>
                     </Dialog.Root>
@@ -212,7 +212,8 @@ export default function BoardListColumn({
                             <BoardCardItem
                                 key={card.id}
                                 card={card}
-                                onSelectCard={onSelectCard}
+                                boardId={list.boardId}
+                                handleEditCard={onSelectCard}
                             />
                         ))}
                     </Flex>

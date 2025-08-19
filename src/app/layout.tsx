@@ -4,9 +4,9 @@ import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
 import AppProviders from '@/contexts/AppProviders';
-import { FloatingSyncButton } from '@/app/components/FloatingSyncButton';
+import { FloatingSyncButton } from '@/components/FloatingSyncButton';
 import { SyncManager } from '@/components/SyncManager';
-import Header from '@/app/components/navigation/Header';
+import Header from '@/components/navigation/Header';
 
 const inter = Inter({ subsets: ['latin'] });
 

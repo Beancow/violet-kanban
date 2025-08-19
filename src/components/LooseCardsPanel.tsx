@@ -1,13 +1,12 @@
 'use client';
 import { useData } from '@/contexts/DataProvider';
-import { LooseCardsMenu } from '@/app/components/menus/LooseCardsMenu';
+import { LooseCardsMenu } from '@/components/menus/LooseCardsMenu';
 import { BoardCard } from '@/types/appState.type';
 import { useParams } from 'next/navigation';
 
 export default function LooseCardsPanel({ cards }: { cards: BoardCard[] }) {
     const { boardId } = useParams();
     const { restoreCard } = useData();
-    const onSelectCard = () => {};
 
     if (typeof boardId !== 'string') {
         throw new Error('boardId must be a string', {
@@ -21,12 +20,11 @@ export default function LooseCardsPanel({ cards }: { cards: BoardCard[] }) {
         }
     };
 
-    return (
-        <LooseCardsMenu
-            cards={cards}
-            onRestore={handleRestore}
-            onSelectCard={onSelectCard}
-            boardId={boardId}
-        />
-    );
+    const handleSelectCard = (card: BoardCard) => {
+        // Implement details modal or reducer action here
+        // For now, just log the card
+        console.log('Selected card for details:', card);
+    };
+
+    return <LooseCardsMenu cards={cards} boardId={boardId} />;
 }

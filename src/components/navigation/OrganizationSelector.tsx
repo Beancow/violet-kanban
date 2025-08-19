@@ -4,7 +4,7 @@ import { useOrganizations } from '@/contexts/OrganizationsProvider';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button } from '@radix-ui/themes';
 import { CaretDownIcon } from '@radix-ui/react-icons';
-import CreateOrEditOrganizationModal from '@/app/components/modals/CreateOrEditOrganizationModal';
+import CreateOrEditOrganizationModal from '@/components/modals/CreateOrEditOrganizationModal';
 
 export default function OrganizationSelector() {
     const router = useRouter();

@@ -1,6 +1,6 @@
 import { Dialog } from '@radix-ui/themes';
 import type { Organization } from '@/types/appState.type';
-import OrganizationForm from '@/app/components/forms/OrganizationForm';
+import OrganizationForm from '../forms/OrganizationForm';
 
 interface CreateOrganizationModalProps {
     open: boolean;

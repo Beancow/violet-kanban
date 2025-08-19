@@ -8,8 +8,8 @@ import { Box, Heading, Text, Button, Flex, IconButton } from '@radix-ui/themes';
 import { TrashIcon, PlusIcon } from '@radix-ui/react-icons';
 import Link from 'next/link';
 import LoadingPage from '@/components/LoadingPage';
-import OrganizationGate from '@/app/components/guards/OrganizationGate';
-import CreateBoardModal from '@/app/components/modals/CreateBoardModal';
+import OrganizationGate from '@/components/guards/OrganizationGate';
+import CreateBoardModal from '@/components/modals/CreateBoardModal';
 
 export default function UserBoardsPage() {
     const {

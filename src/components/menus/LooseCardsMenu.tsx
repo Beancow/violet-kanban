@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
     Box,
     Card,
@@ -13,27 +13,29 @@ import {
     ChevronRightIcon,
     Cross1Icon,
     ReloadIcon,
-    TrashIcon,
 } from '@radix-ui/react-icons';
 import { useData } from '@/contexts/DataProvider';
 
-import BoardCardItem from '@/app/components/board/BoardCardItem';
+import { CardForm } from '@/components/forms/CardForm';
+import styles from './LooseCardsMenu.module.css';
 
 interface LooseCardsMenuProps {
     cards: BoardCard[];
-    onRestore: (cardId: string) => void;
-    onSelectCard: (card: BoardCard) => void;
     boardId: string;
 }
 
-export function LooseCardsMenu({
-    cards,
-    onRestore,
-    onSelectCard,
-    boardId,
-}: LooseCardsMenuProps) {
+export function LooseCardsMenu({ cards, boardId }: LooseCardsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const { softDeleteCard } = useData();
+    const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+    const { restoreCard } = useData();
+    const queueRestoreCard = useCallback(
+        (boardId: string, cardId: string) => {
+            if (typeof window !== 'undefined') {
+                restoreCard(boardId, cardId);
+            }
+        },
+        [restoreCard]
+    );
 
     const looseCards = cards.filter((card) => !card.isDeleted);
     const deletedCards = cards.filter((card) => card.isDeleted);
@@ -71,28 +73,38 @@ export function LooseCardsMenu({
                 </Text>
                 <Flex direction='column' gap='3' mb='4'>
                     {looseCards.length > 0 ? (
-                        looseCards.map((card) => (
-                            <Flex key={card.id} align='center' gap='2'>
-                                <Box style={{ flexGrow: 1 }}>
-                                    <BoardCardItem
+                        looseCards.map((card) =>
+                            expandedCardId === card.id ? (
+                                <div className={styles.looseCard} key={card.id}>
+                                    <CardForm
+                                        key={card.id}
                                         card={card}
-                                        onSelectCard={onSelectCard}
+                                        onSubmit={() => {}}
+                                        onClose={() => setExpandedCardId(null)}
+                                        hideTitle={true}
+                                        small={true}
                                     />
+                                </div>
+                            ) : (
+                                <Box key={card.id}>
+                                    <Card
+                                        className={styles.looseCard}
+                                        onClick={() =>
+                                            setExpandedCardId(
+                                                expandedCardId === card.id
+                                                    ? null
+                                                    : card.id
+                                            )
+                                        }
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <Text truncate>{card.title}</Text>
+                                    </Card>
                                 </Box>
-                                <IconButton
-                                    size='1'
-                                    color='red'
-                                    variant='soft'
-                                    onClick={() =>
-                                        softDeleteCard(boardId, card.id)
-                                    }
-                                >
-                                    <TrashIcon />
-                                </IconButton>
-                            </Flex>
-                        ))
+                            )
+                        )
                     ) : (
-                        <Text size='2' color='gray'>
+                        <Text size='2' color='gray' key='no-loose-cards'>
                             No loose cards
                         </Text>
                     )}
@@ -107,6 +119,7 @@ export function LooseCardsMenu({
                             {deletedCards.map((card) => (
                                 <Card key={card.id}>
                                     <Flex
+                                        key={card.id}
                                         direction='row'
                                         justify='between'
                                         align='center'
@@ -116,7 +129,12 @@ export function LooseCardsMenu({
                                             size='1'
                                             variant='soft'
                                             color='green'
-                                            onClick={() => onRestore(card.id)}
+                                            onClick={() =>
+                                                queueRestoreCard(
+                                                    boardId,
+                                                    card.id
+                                                )
+                                            }
                                         >
                                             <ReloadIcon />
                                         </Button>
