@@ -1,19 +1,9 @@
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-    Flex,
-    Card,
-    Heading,
-    Text,
-    Button,
-    TextField,
-    TextArea,
-    IconButton,
-} from '@radix-ui/themes';
-import { Board, User } from '@/types/appState.type';
+import { Flex, Text, Button, TextField, TextArea } from '@radix-ui/themes';
+import { Board } from '@/types/appState.type';
 import { BoardSchema, BoardFormValues } from '@/schema/boardSchema';
-import { useUser } from '@/contexts/UserProvider';
 import { Pencil2Icon } from '@radix-ui/react-icons';
 
 export function BoardForm({
@@ -23,7 +13,6 @@ export function BoardForm({
     onSubmit: (data: BoardFormValues) => void;
     board?: Board;
 }) {
-    const { user } = useUser();
     const {
         register,
         handleSubmit,
