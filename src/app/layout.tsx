@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
-import AppProviders from '@/contexts/AppProviders';
 import { FloatingSyncButton } from '@/components/FloatingSyncButton';
 import { SyncManager } from '@/components/SyncManager';
 import Header from '@/components/navigation/Header';
@@ -24,12 +23,10 @@ export default function RootLayout({
         <html lang='en'>
             <body className={inter.className}>
                 <Theme>
-                    <AppProviders>
-                        <Header />
-                        <FloatingSyncButton />
-                        <SyncManager />
-                        {children}
-                    </AppProviders>
+                    <Header />
+                    <FloatingSyncButton />
+                    <SyncManager />
+                    {children}
                 </Theme>
             </body>
         </html>
