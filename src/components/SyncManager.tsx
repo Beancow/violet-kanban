@@ -1,42 +1,39 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useData } from '@/contexts/DataProvider';
-import { useAppToast } from '@/hooks/useToast';
+import { useQueueStore } from '@/store/queueStore';
+import { useSyncErrorStore } from '@/store/syncManager';
+import log from '@/utils/logHelpers';
 
 export function SyncManager() {
-    const { actionQueue, lastMessage } = useData();
-    const { showToast } = useAppToast();
-    const lastQueueLength = useRef(actionQueue.length);
+    const { boardActionQueue, listActionQueue, cardActionQueue } =
+        useQueueStore();
+    const { errors, clearErrors } = useSyncErrorStore();
+    const lastQueueLength = useRef(
+        boardActionQueue.length +
+            listActionQueue.length +
+            cardActionQueue.length
+    );
 
-    // Effect to show "Queued" toast for actions added while offline
+    // Show toast for sync errors
     useEffect(() => {
-        if (actionQueue.length > lastQueueLength.current) {
-            const newAction = actionQueue[actionQueue.length - 1];
-            if (newAction?.payload?.queuedOffline) {
-                showToast('Offline', `Action '${newAction.type}' was queued.`);
-            }
+        if (errors.length > 0) {
+            // Show toast for each error
+            errors.forEach((err) => {
+                log('Error', `Sync error: ${err.message}`);
+            });
+            clearErrors();
         }
-        lastQueueLength.current = actionQueue.length;
-    }, [actionQueue, showToast]);
+    }, [errors, clearErrors]);
 
-    // Effect to show "Synced" or "Error" toasts for completed actions
+    // Show toast for successful sync (all queues empty after having items)
     useEffect(() => {
-        if (!lastMessage) return;
-
-        const { type, payload, error } = lastMessage;
-        const action = actionQueue.find(a => a.timestamp === payload?.timestamp);
-
-        if (action) {
-            if (type === 'ACTION_SUCCESS' && action.payload.queuedOffline) {
-                showToast('Success', `'${action.type}' synced successfully!`);
-            } else if (type === 'ERROR') {
-                showToast('Error', `Failed to sync '${action.type}': ${error.message}`);
-            }
-        } else if (type === 'FULL_DATA_RECEIVED') {
-            showToast('Success', 'Background data sync successful!');
-        }
-    }, [lastMessage, actionQueue, showToast]);
+        const currentLength =
+            boardActionQueue.length +
+            listActionQueue.length +
+            cardActionQueue.length;
+        lastQueueLength.current = currentLength;
+    }, [boardActionQueue, listActionQueue, cardActionQueue]);
 
     return null; // This is a manager component, it doesn't render anything.
 }

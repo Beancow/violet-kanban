@@ -1,8 +1,8 @@
 'use client';
 
-import { useOrganizations } from '@/contexts/OrganizationsProvider';
+import { useOrganizationStore } from '@/store/organizationStore';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import LoadingPage from '@/components/LoadingPage';
 
 export default function OrganizationGate({
@@ -10,22 +10,52 @@ export default function OrganizationGate({
 }: {
     children: React.ReactNode;
 }) {
-    const {
-        organizations,
-        loading,
-        currentOrganizationId,
-        setCurrentOrganization,
-    } = useOrganizations();
+    const organizations = useOrganizationStore((s) => s.organizations);
+    const loading = useOrganizationStore((s) => s.loading);
+    const currentOrganizationId = useOrganizationStore(
+        (s) => s.currentOrganizationId
+    );
+    const setCurrentOrganizationId = useOrganizationStore(
+        (s) => s.setCurrentOrganizationId
+    );
     const router = useRouter();
+    const [isOnline, setIsOnline] = useState(true);
 
     useEffect(() => {
-        if (!loading && organizations.length === 0) {
+        setIsOnline(
+            typeof window !== 'undefined' ? window.navigator.onLine : true
+        );
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!loading && organizations.length === 0 && isOnline) {
             router.push('/org/create');
         }
-    }, [loading, organizations, router]);
+    }, [loading, organizations, router, isOnline]);
 
     if (loading) {
         return <LoadingPage dataType='Organizations' />;
+    }
+
+    if (!isOnline && organizations.length === 0) {
+        return (
+            <div style={{ textAlign: 'center', marginTop: '4rem' }}>
+                <h2>You are offline</h2>
+                <p>
+                    You have no organizations and are currently offline.
+                    <br />
+                    Organization creation is not possible while offline.
+                </p>
+            </div>
+        );
     }
 
     if (organizations.length > 0 && !currentOrganizationId) {
@@ -50,7 +80,7 @@ export default function OrganizationGate({
                                             <button
                                                 className='btn btn-link'
                                                 onClick={() =>
-                                                    setCurrentOrganization(
+                                                    setCurrentOrganizationId(
                                                         org.id
                                                     )
                                                 }

@@ -1,4 +1,4 @@
-import { useData } from '@/contexts/DataProvider';
+import { useOrganizationStore } from '@/store/organizationStore';
 import OrganizationForm from '../forms/OrganizationForm';
 import { Organization } from '@/types/appState.type';
 
@@ -9,7 +9,9 @@ export default function OrganizationFormWrapper({
     onClose?: () => void;
     organization?: Organization;
 }) {
-    const { queueCreateOrganization } = useData?.() || {};
+    const refetchOrganizations = useOrganizationStore(
+        (s) => s.refetchOrganizations
+    );
 
     const handleSubmit = async (orgData: {
         name: string;
@@ -18,8 +20,22 @@ export default function OrganizationFormWrapper({
         companyWebsite?: string;
         logoURL?: string;
     }) => {
-        queueCreateOrganization(orgData);
-
+        try {
+            const res = await fetch('/api/orgs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(orgData),
+            });
+            if (res.ok) {
+                await refetchOrganizations();
+            } else {
+                // TODO: Show error to user
+            }
+        } catch (err) {
+            // TODO: Show error to user
+        }
         if (onClose) onClose();
     };
 

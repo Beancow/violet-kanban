@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { BoardCard } from '@/types/appState.type';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanEnqueueCardAction } from '@/store/useVioletKanbanHooks';
 import { CardForm } from './CardForm';
 
 interface CardFormWrapperProps {
@@ -16,18 +16,35 @@ export function CardFormWrapper({
     hideTitle,
     small,
 }: CardFormWrapperProps) {
-    const { queueUpdateCard, queueCreateCard } = useData();
+    const enqueueCardAction = useVioletKanbanEnqueueCardAction();
 
+    // OrganizationGate guarantees currentOrganizationId is always set
     const handleSubmit = useCallback(
         (data: any) => {
             if (card?.id) {
-                queueUpdateCard(card.boardId, card.id, data);
+                enqueueCardAction({
+                    type: 'update-card',
+                    payload: { data },
+                    timestamp: Date.now(),
+                });
             } else {
-                queueCreateCard(data.boardId, data);
+                const tempId = `temp-card-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2)}`;
+                enqueueCardAction({
+                    type: 'create-card',
+                    payload: {
+                        data,
+                        boardId: data.boardId,
+                        listId: data.listId,
+                        tempId,
+                    },
+                    timestamp: Date.now(),
+                });
             }
             onClose();
         },
-        [card, queueUpdateCard, queueCreateCard, onClose]
+        [card, enqueueCardAction, onClose]
     );
 
     return (

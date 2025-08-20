@@ -1,11 +1,12 @@
-import { Action } from './sync.type';
-import { Board, BoardList, BoardCard } from './appState.type';
-import { WorkerMessage } from './worker.type';
+import type { SyncAction, WorkerMessage } from './worker.type';
+import type { Board, BoardList, BoardCard } from './appState.type';
 
 export interface DataState {
     isSyncing: boolean;
-    isEditing: boolean;
-    actionQueue: Action[];
+    actionQueue: SyncAction[];
+    boardActionQueue?: SyncAction[];
+    listActionQueue?: SyncAction[];
+    cardActionQueue?: SyncAction[];
     boards: Board[];
     lists: BoardList[];
     cards: BoardCard[];
@@ -16,7 +17,10 @@ export interface DataState {
 
 export type ReducerAction =
     | { type: 'SET_STATE'; payload: Partial<DataState> }
-    | { type: 'ADD_ACTION'; payload: Action }
+    | { type: 'ADD_ACTION'; payload: SyncAction }
     | { type: 'START_SYNC' }
     | { type: 'ACTION_COMPLETE'; payload: { timestamp: number } }
-    | { type: 'SET_LAST_MESSAGE'; payload: { lastMessage: WorkerMessage | null } };
+    | {
+          type: 'SET_LAST_MESSAGE';
+          payload: { lastMessage: WorkerMessage | null };
+      };

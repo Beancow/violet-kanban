@@ -9,7 +9,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DropdownMenu, IconButton } from '@radix-ui/themes';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanEnqueueCardAction } from '@/store/useVioletKanbanHooks';
 import { useCallback } from 'react';
 
 interface BoardCardItemProps {
@@ -25,11 +25,15 @@ export function BoardCardItem({
 }: BoardCardItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition } =
         useSortable({ id: card.id });
-    const { queueDeleteCard } = useData();
+    const enqueueCardAction = useVioletKanbanEnqueueCardAction();
 
     const handleDelete = useCallback(() => {
-        queueDeleteCard(boardId, card.id);
-    }, [queueDeleteCard, boardId, card.id]);
+        enqueueCardAction({
+            type: 'delete-card',
+            payload: { id: card.id },
+            timestamp: Date.now(),
+        });
+    }, [enqueueCardAction, card.id]);
 
     const style = {
         transform: CSS.Transform.toString(transform),

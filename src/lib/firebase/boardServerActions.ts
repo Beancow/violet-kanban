@@ -35,7 +35,7 @@ export async function createBoardServerAction({
         return {
             success: false,
             error: new Error(
-                'Invalid board data: ' + JSON.stringify(result.error.format())
+                'Invalid board data: ' + JSON.stringify(result.error.cause)
             ),
         };
     }
@@ -83,6 +83,10 @@ export async function createBoardServerAction({
 }
 
 export async function getBoardsForOrganizationServerAction(orgId: string) {
+    console.log(
+        `[getBoardsForOrganizationServerAction] Called with orgId:`,
+        orgId
+    );
     try {
         const adminFirestore = await getAdminFirestore();
         const boardsCollection = adminFirestore

@@ -1,24 +1,29 @@
 'use client';
 import { useState } from 'react';
-import { useOrganizations } from '@/contexts/OrganizationsProvider';
-import { useData } from '@/contexts/DataProvider';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useOrganizationStore } from '@/store/organizationStore';
+import {
+    useVioletKanbanData,
+    useVioletKanbanEnqueueBoardAction,
+    useVioletKanbanRemoveBoardAction,
+} from '@/store/useVioletKanbanHooks';
 
-import { Box, Heading, Text, Button, Flex, IconButton } from '@radix-ui/themes';
+import { Heading, Text, Button, Flex, IconButton } from '@radix-ui/themes';
 import { TrashIcon, PlusIcon } from '@radix-ui/react-icons';
 import Link from 'next/link';
 import LoadingPage from '@/components/LoadingPage';
 import OrganizationGate from '@/components/guards/OrganizationGate';
 import CreateBoardModal from '@/components/modals/CreateBoardModal';
+import { Board } from '@/types/appState.type';
 
 export default function UserBoardsPage() {
-    const {
-        currentOrganizationId,
-        organizations,
-        loading: orgsLoading,
-    } = useOrganizations();
-    const { boards, createBoard, deleteBoard } = useData();
-    const { authUser } = useAuth();
+    const currentOrganizationId = useOrganizationStore(
+        (s) => s.currentOrganizationId
+    );
+    const organizations = useOrganizationStore((s) => s.organizations);
+    const orgsLoading = useOrganizationStore((s) => s.loading);
+    const { boards } = useVioletKanbanData();
+    const enqueueBoardAction = useVioletKanbanEnqueueBoardAction();
+    const removeBoardAction = useVioletKanbanRemoveBoardAction();
 
     const [modalOpen, setModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,19 +40,28 @@ export default function UserBoardsPage() {
                 'Are you sure you want to delete this board? This action cannot be undone.'
             )
         ) {
-            deleteBoard(boardId);
+            enqueueBoardAction({
+                type: 'delete-board',
+                payload: { id: boardId },
+                timestamp: Date.now(),
+            });
         }
     };
 
-    const handleCreateBoard = async (data: {
-        title: string;
-        description: string;
-    }) => {
+    const handleCreateBoard = async (data: Board) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
-
-        createBoard(data.title, data.description);
-
+        const tempId = `temp-board-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}`;
+        enqueueBoardAction({
+            type: 'create-board',
+            payload: {
+                data,
+                tempId,
+            },
+            timestamp: Date.now(),
+        });
         setIsSubmitting(false);
         setModalOpen(false);
     };

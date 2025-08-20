@@ -35,9 +35,7 @@ export function CardDetails({
             <Card style={{ minWidth: '300px', maxWidth: '500px' }}>
                 <CardForm
                     card={card}
-                    onSubmit={(data) => {
-                        console.log(safeParse(boardCardSchema, data));
-                    }}
+                    onSubmit={(data) => {}}
                     onClose={onClose}
                 />
                 <Flex justify='end' mt='4'>

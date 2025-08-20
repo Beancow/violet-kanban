@@ -4,8 +4,8 @@ import { getUserServerAction } from '@/lib/firebase/userServerActions';
 
 export async function GET(request: NextRequest) {
     try {
-        const uid = await getUserFromAuthHeader(request);
-        const result = await getUserServerAction(uid);
+        const user = await getUserFromAuthHeader(request);
+        const result = await getUserServerAction(user.id);
 
         if (!result.success) {
             return NextResponse.json(

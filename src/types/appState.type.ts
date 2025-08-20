@@ -44,8 +44,8 @@ type User = {
     name: string;
     email: string;
     photoURL?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 type Creator = {

@@ -8,7 +8,10 @@ import { getAdminAuth } from './firebase/firebase-admin-init';
  * @returns The user's UID.
  */
 export async function getUserFromAuthHeader(request: Request): Promise<User> {
-    const authHeader = request.headers.get('authorization');
+    const authHeader =
+        request.headers.get('authorization') ||
+        request.headers.get('Authorization');
+    console.log('Authorization header:', authHeader);
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         throw new Error('Authorization header missing or malformed');
     }

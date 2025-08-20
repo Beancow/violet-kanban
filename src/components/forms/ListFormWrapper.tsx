@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { BoardList, User } from '@/types/appState.type';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanEnqueueListAction } from '@/store/useVioletKanbanHooks';
 import { ListForm } from './ListForm';
 
 interface ListFormWrapperProps {
@@ -16,18 +16,34 @@ export function ListFormWrapper({
     user,
     onClose,
 }: ListFormWrapperProps) {
-    const { queueCreateList, queueUpdateList } = useData();
+    const enqueueListAction = useVioletKanbanEnqueueListAction();
 
+    // OrganizationGate guarantees currentOrganizationId is always set
     const handleSubmit = useCallback(
         (data: any) => {
             if (list?.id) {
-                queueUpdateList(boardId, list.id, data);
+                enqueueListAction({
+                    type: 'update-list',
+                    payload: { data },
+                    timestamp: Date.now(),
+                });
             } else {
-                queueCreateList(boardId, data);
+                const tempId = `temp-list-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2)}`;
+                enqueueListAction({
+                    type: 'create-list',
+                    payload: {
+                        data,
+                        boardId,
+                        tempId,
+                    },
+                    timestamp: Date.now(),
+                });
             }
             onClose();
         },
-        [list, boardId, queueCreateList, queueUpdateList, onClose]
+        [list, boardId, enqueueListAction, onClose]
     );
 
     return <ListForm list={list} user={user} onSubmit={handleSubmit} />;

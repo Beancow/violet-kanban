@@ -1,7 +1,7 @@
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { useState } from 'react';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanData } from '@/store/useVioletKanbanHooks';
 import styles from './BoardList.module.css';
 
 type BoardListComponentProps = {
@@ -16,6 +16,8 @@ export function BoardListComponent({
     onCardOrderChange,
 }: BoardListComponentProps) {
     const [items, setItems] = useState(cards.map((card) => card.id));
+    const { boards, lists, cards: allCards } = useVioletKanbanData();
+    // Use boards, lists, allCards as needed for rendering or actions
 
     return (
         <div className={styles.listContainer}>
@@ -29,7 +31,7 @@ export function BoardListComponent({
                     const newIndex = items.indexOf(String(over.id));
                     const newOrder = arrayMove(items, oldIndex, newIndex);
                     setItems(newOrder);
-                    onCardOrderChange?.(newOrder); // Call provider/reducer to persist
+                    onCardOrderChange?.(newOrder); // Call store action to persist if needed
                 }}
             >
                 <SortableContext items={items}>

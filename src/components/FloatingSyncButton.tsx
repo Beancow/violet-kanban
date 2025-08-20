@@ -1,14 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanQueues } from '@/store/useVioletKanbanHooks';
 import { Box, IconButton, Badge, Tooltip } from '@radix-ui/themes';
 import { ArrowUpIcon } from '@radix-ui/react-icons';
-import ActionQueue from './ActionQueue';
+import { ActionQueue } from './ActionQueue';
 
 export function FloatingSyncButton() {
     const [open, setOpen] = useState(false);
-    const { actionQueue } = useData();
+    const { boardActionQueue, listActionQueue, cardActionQueue } =
+        useVioletKanbanQueues();
+    const actionQueue = [
+        ...boardActionQueue,
+        ...listActionQueue,
+        ...cardActionQueue,
+    ];
 
     return (
         <>

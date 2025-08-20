@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Board } from '@/types/appState.type';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanEnqueueBoardAction } from '@/store/useVioletKanbanHooks';
 import { BoardForm } from './BoardForm';
 
 interface BoardFormWrapperProps {
@@ -9,18 +9,33 @@ interface BoardFormWrapperProps {
 }
 
 export function BoardFormWrapper({ board, onClose }: BoardFormWrapperProps) {
-    const { queueCreateBoard, queueUpdateBoard } = useData();
+    const enqueueBoardAction = useVioletKanbanEnqueueBoardAction();
 
+    // OrganizationGate guarantees currentOrganizationId is always set
     const handleSubmit = useCallback(
         (data: any) => {
             if (board?.id) {
-                queueUpdateBoard(board.id, data);
+                enqueueBoardAction({
+                    type: 'update-board',
+                    payload: { data: { ...board, ...data } },
+                    timestamp: Date.now(),
+                });
             } else {
-                queueCreateBoard(data);
+                const tempId = `temp-board-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2)}`;
+                enqueueBoardAction({
+                    type: 'create-board',
+                    payload: {
+                        data,
+                        tempId,
+                    },
+                    timestamp: Date.now(),
+                });
             }
             onClose();
         },
-        [board, queueCreateBoard, queueUpdateBoard, onClose]
+        [board, enqueueBoardAction, onClose]
     );
 
     return <BoardForm board={board} onSubmit={handleSubmit} />;

@@ -1,15 +1,13 @@
 import { deleteOrganizationServerAction } from '@/lib/firebase/orgServerActions';
 import { NextResponse, NextRequest } from 'next/server';
-import { getAuthAndOrgContext } from '@/lib/serverUtils';
 
 export async function POST(
     request: NextRequest,
     { params }: { params: { orgId: string } }
 ) {
     try {
-        const { user } = await getAuthAndOrgContext(request);
         const { orgId } = params;
-        const result = await deleteOrganizationServerAction(orgId, user.id);
+        const result = await deleteOrganizationServerAction(orgId);
         if (!result.success) {
             return NextResponse.json(
                 { success: false, error: result.error?.message },

@@ -14,7 +14,8 @@ import {
     Cross1Icon,
     ReloadIcon,
 } from '@radix-ui/react-icons';
-import { useData } from '@/contexts/DataProvider';
+import { useVioletKanbanRemoveCardAction } from '@/store/useVioletKanbanHooks';
+import { useOrganizationStore } from '@/store/organizationStore';
 
 import { CardForm } from '@/components/forms/CardForm';
 import styles from './LooseCardsMenu.module.css';
@@ -27,14 +28,17 @@ interface LooseCardsMenuProps {
 export function LooseCardsMenu({ cards, boardId }: LooseCardsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
-    const { restoreCard } = useData();
-    const queueRestoreCard = useCallback(
-        (boardId: string, cardId: string) => {
-            if (typeof window !== 'undefined') {
-                restoreCard(boardId, cardId);
-            }
+    const removeCardAction = useVioletKanbanRemoveCardAction();
+    const currentOrganizationId = useOrganizationStore(
+        (state) => state.currentOrganizationId
+    );
+    // OrganizationGate guarantees currentOrganizationId is always set
+    // removeCardAction only needs cardId, orgId is not required
+    const handleRestore = useCallback(
+        (cardId: string) => {
+            removeCardAction(cardId);
         },
-        [restoreCard]
+        [removeCardAction]
     );
 
     const looseCards = cards.filter((card) => !card.isDeleted);
@@ -130,10 +134,7 @@ export function LooseCardsMenu({ cards, boardId }: LooseCardsMenuProps) {
                                             variant='soft'
                                             color='green'
                                             onClick={() =>
-                                                queueRestoreCard(
-                                                    boardId,
-                                                    card.id
-                                                )
+                                                handleRestore(card.id)
                                             }
                                         >
                                             <ReloadIcon />

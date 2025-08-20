@@ -17,11 +17,12 @@ import {
     TextField,
 } from '@radix-ui/themes';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuthStore } from '@/store/authStore';
 import LoadingPage from '@/components/LoadingPage';
 
 export default function LoginPage() {
-    const { authUser, loading } = useAuth();
+    const authUser = useAuthStore((s) => s.authUser);
+    const loading = useAuthStore((s) => s.loading);
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

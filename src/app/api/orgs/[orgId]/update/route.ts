@@ -10,11 +10,7 @@ export async function POST(
         const { user } = await getAuthAndOrgContext(request);
         const { orgId } = params;
         const data = await request.formData();
-        const result = await updateOrganizationServerAction(
-            orgId,
-            data,
-            user.id
-        );
+        const result = await updateOrganizationServerAction(orgId, data, user);
         if (!result.success) {
             return NextResponse.json(
                 { success: false, error: result.error?.message },

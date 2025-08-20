@@ -1,0 +1,26 @@
+.boardPage {
+    min-height: 100vh;
+    background: linear-gradient(90deg, #f8fafc 0%, #e0e7ef 100%);
+    padding: 32px 0;
+}
+
+.boardPage_container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.boardPage_title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+    color: #2d3748;
+    letter-spacing: -1px;
+}
+
+.boardPage_lists {
+    display: flex;
+    gap: 24px;
+    overflow-x: auto;
+    padding-bottom: 16px;
+}

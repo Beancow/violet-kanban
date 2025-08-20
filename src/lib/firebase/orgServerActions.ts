@@ -1,4 +1,3 @@
-
 'use server';
 import { revalidatePath } from 'next/cache';
 import * as admin from 'firebase-admin';
@@ -6,6 +5,7 @@ import {
     Organization,
     CreateOrganizationResult,
     AddMemberToOrganizationResult,
+    User,
 } from '@/types/appState.type';
 
 import { adminDataConverter } from './adminDataConverter';
@@ -21,9 +21,9 @@ export async function getOrganizationServerAction(orgId: string, uid: string) {
     console.log(`Attempting to fetch organization: ${orgId}`);
     try {
         const adminFirestore = await getAdminFirestore();
-        const orgDocRef = adminFirestore.doc(`organizations/${orgId}`).withConverter(
-            adminDataConverter<Organization>()
-        );
+        const orgDocRef = adminFirestore
+            .doc(`organizations/${orgId}`)
+            .withConverter(adminDataConverter<Organization>());
 
         const orgDocSnapshot = await orgDocRef.get();
         const organization = orgDocSnapshot.data();
@@ -36,19 +36,6 @@ export async function getOrganizationServerAction(orgId: string, uid: string) {
                 success: false,
                 error: new Error(
                     `Organization with ID ${orgId} does not exist.`
-                ),
-            };
-        }
-
-        // Security Check: Ensure the user is a member of the organization
-        if (!organization.members[uid]) {
-            sentry.captureException(
-                new Error(`User ${uid} does not have access to organization ${orgId}.`)
-            );
-            return {
-                success: false,
-                error: new Error(
-                    `User does not have access to organization ${orgId}.`
                 ),
             };
         }
@@ -108,7 +95,10 @@ export async function createOrganizationServerAction(
             },
         };
 
-        console.log('--- createOrganizationServerAction: Creating new org ---', newOrg);
+        console.log(
+            '--- createOrganizationServerAction: Creating new org ---',
+            newOrg
+        );
         batch.set(newOrgRef, newOrg);
 
         await batch.commit();
@@ -135,9 +125,9 @@ export async function createOrganizationServerAction(
 export async function getAllOrganizationsServerAction() {
     try {
         const adminFirestore = await getAdminFirestore();
-        const orgsCollection = adminFirestore.collection(
-            'organizations'
-        ).withConverter(adminDataConverter<Organization>());
+        const orgsCollection = adminFirestore
+            .collection('organizations')
+            .withConverter(adminDataConverter<Organization>());
 
         const orgsSnapshot = await orgsCollection.get();
 
@@ -174,10 +164,8 @@ export async function addMemberToOrganizationServerAction(
 
     try {
         const adminFirestore = await getAdminFirestore();
-        const orgRef = adminFirestore.doc('organizations', orgId);
+        const orgRef = adminFirestore.doc(`organizations/${orgId}`);
         const batch = adminFirestore.batch();
-
-        
 
         // Update the members map within the organization document
         batch.update(orgRef, {
@@ -206,20 +194,30 @@ export async function addMemberToOrganizationServerAction(
 export async function updateOrganizationServerAction(
     orgId: string,
     data: FormData,
-    uid: string
+    user: User
 ): Promise<{ success: boolean; error?: Error }> {
     try {
         const adminFirestore = await getAdminFirestore();
-        const orgRef = adminFirestore.doc(`organizations/${orgId}`).withConverter(adminDataConverter<Organization>());
+        const orgRef = adminFirestore
+            .doc(`organizations/${orgId}`)
+            .withConverter(adminDataConverter<Organization>());
         const orgDoc = await orgRef.get();
 
         if (!orgDoc.exists) {
-            return { success: false, error: new Error("Organization not found.") };
+            return {
+                success: false,
+                error: new Error('Organization not found.'),
+            };
         }
 
         const orgData = orgDoc.data();
-        if (orgData.members[uid]?.role !== 'owner') {
-            return { success: false, error: new Error("You don't have permission to update this organization.") };
+        if (orgData?.members?.[user.id] !== 'owner') {
+            return {
+                success: false,
+                error: new Error(
+                    "You don't have permission to update this organization."
+                ),
+            };
         }
 
         const updatedOrg = {
@@ -245,24 +243,21 @@ export async function updateOrganizationServerAction(
     }
 }
 
-
-
 export async function deleteOrganizationServerAction(
-    orgId: string,
-    uid: string
+    orgId: string
 ): Promise<{ success: boolean; error?: Error }> {
     try {
         const adminFirestore = await getAdminFirestore();
-        const orgRef = adminFirestore.doc(`organizations/${orgId}`).withConverter(adminDataConverter<Organization>());
+        const orgRef = adminFirestore
+            .doc(`organizations/${orgId}`)
+            .withConverter(adminDataConverter<Organization>());
         const orgDoc = await orgRef.get();
 
         if (!orgDoc.exists) {
-            return { success: false, error: new Error("Organization not found.") };
-        }
-
-        const orgData = orgDoc.data();
-        if (orgData.members[uid]?.role !== 'owner') {
-            return { success: false, error: new Error("You don't have permission to delete this organization.") };
+            return {
+                success: false,
+                error: new Error('Organization not found.'),
+            };
         }
 
         await adminFirestore.batch().delete(orgRef).commit();
@@ -295,15 +290,22 @@ export async function getOrganizationsForUserServerAction(userId?: string) {
 
     try {
         const adminFirestore = await getAdminFirestore();
-        const orgsCollection = adminFirestore.collection(
-            'organizations'
-        ).withConverter(adminDataConverter<Organization>());
+        const orgsCollection = adminFirestore
+            .collection('organizations')
+            .withConverter(adminDataConverter<Organization>());
         const q = orgsCollection.where(`members.${userId}`, '!=', null);
-        console.log(`orgServerActions.ts: Querying for organizations where members.${userId} is not null.`);
+        console.log(
+            `orgServerActions.ts: Querying for organizations where members.${userId} is not null.`
+        );
         const querySnapshot = await q.get();
-        console.log(`orgServerActions.ts: Query snapshot size: ${querySnapshot.size}`);
+        console.log(
+            `orgServerActions.ts: Query snapshot size: ${querySnapshot.size}`
+        );
         const organizations = querySnapshot.docs.map((doc) => doc.data());
-        console.log(`orgServerActions.ts: Fetched organizations:`, organizations);
+        console.log(
+            `orgServerActions.ts: Fetched organizations:`,
+            organizations
+        );
 
         return {
             success: true,

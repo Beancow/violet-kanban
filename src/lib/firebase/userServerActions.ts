@@ -2,35 +2,56 @@
 import { User } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import { getAdminAuth, getAdminFirestore } from './firebase-admin-init';
+import { FieldPath, FieldValue } from 'firebase-admin/firestore';
 
-export async function getUserServerAction(userId: string): Promise<{ success: boolean; data?: User; error?: Error }> {
+export async function getUserServerAction(
+    userId: string
+): Promise<{ success: boolean; data?: User; error?: Error }> {
     try {
+        // Validate userId
+        if (
+            !userId ||
+            typeof userId !== 'string' ||
+            userId.length === 0 ||
+            userId.length > 128
+        ) {
+            throw new Error(
+                'Invalid userId: must be a non-empty string with at most 128 characters.'
+            );
+        }
+
         const adminFirestore = await getAdminFirestore();
-        const userRef = adminFirestore.doc(`users/${userId}`).withConverter(adminDataConverter<User>());
+        const userRef = adminFirestore
+            .doc(`users/${userId}`)
+            .withConverter(adminDataConverter<User>());
         const userSnap = await userRef.get();
 
         if (userSnap.exists) {
             return { success: true, data: userSnap.data() };
         } else {
             // User not found, create it
-            const userRecord = await getAdminAuth().getUser(userId);
+            const userRecord = await getAdminAuth();
+            const { uid, email, displayName, photoURL } =
+                await userRecord.getUser(userId);
+
             const newUser: User = {
-                id: userRecord.uid,
-                email: userRecord.email || '',
-                displayName: userRecord.displayName || '',
-                photoURL: userRecord.photoURL || '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                name: userRecord.displayName || '',
-                currentBoardId: null,
-                currentListId: null,
+                id: uid,
+                email: email ?? '',
+                displayName: displayName ?? '',
+                photoURL: photoURL ?? '',
+                name: displayName ?? '',
+                createdAt: FieldValue.serverTimestamp().toString(),
+                updatedAt: FieldValue.serverTimestamp().toString(),
             };
             await userRef.set(newUser);
             return { success: true, data: newUser };
         }
     } catch (error) {
         console.error('Error in getUserServerAction:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        const errorMessage =
+            error instanceof Error
+                ? error.message
+                : 'An unknown error occurred';
         return {
             success: false,
             error: new Error(errorMessage),

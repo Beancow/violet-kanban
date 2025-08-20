@@ -1,10 +1,11 @@
 'use client';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuthStore } from '@/store/authStore';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button, Avatar, Flex, Text } from '@radix-ui/themes';
 
 export default function UserMenu() {
-    const { authUser, logout } = useAuth();
+    const authUser = useAuthStore((s) => s.authUser);
+    const logout = useAuthStore((s) => s.logout);
     const router = useRouter();
 
     const handleLogout = async () => {
@@ -21,15 +22,15 @@ export default function UserMenu() {
     return (
         <DropdownMenu.Root>
             <DropdownMenu.Trigger>
-                <Button variant="soft">
-                    <Flex gap="2" align="center">
+                <Button variant='soft'>
+                    <Flex gap='2' align='center'>
                         <Avatar
-                            size="1"
+                            size='1'
                             src={authUser.photoURL || undefined}
                             fallback={fallbackEmail[0].toUpperCase()}
-                            radius="full"
+                            radius='full'
                         />
-                        <Text size="2">{authUser.email}</Text>
+                        <Text size='2'>{authUser.email}</Text>
                     </Flex>
                 </Button>
             </DropdownMenu.Trigger>
@@ -38,7 +39,7 @@ export default function UserMenu() {
                     My Profile
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator />
-                <DropdownMenu.Item color="red" onSelect={handleLogout}>
+                <DropdownMenu.Item color='red' onSelect={handleLogout}>
                     Logout
                 </DropdownMenu.Item>
             </DropdownMenu.Content>
