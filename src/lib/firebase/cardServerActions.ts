@@ -140,6 +140,44 @@ export const updateCardListIdServerAction = async (
     }
 };
 
+export async function getOrphanCardsByOrg(orgId: string) {
+    try {
+        const adminFirestore = await getAdminFirestore();
+        const boardsSnapshot = await adminFirestore
+            .collection(`organizations/${orgId}/boards`)
+            .get();
+
+        const orphanCards: BoardCard[] = [];
+
+        for (const boardDoc of boardsSnapshot.docs) {
+            const boardId = boardDoc.id;
+            const cardsSnapshot = await adminFirestore
+                .collection(`organizations/${orgId}/boards/${boardId}/cards`)
+                .where('listId', '==', null)
+                .where('boardId', '==', null)
+                .withConverter(adminDataConverter<BoardCard>())
+                .get();
+
+            cardsSnapshot.forEach((cardDoc) => {
+                orphanCards.push({
+                    ...cardDoc.data(),
+                    id: cardDoc.id,
+                });
+            });
+        }
+
+        return {
+            success: true,
+            data: orphanCards,
+        };
+    } catch (error) {
+        console.error('Error fetching orphan cards:', error);
+        return {
+            success: false,
+            error: new Error('Failed to fetch orphan cards', { cause: error }),
+        };
+    }
+}
 export async function getCardsServerAction({
     orgId,
     boardId,
