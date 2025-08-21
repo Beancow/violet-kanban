@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+// No direct store calls for reconciliation
+import { getActionItemId, squashQueueActions } from './helpers';
+import { useTempIdMapStore } from './tempIdMapStore';
 import { useBoardStore } from './boardStore';
 import { useListStore } from './listStore';
 import { useCardStore } from './cardStore';
-import { getActionItemId, squashQueueActions } from './helpers';
 import type { VioletKanbanAction } from './appStore';
+import { persistClientStorage } from './persistClientStorage';
 
 export interface QueueState {
     boardActionQueue: VioletKanbanAction[];
@@ -23,7 +26,7 @@ export interface QueueState {
 
 export const useQueueStore = create<QueueState>()(
     persist(
-        (set, get) => ({
+        (set, _get) => ({
             boardActionQueue: [],
             listActionQueue: [],
             cardActionQueue: [],
@@ -66,19 +69,43 @@ export const useQueueStore = create<QueueState>()(
                         (action) => getActionItemId(action) !== actionId
                     ),
                 })),
-            handleBoardActionSuccess: (actionId, newBoard) => {
-                useBoardStore.getState().updateBoard(newBoard);
-                get().removeBoardAction(actionId);
+            handleBoardActionSuccess: (tempId, newBoard) => {
+                useTempIdMapStore.getState().setMapping(tempId, newBoard.id);
+                // Move the board to the real store
+                useBoardStore().addBoard(newBoard);
+                // Remove the item from the queue after move
+                set((state) => ({
+                    boardActionQueue: state.boardActionQueue.filter(
+                        (action) => getActionItemId(action) !== tempId
+                    ),
+                }));
+                useTempIdMapStore.getState().clearMapping(tempId);
             },
-            handleListActionSuccess: (actionId, newList) => {
-                useListStore.getState().updateList(newList);
-                get().removeListAction(actionId);
+            handleListActionSuccess: (tempId, newList) => {
+                useTempIdMapStore.getState().setMapping(tempId, newList.id);
+                // Move the list to the real store
+                useListStore().addList(newList);
+                // Remove the item from the queue after move
+                set((state) => ({
+                    listActionQueue: state.listActionQueue.filter(
+                        (action) => getActionItemId(action) !== tempId
+                    ),
+                }));
+                useTempIdMapStore.getState().clearMapping(tempId);
             },
-            handleCardActionSuccess: (actionId, newCard) => {
-                useCardStore.getState().updateCard(newCard);
-                get().removeCardAction(actionId);
+            handleCardActionSuccess: (tempId, newCard) => {
+                useTempIdMapStore.getState().setMapping(tempId, newCard.id);
+                // Move the card to the real store
+                useCardStore().addCard(newCard);
+                // Remove the item from the queue after move
+                set((state) => ({
+                    cardActionQueue: state.cardActionQueue.filter(
+                        (action) => getActionItemId(action) !== tempId
+                    ),
+                }));
+                useTempIdMapStore.getState().clearMapping(tempId);
             },
         }),
-        { name: 'violet-kanban-queue-storage' }
+        { name: 'violet-kanban-queue-storage', storage: persistClientStorage }
     )
 );

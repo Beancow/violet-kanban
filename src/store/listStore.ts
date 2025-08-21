@@ -2,19 +2,17 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { BoardList } from '../types/appState.type';
 import { useCardStore } from './cardStore';
-import { reconcileTempId } from './helpers';
 
 export interface ListState {
     lists: BoardList[];
     addList: (list: BoardList) => void;
     updateList: (list: BoardList) => void;
     removeList: (listId: string) => void;
-    reconcileListTempId: (tempId: string, realId: string) => void;
 }
 
 export const useListStore = create<ListState>()(
     persist(
-        (set, get) => ({
+        (set, _get) => ({
             lists: [],
             addList: (list) =>
                 set((state) => ({ lists: [...state.lists, list] })),
@@ -37,10 +35,6 @@ export const useListStore = create<ListState>()(
                     }
                 });
             },
-            reconcileListTempId: (tempId, realId) =>
-                set((state) => ({
-                    lists: reconcileTempId(state.lists, tempId, realId),
-                })),
         }),
         { name: 'violet-kanban-list-storage' }
     )

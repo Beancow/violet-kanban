@@ -3,23 +3,17 @@ import { persist } from 'zustand/middleware';
 import type { Board } from '../types/appState.type';
 import { useListStore } from './listStore';
 import { useCardStore } from './cardStore';
-import {
-    getActionItemId,
-    isBoardActionStale,
-    reconcileTempId,
-} from './helpers';
 
 export interface BoardState {
     boards: Board[];
     addBoard: (board: Board) => void;
     updateBoard: (board: Board) => void;
     removeBoard: (boardId: string) => void;
-    reconcileBoardTempId: (tempId: string, realId: string) => void;
 }
 
 export const useBoardStore = create<BoardState>()(
     persist(
-        (set, get) => ({
+        (set, _get) => ({
             boards: [],
             addBoard: (board) =>
                 set((state) => ({ boards: [...state.boards, board] })),
@@ -46,10 +40,6 @@ export const useBoardStore = create<BoardState>()(
                     }
                 });
             },
-            reconcileBoardTempId: (tempId, realId) =>
-                set((state) => ({
-                    boards: reconcileTempId(state.boards, tempId, realId),
-                })),
         }),
         { name: 'violet-kanban-board-storage' }
     )

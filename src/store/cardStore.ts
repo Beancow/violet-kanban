@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { BoardCard } from '../types/appState.type';
-import { reconcileTempId } from './helpers';
 
 export interface CardState {
     cards: BoardCard[];
@@ -10,12 +9,11 @@ export interface CardState {
     removeCard: (cardId: string) => void;
     orphanedCards?: BoardCard[];
     markCardOrphaned: (cardId: string) => void;
-    reconcileCardTempId: (tempId: string, realId: string) => void;
 }
 
 export const useCardStore = create<CardState>()(
     persist(
-        (set, get) => ({
+        (set, _get) => ({
             cards: [],
             orphanedCards: [],
             addCard: (card) =>
@@ -36,15 +34,6 @@ export const useCardStore = create<CardState>()(
                         ...(state.orphanedCards ?? []),
                         ...state.cards.filter((card) => card.id === cardId),
                     ],
-                })),
-            reconcileCardTempId: (tempId, realId) =>
-                set((state) => ({
-                    cards: reconcileTempId(state.cards, tempId, realId),
-                    orphanedCards: reconcileTempId(
-                        state.orphanedCards ?? [],
-                        tempId,
-                        realId
-                    ),
                 })),
         }),
         { name: 'violet-kanban-card-storage' }
