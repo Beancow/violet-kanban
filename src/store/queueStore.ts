@@ -1,13 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-// No direct store calls for reconciliation
 import { getActionItemId, squashQueueActions } from './helpers';
 import { useTempIdMapStore } from './tempIdMapStore';
 import { useBoardStore } from './boardStore';
 import { useListStore } from './listStore';
 import { useCardStore } from './cardStore';
 import type { VioletKanbanAction } from './appStore';
-import { persistClientStorage } from './persistClientStorage';
 
 export interface QueueState {
     boardActionQueue: VioletKanbanAction[];
@@ -106,6 +104,6 @@ export const useQueueStore = create<QueueState>()(
                 useTempIdMapStore.getState().clearMapping(tempId);
             },
         }),
-        { name: 'violet-kanban-queue-storage', storage: persistClientStorage }
+        { name: 'violet-kanban-queue-storage' }
     )
 );
