@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
-// Zustand error store for sync errors (kept as a store so UI can react)
-export interface SyncError {
+// Zustand error store for sync errors
+interface SyncError {
     timestamp: number;
     message: string;
     actionType?: string;
@@ -19,3 +19,5 @@ export const useSyncErrorStore = create<SyncErrorState>((set) => ({
     addError: (error) => set((state) => ({ errors: [...state.errors, error] })),
     clearErrors: () => set({ errors: [] }),
 }));
+
+export default useSyncErrorStore;

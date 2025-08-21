@@ -41,7 +41,7 @@ interface BoardListColumnProps {
     onDeleteList: (listId: string) => void;
     onSelectCard: (card: BoardCard) => void;
     onCreateCard: (
-        event: React.FormEvent<HTMLFormElement>,
+        data: import('@/schema/boardCardSchema').BoardCardFormValues,
         listId: string
     ) => Promise<void>;
     showAddCardDialog: string | null;
@@ -155,7 +155,7 @@ export default function BoardListColumn({
                         <Dialog.Content style={{ maxWidth: 450 }}>
                             <Dialog.Title>Create New Card</Dialog.Title>
                             <CardForm
-                                onSubmit={(e) => onCreateCard(e, list.id)}
+                                onSubmit={(data) => onCreateCard(data, list.id)}
                                 onClose={() => {}}
                             />
                         </Dialog.Content>

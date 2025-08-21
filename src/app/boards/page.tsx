@@ -14,6 +14,7 @@ import LoadingPage from '@/components/LoadingPage';
 import OrganizationGate from '@/components/guards/OrganizationGate';
 import CreateBoardModal from '@/components/modals/CreateBoardModal';
 import { Board } from '@/types/appState.type';
+import type { BoardFormValues } from '@/schema/boardSchema';
 
 export default function UserBoardsPage() {
     const currentOrganizationId = useOrganizationStore(
@@ -48,7 +49,7 @@ export default function UserBoardsPage() {
         }
     };
 
-    const handleCreateBoard = async (data: Board) => {
+    const handleCreateBoard = async (data: BoardFormValues) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
         const tempId = `temp-board-${Date.now()}-${Math.random()
@@ -57,7 +58,10 @@ export default function UserBoardsPage() {
         enqueueBoardAction({
             type: 'create-board',
             payload: {
-                data,
+                data: {
+                    ...data,
+                    organizationId: currentOrganizationId || '',
+                },
                 tempId,
             },
             timestamp: Date.now(),

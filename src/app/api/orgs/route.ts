@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromAuthHeader } from '@/lib/serverUtils';
 import { getOrganizationsForUserServerAction } from '@/lib/firebase/orgServerActions';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const user = await getUserFromAuthHeader(request);
+        const user = await getUserFromAuthHeader(_request);
         const result = await getOrganizationsForUserServerAction(user.id);
         if (!result.success) {
             return NextResponse.json(

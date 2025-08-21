@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthAndOrgContext } from '@/lib/serverUtils';
 import { getBoardsForOrganizationServerAction } from '@/lib/firebase/boardServerActions';
 import { getCardsServerAction } from '@/lib/firebase/cardServerActions';
+import type { BoardCard } from '@/types/appState.type';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const { user, orgId } = await getAuthAndOrgContext(request);
+        const { orgId } = await getAuthAndOrgContext(_request);
         // Get all boards for the organization
         const boardsResult = await getBoardsForOrganizationServerAction(orgId);
         if (!boardsResult.success || !Array.isArray(boardsResult.data)) {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
             );
         }
         // Fetch cards for each board
-        const allCards: any[] = [];
+        const allCards: BoardCard[] = [];
         for (const board of boardsResult.data) {
             const cardsResult = await getCardsServerAction({
                 orgId,

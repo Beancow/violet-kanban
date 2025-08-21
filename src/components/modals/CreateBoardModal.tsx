@@ -3,11 +3,15 @@
 import { Dialog } from '@radix-ui/themes';
 import { BoardForm } from '../forms/BoardForm';
 import { Board } from '@/types/appState.type';
+import type { z } from 'zod';
+import type { BoardListFormValues } from '@/schema/boardListSchema';
+
+import type { BoardFormValues } from '@/schema/boardSchema';
 
 interface CreateBoardModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (data: any) => void;
+    onSubmit: (data: BoardFormValues) => void;
     isSubmitting?: boolean;
     board?: Board;
 }

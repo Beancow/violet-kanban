@@ -33,7 +33,9 @@ export const adminDataConverter = <T>(): AdminFirestoreDataConverter<T> => ({
                 if (typeof v.toDate === 'function') {
                     try {
                         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                        convertedData[key] = (v.toDate as () => Date)().toISOString();
+                        convertedData[key] = (
+                            v.toDate as () => Date
+                        )().toISOString();
                     } catch (_) {
                         // leave original value
                     }
@@ -41,6 +43,7 @@ export const adminDataConverter = <T>(): AdminFirestoreDataConverter<T> => ({
             }
         }
 
-        return convertedData as unknown as T;
+        // Treat convertedData as the target shape after normalization
+        return convertedData as T;
     },
 });

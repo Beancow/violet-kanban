@@ -1,6 +1,8 @@
 import { create, StoreApi } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Board, BoardList, BoardCard } from '../types/appState.type';
+import type { PartialWithRequiredId } from '@/types/utilityTypes';
+import { buildPatch } from '@/utils/patchHelpers';
 
 // Use the existing SyncAction type as a base for VioletKanbanAction
 export type VioletKanbanAction = import('../types/worker.type').SyncAction;
@@ -168,28 +170,90 @@ export function createAppStore(
         orphanedCards: [],
 
         // Board actions
-        addBoard: (board: Board) => set((state: AppState) => ({ boards: [...state.boards, board] })),
-        updateBoard: (board: Board) =>
-            set((state: AppState) => ({ boards: state.boards.map((b: Board) => (b.id === board.id ? board : b)) })),
-        removeBoard: (boardId: string) => set((state: AppState) => ({ boards: state.boards.filter((b: Board) => b.id !== boardId) })),
+        addBoard: (board: Board) =>
+            set((state: AppState) => ({ boards: [...state.boards, board] })),
+        updateBoard: (board: PartialWithRequiredId<Board>) =>
+            set((state: AppState) => {
+                const patch = buildPatch<Board>(board);
+                return {
+                    boards: state.boards.map((b: Board) =>
+                        b.id === board.id ? ({ ...b, ...patch } as Board) : b
+                    ),
+                };
+            }),
+        removeBoard: (boardId: string) =>
+            set((state: AppState) => ({
+                boards: state.boards.filter((b: Board) => b.id !== boardId),
+            })),
 
-    // List actions
-    addList: (list: BoardList) => set((state: AppState) => ({ lists: [...state.lists, list] })),
-    updateList: (list: BoardList) => set((state: AppState) => ({ lists: state.lists.map((l: BoardList) => (l.id === list.id ? list : l)) })),
-    removeList: (listId: string) => set((state: AppState) => ({ lists: state.lists.filter((l: BoardList) => l.id !== listId) })),
+        // List actions
+        addList: (list: BoardList) =>
+            set((state: AppState) => ({ lists: [...state.lists, list] })),
+        updateList: (list: PartialWithRequiredId<BoardList>) =>
+            set((state: AppState) => {
+                const patch = buildPatch<BoardList>(list);
+                return {
+                    lists: state.lists.map((l: BoardList) =>
+                        l.id === list.id ? ({ ...l, ...patch } as BoardList) : l
+                    ),
+                };
+            }),
+        removeList: (listId: string) =>
+            set((state: AppState) => ({
+                lists: state.lists.filter((l: BoardList) => l.id !== listId),
+            })),
 
-    // Card actions
-    addCard: (card: BoardCard) => set((state: AppState) => ({ cards: [...state.cards, card] })),
-    updateCard: (card: BoardCard) => set((state: AppState) => ({ cards: state.cards.map((c: BoardCard) => (c.id === card.id ? card : c)) })),
-    removeCard: (cardId: string) => set((state: AppState) => ({ cards: state.cards.filter((c: BoardCard) => c.id !== cardId) })),
+        // Card actions
+        addCard: (card: BoardCard) =>
+            set((state: AppState) => ({ cards: [...state.cards, card] })),
+        updateCard: (card: PartialWithRequiredId<BoardCard>) =>
+            set((state: AppState) => {
+                const patch = buildPatch<BoardCard>(card);
+                return {
+                    cards: state.cards.map((c: BoardCard) =>
+                        c.id === card.id ? ({ ...c, ...patch } as BoardCard) : c
+                    ),
+                };
+            }),
+        removeCard: (cardId: string) =>
+            set((state: AppState) => ({
+                cards: state.cards.filter((c: BoardCard) => c.id !== cardId),
+            })),
 
         // Queue actions
-    enqueueBoardAction: (action: VioletKanbanAction) => set((state: AppState) => ({ boardActionQueue: squashQueueActions(state.boardActionQueue, action) })),
-    enqueueListAction: (action: VioletKanbanAction) => set((state: AppState) => ({ listActionQueue: squashQueueActions(state.listActionQueue, action) })),
-    enqueueCardAction: (action: VioletKanbanAction) => set((state: AppState) => ({ cardActionQueue: squashQueueActions(state.cardActionQueue, action) })),
-    dequeueBoardAction: () => set((state: AppState) => ({ boardActionQueue: state.boardActionQueue.slice(1) })),
-    dequeueListAction: () => set((state: AppState) => ({ listActionQueue: state.listActionQueue.slice(1) })),
-    dequeueCardAction: () => set((state: AppState) => ({ cardActionQueue: state.cardActionQueue.slice(1) })),
+        enqueueBoardAction: (action: VioletKanbanAction) =>
+            set((state: AppState) => ({
+                boardActionQueue: squashQueueActions(
+                    state.boardActionQueue,
+                    action
+                ),
+            })),
+        enqueueListAction: (action: VioletKanbanAction) =>
+            set((state: AppState) => ({
+                listActionQueue: squashQueueActions(
+                    state.listActionQueue,
+                    action
+                ),
+            })),
+        enqueueCardAction: (action: VioletKanbanAction) =>
+            set((state: AppState) => ({
+                cardActionQueue: squashQueueActions(
+                    state.cardActionQueue,
+                    action
+                ),
+            })),
+        dequeueBoardAction: () =>
+            set((state: AppState) => ({
+                boardActionQueue: state.boardActionQueue.slice(1),
+            })),
+        dequeueListAction: () =>
+            set((state: AppState) => ({
+                listActionQueue: state.listActionQueue.slice(1),
+            })),
+        dequeueCardAction: () =>
+            set((state: AppState) => ({
+                cardActionQueue: state.cardActionQueue.slice(1),
+            })),
 
         // Process actions with conflict detection
         processBoardAction: (action: VioletKanbanAction) => {
@@ -200,18 +264,19 @@ export function createAppStore(
             }
             if (action.type === 'delete-board' && boardId) {
                 set((state: AppState) => ({
-                    lists: state.lists.filter(
-                        (list) => {
-                            if (!list) return true;
-                            const bId = (list as unknown as { boardId?: unknown }).boardId;
-                            return !(typeof bId === 'string' && bId === boardId);
-                        }
-                    ),
+                    lists: state.lists.filter((list) => {
+                        if (!list) return true;
+                        const bId = (list as unknown as { boardId?: unknown })
+                            .boardId;
+                        return !(typeof bId === 'string' && bId === boardId);
+                    }),
                     orphanedCards: [
                         ...(state.orphanedCards ?? []),
                         ...state.cards.filter((card) => {
                             if (!card) return false;
-                            const bId = (card as unknown as { boardId?: unknown }).boardId;
+                            const bId = (
+                                card as unknown as { boardId?: unknown }
+                            ).boardId;
                             return typeof bId === 'string' && bId === boardId;
                         }),
                     ],
@@ -223,11 +288,16 @@ export function createAppStore(
                         ...(state.staleBoardActions || []),
                         action,
                     ],
-                    boardActionQueue: state.boardActionQueue.filter((a) => a !== action),
+                    boardActionQueue: state.boardActionQueue.filter(
+                        (a) => a !== action
+                    ),
                 }));
             } else {
                 set((state: AppState) => ({
-                    boardActionQueue: squashQueueActions(state.boardActionQueue, action),
+                    boardActionQueue: squashQueueActions(
+                        state.boardActionQueue,
+                        action
+                    ),
                 }));
             }
         },
@@ -237,18 +307,23 @@ export function createAppStore(
             let missingBoard = false;
             let boardId: string | undefined;
             if ('payload' in action) {
-                const payload = action.payload as unknown;
-                    if (payload && typeof payload === 'object' && 'data' in (payload as Record<string, unknown>) && (payload as Record<string, unknown>).data) {
-                        const data = ((payload as Record<string, unknown>).data) as Partial<BoardList>;
-                        if ('boardId' in data && typeof data.boardId === 'string') {
-                            boardId = data.boardId;
-                        }
-                    } else if (payload && typeof payload === 'object') {
-                        const p = payload as Record<string, unknown>;
-                        if (typeof p.boardId === 'string') boardId = p.boardId as string;
-                    }
+                const payload = action.payload as Record<string, unknown>;
+                if (
+                    'data' in payload &&
+                    payload.data &&
+                    typeof payload.data === 'object'
+                ) {
+                    const dd = payload.data as Record<string, unknown>;
+                    if (typeof dd.boardId === 'string')
+                        boardId = dd.boardId as string;
+                } else if (typeof payload.boardId === 'string') {
+                    boardId = payload.boardId as string;
+                }
             }
-            if (boardId && !get().boards.some((b) => (b as { id: string }).id === boardId)) {
+            if (
+                boardId &&
+                !get().boards.some((b) => (b as { id: string }).id === boardId)
+            ) {
                 missingBoard = true;
                 isStale = true;
             }
@@ -256,7 +331,13 @@ export function createAppStore(
                 isStale = true;
             }
             if (action.type === 'delete-list' && listId) {
-                set((state: AppState) => ({ cards: state.cards.map((card: BoardCard) => (card.listId === listId ? { ...card, listId: null } : card)) }));
+                set((state: AppState) => ({
+                    cards: state.cards.map((card: BoardCard) =>
+                        card.listId === listId
+                            ? { ...card, listId: null }
+                            : card
+                    ),
+                }));
             }
             if (isStale) {
                 set((state: AppState) => ({
@@ -264,10 +345,17 @@ export function createAppStore(
                         ...(state.staleListActions || []),
                         { ...action, meta: { missingBoard } },
                     ],
-                    listActionQueue: state.listActionQueue.filter((a) => a !== action),
+                    listActionQueue: state.listActionQueue.filter(
+                        (a) => a !== action
+                    ),
                 }));
             } else {
-                set((state: AppState) => ({ listActionQueue: squashQueueActions(state.listActionQueue, action) }));
+                set((state: AppState) => ({
+                    listActionQueue: squashQueueActions(
+                        state.listActionQueue,
+                        action
+                    ),
+                }));
             }
         },
         processCardAction: (action: VioletKanbanAction) => {
@@ -278,28 +366,35 @@ export function createAppStore(
             let boardId: string | undefined;
             let listId: string | undefined;
             if ('payload' in action) {
-                if ('data' in action.payload && (action.payload as any).data) {
-                    const data = (action.payload as any).data as Partial<BoardCard>;
-                    if ('boardId' in data && typeof data.boardId === 'string') {
-                        boardId = data.boardId;
-                    }
-                    if ('listId' in data && typeof data.listId === 'string') {
-                        listId = data.listId;
-                    }
+                const payload = action.payload as Record<string, unknown>;
+                if (
+                    'data' in payload &&
+                    payload.data &&
+                    typeof payload.data === 'object'
+                ) {
+                    const dd = payload.data as Record<string, unknown>;
+                    if (typeof dd.boardId === 'string')
+                        boardId = dd.boardId as string;
+                    if (typeof dd.listId === 'string')
+                        listId = dd.listId as string;
                 } else {
-                    const payload = action.payload as unknown;
-                    if (payload && typeof payload === 'object') {
-                        const p = payload as Record<string, unknown>;
-                        if (typeof p.boardId === 'string') boardId = p.boardId as string;
-                        if (typeof p.listId === 'string') listId = p.listId as string;
-                    }
+                    if (typeof payload.boardId === 'string')
+                        boardId = payload.boardId as string;
+                    if (typeof payload.listId === 'string')
+                        listId = payload.listId as string;
                 }
             }
-            if (boardId && !get().boards.some((b) => (b as { id: string }).id === boardId)) {
+            if (
+                boardId &&
+                !get().boards.some((b) => (b as { id: string }).id === boardId)
+            ) {
                 missingBoard = true;
                 isStale = true;
             }
-            if (listId && !get().lists.some((l) => (l as { id: string }).id === listId)) {
+            if (
+                listId &&
+                !get().lists.some((l) => (l as { id: string }).id === listId)
+            ) {
                 missingList = true;
                 isStale = true;
             }
@@ -312,16 +407,30 @@ export function createAppStore(
                         ...(state.staleCardActions || []),
                         { ...action, meta: { missingBoard, missingList } },
                     ],
-                    cardActionQueue: state.cardActionQueue.filter((a) => a !== action),
+                    cardActionQueue: state.cardActionQueue.filter(
+                        (a) => a !== action
+                    ),
                 }));
             } else {
-                set((state: AppState) => ({ cardActionQueue: squashQueueActions(state.cardActionQueue, action) }));
+                set((state: AppState) => ({
+                    cardActionQueue: squashQueueActions(
+                        state.cardActionQueue,
+                        action
+                    ),
+                }));
             }
         },
 
         // Action to recover or reassign orphaned cards
         recoverOrphanedCard: (cardId: string, newBoardId: string) =>
-            set((state: AppState) => ({ orphanedCards: (state.orphanedCards ?? []).filter((card) => card.id !== cardId), cards: state.cards.map((card) => (card.id === cardId ? { ...card, boardId: newBoardId } : card)) })),
+            set((state: AppState) => ({
+                orphanedCards: (state.orphanedCards ?? []).filter(
+                    (card) => card.id !== cardId
+                ),
+                cards: state.cards.map((card) =>
+                    card.id === cardId ? { ...card, boardId: newBoardId } : card
+                ),
+            })),
     });
 
     if (persistEnabled) {
@@ -334,14 +443,38 @@ export function createAppStore(
 
 let _appStore: import('zustand').UseBoundStore<StoreApi<AppState>> | null =
     null;
-export function getOrCreateAppStore(): import('zustand').UseBoundStore<
-    StoreApi<AppState>
-> {
+
+export function initializeAppStore(
+    persistEnabled = typeof window !== 'undefined'
+) {
     if (!_appStore) {
-        const persistEnabled = typeof window !== 'undefined';
         _appStore = createAppStore(persistEnabled);
     }
     return _appStore;
 }
 
-export const useAppStore = getOrCreateAppStore();
+export function getAppStoreIfReady():
+    | import('zustand').UseBoundStore<StoreApi<AppState>>
+    | null {
+    return _appStore;
+}
+
+export function getOrCreateAppStore(): import('zustand').UseBoundStore<
+    StoreApi<AppState>
+> {
+    if (!_appStore) {
+        throw new Error(
+            'App store not initialized. Call initializeAppStore() from a client provider before use.'
+        );
+    }
+    return _appStore;
+}
+
+export function createAppStoreForTest() {
+    return createAppStore(false);
+}
+
+export const useAppStore = (() => {
+    const store = getOrCreateAppStore();
+    return store;
+})();

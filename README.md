@@ -34,8 +34,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+-   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+-   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
@@ -44,3 +44,33 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Developer notes
+
+This project includes a couple of small runtime/type helpers to make store patch updates safer and clearer:
+
+-   `src/types/utilityTypes.ts`
+
+    -   `PartialWithRequiredId<T>`: a reusable alias for patch/update payloads that require an `id` but only include the fields to change.
+
+-   `src/utils/patchHelpers.ts`
+    -   `buildPatch<T>(input: Partial<T>, allowNullFor?: Array<keyof T>)`: builds a sanitized patch object by filtering out `undefined` values and (unless allowed) `null` values. This avoids accidental overwrites.
+
+Recommended patterns:
+
+-   For store update methods which are patch-oriented, use the `PartialWithRequiredId<T>` signature and merge the patch into the existing object. Example:
+
+    ```ts
+    updateCard: (card: PartialWithRequiredId<BoardCard>) => {
+        const patch = buildPatch<BoardCard>(card);
+        // merge patch into existing card by id
+    };
+    ```
+
+-   When you intentionally need to set a field to `null` (for example, clearing `listId` when a list is removed), pass the allowed keys to `buildPatch`:
+
+    ```ts
+    const patch = buildPatch<BoardCard>({ listId: null }, ['listId']);
+    ```
+
+This keeps update code concise and avoids repeated `Object.entries` boilerplate.

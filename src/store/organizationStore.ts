@@ -77,14 +77,38 @@ export function createOrganizationStore(
 let _organizationStore:
     | import('zustand').UseBoundStore<StoreApi<OrganizationState>>
     | null = null;
-export function getOrCreateOrganizationStore(): import('zustand').UseBoundStore<
-    StoreApi<OrganizationState>
-> {
+
+export function initializeOrganizationStore(
+    persistEnabled = typeof window !== 'undefined'
+) {
     if (!_organizationStore) {
-        const persistEnabled = typeof window !== 'undefined';
         _organizationStore = createOrganizationStore(persistEnabled);
     }
     return _organizationStore;
 }
 
-export const useOrganizationStore = getOrCreateOrganizationStore();
+export function getOrganizationStoreIfReady():
+    | import('zustand').UseBoundStore<StoreApi<OrganizationState>>
+    | null {
+    return _organizationStore;
+}
+
+export function getOrCreateOrganizationStore(): import('zustand').UseBoundStore<
+    StoreApi<OrganizationState>
+> {
+    if (!_organizationStore) {
+        throw new Error(
+            'Organization store not initialized. Call initializeOrganizationStore() from OrganizationStoreProvider before using non-React APIs.'
+        );
+    }
+    return _organizationStore;
+}
+
+export function createOrganizationStoreForTest() {
+    return createOrganizationStore(false);
+}
+
+export const useOrganizationStore = (() => {
+    const store = getOrCreateOrganizationStore();
+    return store;
+})();

@@ -1,5 +1,6 @@
 'use client';
 import { Board, BoardList, BoardCard, User } from '@/types/appState.type';
+import type { BoardCardFormValues } from '@/schema/boardCardSchema';
 import { Flex, Box, Heading, Text, IconButton, Dialog } from '@radix-ui/themes';
 import { PlusIcon } from '@radix-ui/react-icons';
 import BoardListColumn from './BoardListColumn';
@@ -10,10 +11,7 @@ interface BoardContentProps {
     user: User | null;
     onDeleteList: (listId: string) => void;
     onSelectCard: (card: BoardCard) => void;
-    onCreateCard: (
-        event: React.FormEvent<HTMLFormElement>,
-        listId: string
-    ) => Promise<void>;
+    onCreateCard: (data: BoardCardFormValues, listId: string) => Promise<void>;
     onCreateList: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
     showAddCardDialog: string | null;
     setShowAddCardDialog: (listId: string | null) => void;

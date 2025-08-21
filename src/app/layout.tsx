@@ -6,6 +6,11 @@ import { Theme } from '@radix-ui/themes';
 import { FloatingSyncButton } from '@/components/FloatingSyncButton';
 import { SyncManager } from '@/components/SyncManager';
 import Header from '@/components/navigation/Header';
+import QueueStoreProvider from '@/providers/QueueStoreProvider';
+import AuthStoreProvider from '@/providers/AuthStoreProvider';
+import BoardStoreProvider from '@/providers/BoardStoreProvider';
+import ListStoreProvider from '@/providers/ListStoreProvider';
+import CardStoreProvider from '@/providers/CardStoreProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,7 +31,17 @@ export default function RootLayout({
                     <Header />
                     <FloatingSyncButton />
                     <SyncManager />
-                    {children}
+                    <AuthStoreProvider>
+                        <BoardStoreProvider>
+                            <ListStoreProvider>
+                                <CardStoreProvider>
+                                    <QueueStoreProvider>
+                                        {children}
+                                    </QueueStoreProvider>
+                                </CardStoreProvider>
+                            </ListStoreProvider>
+                        </BoardStoreProvider>
+                    </AuthStoreProvider>
                 </Theme>
             </body>
         </html>

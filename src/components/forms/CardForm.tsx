@@ -12,6 +12,8 @@ import { BoardCard } from '@/types/appState.type';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { boardCardSchema } from '@/schema/boardCardSchema';
+import type { z } from 'zod';
+type BoardCardFormValues = z.infer<typeof boardCardSchema>;
 import styles from 'src/components/menus/LooseCardsMenu.module.css';
 
 export function CardForm({
@@ -22,7 +24,7 @@ export function CardForm({
     small = false,
 }: {
     card?: BoardCard;
-    onSubmit: (data: any) => void;
+    onSubmit: (data: BoardCardFormValues) => void;
     onClose: () => void;
     hideTitle?: boolean;
     small?: boolean;

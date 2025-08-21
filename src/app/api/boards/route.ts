@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthAndOrgContext } from '@/lib/serverUtils';
 import { getBoardsForOrganizationServerAction } from '@/lib/firebase/boardServerActions';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const { user, orgId } = await getAuthAndOrgContext(request);
-        const result = await getBoardsForOrganizationServerAction(orgId);
+        const { orgId } = await getAuthAndOrgContext(_request);
+    const result = await getBoardsForOrganizationServerAction(orgId);
         if (!result.success) {
             return NextResponse.json(
                 { success: false, error: result.error?.message },

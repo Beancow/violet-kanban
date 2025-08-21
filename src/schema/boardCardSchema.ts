@@ -23,3 +23,4 @@ export const boardCardSchema = z.object({
 });
 
 export type BoardCardSchema = typeof boardCardSchema;
+export type BoardCardFormValues = z.infer<typeof boardCardSchema>;

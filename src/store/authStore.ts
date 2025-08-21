@@ -51,28 +51,41 @@ export function createAuthStore(
 
 let _authStore: import('zustand').UseBoundStore<StoreApi<AuthState>> | null =
     null;
-export function getOrCreateAuthStore(): import('zustand').UseBoundStore<
-    StoreApi<AuthState>
-> {
+
+export function initializeAuthStore(
+    persistEnabled = typeof window !== 'undefined'
+) {
     if (!_authStore) {
-        const persistEnabled = typeof window !== 'undefined';
         _authStore = createAuthStore(persistEnabled);
     }
     return _authStore;
 }
 
-export const useAuthStore = getOrCreateAuthStore();
-
-// Listen for auth state changes and update store only in browser/runtime
-if (typeof window !== 'undefined' && firebaseAuth && onAuthStateChanged) {
-    onAuthStateChanged(firebaseAuth, async (user) => {
-        useAuthStore.getState().setAuthUser(user as FirebaseUser | null);
-        useAuthStore.getState().setLoading(false);
-        if (user && (user as FirebaseUser).getIdToken) {
-            const token = await (user as FirebaseUser).getIdToken();
-            useAuthStore.getState().setIdToken(token);
-        } else {
-            useAuthStore.getState().setIdToken(null);
-        }
-    });
+export function getAuthStoreIfReady():
+    | import('zustand').UseBoundStore<StoreApi<AuthState>>
+    | null {
+    return _authStore;
 }
+
+export function getOrCreateAuthStore(): import('zustand').UseBoundStore<
+    StoreApi<AuthState>
+> {
+    if (!_authStore) {
+        throw new Error(
+            'Auth store not initialized. Call initializeAuthStore() from AuthStoreProvider before using non-React APIs.'
+        );
+    }
+    return _authStore;
+}
+
+export function createAuthStoreForTest() {
+    return createAuthStore(false);
+}
+
+export const useAuthStore = (() => {
+    const store = getOrCreateAuthStore();
+    return store;
+})();
+
+// Auth listener is intentionally not registered at module-eval time.
+// Use `AuthStoreProvider` (client) to register onAuthStateChanged inside a useEffect.

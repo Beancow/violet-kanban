@@ -19,15 +19,11 @@ export function isUseBoundStore<T = unknown>(
     subscribe: (listener: (state: T, prevState?: T) => void) => () => void;
 } {
     if (typeof obj !== 'function') return false;
-    const anyObj = obj as {
-        getState?: unknown;
-        setState?: unknown;
-        subscribe?: unknown;
-    };
+    const maybeObj = obj as unknown as Record<string, unknown>;
     return (
-        typeof anyObj.getState === 'function' &&
-        typeof anyObj.setState === 'function' &&
-        typeof anyObj.subscribe === 'function'
+        typeof maybeObj.getState === 'function' &&
+        typeof maybeObj.setState === 'function' &&
+        typeof maybeObj.subscribe === 'function'
     );
 }
 // (duplicate guard removed)
@@ -53,7 +49,9 @@ export interface CardStoreAdapter {
 
 // Helper to normalize an unknown store-like object into a Zustand StoreApi<T> if possible.
 import type { StoreApi } from 'zustand';
-export function getStoreApi<T = unknown>(maybe: unknown): StoreApi<T> | undefined {
+export function getStoreApi<T = unknown>(
+    maybe: unknown
+): StoreApi<T> | undefined {
     if (!maybe) return undefined;
     // If it's a useBoundStore (callable with getState/setState/subscribe)
     if (isUseBoundStore<T>(maybe)) {

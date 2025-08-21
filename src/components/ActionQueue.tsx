@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     useVioletKanbanQueues,
     useVioletKanbanData,
@@ -8,24 +8,24 @@ import { getActionItemId, detectActionConflicts } from '@/store/helpers';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
 import { SyncAction } from '@/types/worker.type';
+import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 
 export function ActionQueue() {
     const { boardActionQueue, listActionQueue, cardActionQueue } =
         useVioletKanbanQueues();
     const { boards, lists, cards } = useVioletKanbanData();
-    const actionQueue = [
-        ...boardActionQueue,
-        ...listActionQueue,
-        ...cardActionQueue,
-    ];
+    const actionQueue = useMemo(
+        () => [...boardActionQueue, ...listActionQueue, ...cardActionQueue],
+        [boardActionQueue, listActionQueue, cardActionQueue]
+    );
     const removeBoardAction = useQueueStore((s) => s.removeBoardAction);
     const removeListAction = useQueueStore((s) => s.removeListAction);
     const removeCardAction = useQueueStore((s) => s.removeCardAction);
     const [conflicts, setConflicts] = useState<
         {
             id: string;
-            local: any;
-            server: any;
+            local: Board | BoardList | BoardCard;
+            server: Board | BoardList | BoardCard;
             action: SyncAction;
             type: 'board' | 'list' | 'card';
         }[]
@@ -119,13 +119,13 @@ export function ActionQueue() {
                                     <Box>
                                         <Text size='1'>
                                             <b>Local update:</b>{' '}
-                                            {local.updatedAt} (queued at{' '}
+                                            {String(local.updatedAt)} (queued at{' '}
                                             {new Date(
                                                 action.timestamp
                                             ).toLocaleString()}
                                             )<br />
                                             <b>Server update:</b>{' '}
-                                            {server.updatedAt}
+                                            {String(server.updatedAt)}
                                         </Text>
                                         <Box mt='2'>
                                             <button

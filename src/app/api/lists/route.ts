@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthAndOrgContext } from '@/lib/serverUtils';
 import { getListsServerAction } from '@/lib/firebase/listServerActions';
+import type { BoardList } from '@/types/appState.type';
 import { getBoardsForOrganizationServerAction } from '@/lib/firebase/boardServerActions';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const { user, orgId } = await getAuthAndOrgContext(request);
+        const { orgId } = await getAuthAndOrgContext(_request);
         // Get all boards for the organization
         const boardsResult = await getBoardsForOrganizationServerAction(orgId);
         if (!boardsResult.success || !Array.isArray(boardsResult.data)) {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
             );
         }
         // Fetch lists for each board
-        const allLists: any[] = [];
+        const allLists: BoardList[] = [];
         for (const board of boardsResult.data) {
             const listsResult = await getListsServerAction({
                 orgId,

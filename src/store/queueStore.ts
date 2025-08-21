@@ -1,10 +1,22 @@
-import { create, StoreApi } from 'zustand';
+import { create, StoreApi, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getActionItemId, squashQueueActions } from './helpers';
 import { getOrCreateTempIdMapStore } from './tempIdMapStore';
-import { useBoardStore } from './boardStore';
-import { useListStore } from './listStore';
-import { useCardStore } from './cardStore';
+import {
+    getOrCreateBoardStore,
+    useBoardStore,
+    getBoardStoreIfReady,
+} from './boardStore';
+import {
+    getOrCreateListStore,
+    useListStore,
+    getListStoreIfReady,
+} from './listStore';
+import {
+    getOrCreateCardStore,
+    useCardStore,
+    getCardStoreIfReady,
+} from './cardStore';
 import {
     isUseBoundStore,
     BoardStoreAdapter,
@@ -17,6 +29,25 @@ import type { ListState } from './listStore';
 import type { CardState } from './cardStore';
 import type { Board, BoardList, BoardCard } from '../types/appState.type';
 import type { VioletKanbanAction } from './appStore';
+import type { TempIdMapState } from './tempIdMapStore';
+
+// Minimal adapter type and runtime guards for injected temp id map objects used in tests.
+type MinimalTempIdMapAdapter = {
+    setMapping?: (t: string, r: string) => void;
+    clearMapping?: (t: string) => void;
+};
+
+function hasSetMapping(obj: unknown): obj is { setMapping: (t: string, r: string) => void } {
+    if (!obj || typeof obj !== 'object') return false;
+    const maybe = obj as { setMapping?: unknown };
+    return typeof maybe.setMapping === 'function';
+}
+
+function hasClearMapping(obj: unknown): obj is { clearMapping: (t: string) => void } {
+    if (!obj || typeof obj !== 'object') return false;
+    const maybe = obj as { clearMapping?: unknown };
+    return typeof maybe.clearMapping === 'function';
+}
 
 export interface QueueState {
     boardActionQueue: VioletKanbanAction[];
@@ -48,21 +79,33 @@ export function createQueueStore(
         boardStore?: BoardStoreAdapter | ReturnType<typeof useBoardStore>;
         listStore?: ListStoreAdapter | ReturnType<typeof useListStore>;
         cardStore?: CardStoreAdapter | ReturnType<typeof useCardStore>;
+        // optional test-injected temp id map store (can be UseBoundStore, StoreApi, or a minimal adapter)
+        tempIdMapStore?:
+            | ReturnType<typeof getOrCreateTempIdMapStore>
+            | StoreApi<TempIdMapState>
+            | { setMapping: (t: string, r: string) => void; clearMapping: (t: string) => void }
+            | unknown;
     }
-): import('zustand').UseBoundStore<StoreApi<QueueState>> {
+) {
     // If adapters are provided for testing, use them; otherwise use the runtime singletons/hooks.
     const boardStoreInstance =
         options && options.boardStore !== undefined
             ? options.boardStore
-            : useBoardStore();
+            : typeof getBoardStoreIfReady === 'function'
+            ? getBoardStoreIfReady()
+            : undefined;
     const listStoreInstance =
         options && options.listStore !== undefined
             ? options.listStore
-            : useListStore();
+            : typeof getListStoreIfReady === 'function'
+            ? getListStoreIfReady()
+            : undefined;
     const cardStoreInstance =
         options && options.cardStore !== undefined
             ? options.cardStore
-            : useCardStore();
+            : typeof getCardStoreIfReady === 'function'
+            ? getCardStoreIfReady()
+            : undefined;
 
     // Normalize add functions: support either a UseBoundStore (hook) or a minimal adapter object
     const addBoardFn = (board: Board) => {
@@ -98,63 +141,51 @@ export function createQueueStore(
         if (adapter && typeof adapter.addCard === 'function') adapter.addCard(card);
     };
 
-    const creator: import('zustand').StateCreator<QueueState> = (
-        set,
-        _get
-    ) => ({
+    const creator: StateCreator<QueueState> = (set, _get) => ({
         boardActionQueue: [] as VioletKanbanAction[],
         listActionQueue: [] as VioletKanbanAction[],
         cardActionQueue: [] as VioletKanbanAction[],
         enqueueBoardAction: (action: VioletKanbanAction) =>
             set((state: QueueState) => ({
-                boardActionQueue: squashQueueActions(
-                    state.boardActionQueue,
-                    action
-                ),
+                boardActionQueue: squashQueueActions(state.boardActionQueue, action),
             })),
         enqueueListAction: (action: VioletKanbanAction) =>
             set((state: QueueState) => ({
-                listActionQueue: squashQueueActions(
-                    state.listActionQueue,
-                    action
-                ),
+                listActionQueue: squashQueueActions(state.listActionQueue, action),
             })),
         enqueueCardAction: (action: VioletKanbanAction) =>
             set((state: QueueState) => ({
-                cardActionQueue: squashQueueActions(
-                    state.cardActionQueue,
-                    action
-                ),
+                cardActionQueue: squashQueueActions(state.cardActionQueue, action),
             })),
         removeBoardAction: (actionId: string) =>
             set((state: QueueState) => ({
                 boardActionQueue: state.boardActionQueue.filter(
-                    (action: VioletKanbanAction) =>
-                        getActionItemId(action) !== actionId
+                    (action: VioletKanbanAction) => getActionItemId(action) !== actionId
                 ),
             })),
         removeListAction: (actionId: string) =>
             set((state: QueueState) => ({
                 listActionQueue: state.listActionQueue.filter(
-                    (action: VioletKanbanAction) =>
-                        getActionItemId(action) !== actionId
+                    (action: VioletKanbanAction) => getActionItemId(action) !== actionId
                 ),
             })),
         removeCardAction: (actionId: string) =>
             set((state: QueueState) => ({
                 cardActionQueue: state.cardActionQueue.filter(
-                    (action: VioletKanbanAction) =>
-                        getActionItemId(action) !== actionId
+                    (action: VioletKanbanAction) => getActionItemId(action) !== actionId
                 ),
             })),
-        handleBoardActionSuccess: (
-            tempId: string | undefined,
-            newBoard: Board
-        ) => {
+        handleBoardActionSuccess: (tempId: string | undefined, newBoard: Board) => {
             if (!tempId) return;
             const realId = newBoard.id;
             // Update tempId map so other parts can look up the real id
-            getOrCreateTempIdMapStore().getState().setMapping(tempId, realId);
+            const tempMap = options && options.tempIdMapStore ? options.tempIdMapStore : getOrCreateTempIdMapStore();
+            const tempApi = getStoreApi<TempIdMapState>(tempMap);
+            if (tempApi) {
+                tempApi.getState().setMapping(tempId, realId);
+            } else if (hasSetMapping(tempMap)) {
+                tempMap.setMapping(tempId, realId);
+            }
 
             // Move the created board into the real store (ensure no duplicates)
             addBoardFn(newBoard);
@@ -162,21 +193,27 @@ export function createQueueStore(
             // Remove queued actions that referenced the tempId
             set((state: QueueState) => ({
                 boardActionQueue: state.boardActionQueue.filter(
-                    (action: VioletKanbanAction) =>
-                        getActionItemId(action) !== tempId
+                    (action: VioletKanbanAction) => getActionItemId(action) !== tempId
                 ),
             }));
 
             // Clear temp map for this id
-            getOrCreateTempIdMapStore().getState().clearMapping(tempId);
+            if (tempApi) {
+                tempApi.getState().clearMapping(tempId);
+            } else if (hasClearMapping(tempMap)) {
+                tempMap.clearMapping(tempId);
+            }
         },
-        handleListActionSuccess: (
-            tempId: string | undefined,
-            newList: BoardList
-        ) => {
+        handleListActionSuccess: (tempId: string | undefined, newList: BoardList) => {
             if (!tempId) return;
             const realId = newList.id;
-            getOrCreateTempIdMapStore().getState().setMapping(tempId, realId);
+            const tempMap = options && options.tempIdMapStore ? options.tempIdMapStore : getOrCreateTempIdMapStore();
+            const tempApi = getStoreApi<TempIdMapState>(tempMap);
+            if (tempApi) {
+                tempApi.getState().setMapping(tempId, realId);
+            } else if (hasSetMapping(tempMap)) {
+                tempMap.setMapping(tempId, realId);
+            }
 
             // Add the real list
             addListFn(newList);
@@ -184,20 +221,27 @@ export function createQueueStore(
             // Remove queued actions that referenced the tempId
             set((state: QueueState) => ({
                 listActionQueue: state.listActionQueue.filter(
-                    (action: VioletKanbanAction) =>
-                        getActionItemId(action) !== tempId
+                    (action: VioletKanbanAction) => getActionItemId(action) !== tempId
                 ),
             }));
 
-            getOrCreateTempIdMapStore().getState().clearMapping(tempId);
+            // Clear mapping
+            if (tempApi) {
+                tempApi.getState().clearMapping(tempId);
+            } else if (hasClearMapping(tempMap)) {
+                tempMap.clearMapping(tempId);
+            }
         },
-        handleCardActionSuccess: (
-            tempId: string | undefined,
-            newCard: BoardCard
-        ) => {
+        handleCardActionSuccess: (tempId: string | undefined, newCard: BoardCard) => {
             if (!tempId) return;
             const realId = newCard.id;
-            getOrCreateTempIdMapStore().getState().setMapping(tempId, realId);
+            const tempMap = options && options.tempIdMapStore ? options.tempIdMapStore : getOrCreateTempIdMapStore();
+            const tempApi = getStoreApi<TempIdMapState>(tempMap);
+            if (tempApi) {
+                tempApi.getState().setMapping(tempId, realId);
+            } else if (hasSetMapping(tempMap)) {
+                tempMap.setMapping(tempId, realId);
+            }
 
             // Add the real card
             addCardFn(newCard);
@@ -205,49 +249,77 @@ export function createQueueStore(
             // Remove queued actions that referenced the tempId
             set((state: QueueState) => ({
                 cardActionQueue: state.cardActionQueue.filter(
-                    (action: VioletKanbanAction) =>
-                        getActionItemId(action) !== tempId
+                    (action: VioletKanbanAction) => getActionItemId(action) !== tempId
                 ),
             }));
 
-            getOrCreateTempIdMapStore().getState().clearMapping(tempId);
+            // Clear mapping
+            if (tempApi) {
+                tempApi.getState().clearMapping(tempId);
+            } else if (hasClearMapping(tempMap)) {
+                tempMap.clearMapping(tempId);
+            }
         },
     });
 
     if (persistEnabled) {
-        return create<QueueState>()(
-            persist(creator, { name: 'violet-kanban-queue-storage' })
-        );
+        return create<QueueState>()(persist(creator, { name: 'violet-kanban-queue-storage' }));
     }
 
     return create<QueueState>()(creator);
 }
 
-let _queueStore: import('zustand').UseBoundStore<StoreApi<QueueState>> | null =
-    null;
-export function getOrCreateQueueStore(): import('zustand').UseBoundStore<
-    StoreApi<QueueState>
-> {
+let _queueStore: StoreApi<QueueState> | null = null;
+
+export function initializeQueueStore(
+    persistEnabled = typeof window !== 'undefined'
+) {
     if (!_queueStore) {
-        const persistEnabled = typeof window !== 'undefined';
-        _queueStore = createQueueStore(persistEnabled);
+        _queueStore = createQueueStore(
+            persistEnabled
+        ) as unknown as StoreApi<QueueState>;
     }
     return _queueStore;
 }
 
+export function getQueueStoreIfReady(): StoreApi<QueueState> | null {
+    return _queueStore;
+}
+
+export function getOrCreateQueueStore(): StoreApi<QueueState> {
+    if (!_queueStore) {
+        throw new Error(
+            'Queue store not initialized. Call initializeQueueStore() from QueueStoreProvider before using non-React APIs.'
+        );
+    }
+    return _queueStore;
+}
+
+export function createQueueStoreForTest() {
+    return createQueueStore(false);
+}
+
 // Lazy, typed proxy for useQueueStore. We use the runtime type guard `isUseBoundStore`
 // when invoking the underlying store to avoid blind casts.
-export const useQueueStore: import('zustand').UseBoundStore<StoreApi<QueueState>> = ((...args: Array<unknown>) => {
+export const useQueueStore: import('zustand').UseBoundStore<
+    StoreApi<QueueState>
+> = ((...args: Array<unknown>) => {
     const store = getOrCreateQueueStore();
+    // If the underlying object is a UseBoundStore (callable), call it with the selector.
     if (isUseBoundStore<QueueState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as
             | ((s: QueueState) => unknown)
             | undefined;
-        return (store as (selector?: (s: QueueState) => unknown) => unknown)(selector);
+        // store is a callable UseBoundStore at runtime, invoke with selector
+        return (
+            store as unknown as (
+                selector?: (s: QueueState) => unknown
+            ) => unknown
+        )(selector);
     }
-    // Fallback: store behaves like StoreApi, call selector against its getState()
+    // Fallback: treat as StoreApi and run selector against getState()
     const selector = args[0] as unknown;
-    const storeApi = store as unknown as StoreApi<QueueState>;
+    const storeApi = store as StoreApi<QueueState>;
     if (typeof selector === 'function') {
         return (selector as (s: QueueState) => unknown)(storeApi.getState());
     }
@@ -255,7 +327,5 @@ export const useQueueStore: import('zustand').UseBoundStore<StoreApi<QueueState>
 }) as unknown as import('zustand').UseBoundStore<StoreApi<QueueState>>;
 
 // Expose helper methods commonly used outside React (e.g., syncManager)
-;(useQueueStore as unknown as { getState?: unknown }).getState = () => getOrCreateQueueStore().getState();
-;(useQueueStore as unknown as { setState?: unknown }).setState = (s: unknown) => getOrCreateQueueStore().setState(s as unknown as Partial<QueueState>);
-;(useQueueStore as unknown as { subscribe?: unknown }).subscribe = (cb: (s: QueueState) => void) =>
-    getOrCreateQueueStore().subscribe(cb as (state: QueueState) => void);
+// Note: we intentionally do NOT attach getState/setState/subscribe helpers onto `useQueueStore`.
+// Non-React code should call `getOrCreateQueueStore()` explicitly and use the returned StoreApi<QueueState>.

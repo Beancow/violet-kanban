@@ -1,11 +1,14 @@
 import { Dialog } from '@radix-ui/themes';
 import type { Organization } from '@/types/appState.type';
 import OrganizationForm from '../forms/OrganizationForm';
+import { z } from 'zod';
+import { OrganizationSchema } from '@/schema/organizationSchema';
+type OrganizationFormValues = z.infer<typeof OrganizationSchema>;
 
 interface CreateOrganizationModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onCreate: (orgData: any) => void;
+    onCreate: (orgData: OrganizationFormValues) => void;
     organization?: Organization;
 }
 
