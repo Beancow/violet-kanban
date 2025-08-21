@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create, StoreApi } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Board, BoardList, BoardCard } from '../types/appState.type';
 
@@ -16,6 +16,26 @@ export interface AppState {
     staleListActions?: VioletKanbanAction[];
     staleCardActions?: VioletKanbanAction[];
     orphanedCards?: BoardCard[];
+    // actions
+    addBoard: (board: Board) => void;
+    updateBoard: (board: Board) => void;
+    removeBoard: (boardId: string) => void;
+    addList: (list: BoardList) => void;
+    updateList: (list: BoardList) => void;
+    removeList: (listId: string) => void;
+    addCard: (card: BoardCard) => void;
+    updateCard: (card: BoardCard) => void;
+    removeCard: (cardId: string) => void;
+    enqueueBoardAction: (action: VioletKanbanAction) => void;
+    enqueueListAction: (action: VioletKanbanAction) => void;
+    enqueueCardAction: (action: VioletKanbanAction) => void;
+    dequeueBoardAction: () => void;
+    dequeueListAction: () => void;
+    dequeueCardAction: () => void;
+    processBoardAction: (action: VioletKanbanAction) => void;
+    processListAction: (action: VioletKanbanAction) => void;
+    processCardAction: (action: VioletKanbanAction) => void;
+    recoverOrphanedCard: (cardId: string, newBoardId: string) => void;
 }
 
 // Helper: Squash queue actions by item id and type
@@ -132,276 +152,196 @@ export function isListActionStale(
     return serverUpdatedAt > action.timestamp;
 }
 
-export const useAppStore = create<AppState>()(
-    persist(
-        (set, get) => ({
-            boards: [],
-            lists: [],
-            cards: [],
-            boardActionQueue: [],
-            listActionQueue: [],
-            cardActionQueue: [],
-            staleBoardActions: [],
-            staleListActions: [],
-            staleCardActions: [],
-            orphanedCards: [],
+export function createAppStore(
+    persistEnabled = true
+): import('zustand').UseBoundStore<StoreApi<AppState>> {
+    const creator: import('zustand').StateCreator<AppState> = (set, get) => ({
+        boards: [],
+        lists: [],
+        cards: [],
+        boardActionQueue: [],
+        listActionQueue: [],
+        cardActionQueue: [],
+        staleBoardActions: [],
+        staleListActions: [],
+        staleCardActions: [],
+        orphanedCards: [],
 
-            // Board actions
-            addBoard: (board: Board) =>
-                set((state) => ({ boards: [...state.boards, board] })),
-            updateBoard: (board: Board) =>
-                set((state) => ({
-                    boards: state.boards.map((b) =>
-                        b.id === board.id ? board : b
-                    ),
-                })),
-            removeBoard: (boardId: string) =>
-                set((state) => ({
-                    boards: state.boards.filter((b) => b.id !== boardId),
-                })),
+        // Board actions
+        addBoard: (board: Board) => set((state: AppState) => ({ boards: [...state.boards, board] })),
+        updateBoard: (board: Board) =>
+            set((state: AppState) => ({ boards: state.boards.map((b: Board) => (b.id === board.id ? board : b)) })),
+        removeBoard: (boardId: string) => set((state: AppState) => ({ boards: state.boards.filter((b: Board) => b.id !== boardId) })),
 
-            // List actions
-            addList: (list: BoardList) =>
-                set((state) => ({ lists: [...state.lists, list] })),
-            updateList: (list: BoardList) =>
-                set((state) => ({
-                    lists: state.lists.map((l) =>
-                        l.id === list.id ? list : l
-                    ),
-                })),
-            removeList: (listId: string) =>
-                set((state) => ({
-                    lists: state.lists.filter((l) => l.id !== listId),
-                })),
+    // List actions
+    addList: (list: BoardList) => set((state: AppState) => ({ lists: [...state.lists, list] })),
+    updateList: (list: BoardList) => set((state: AppState) => ({ lists: state.lists.map((l: BoardList) => (l.id === list.id ? list : l)) })),
+    removeList: (listId: string) => set((state: AppState) => ({ lists: state.lists.filter((l: BoardList) => l.id !== listId) })),
 
-            // Card actions
-            addCard: (card: BoardCard) =>
-                set((state) => ({ cards: [...state.cards, card] })),
-            updateCard: (card: BoardCard) =>
-                set((state) => ({
-                    cards: state.cards.map((c) =>
-                        c.id === card.id ? card : c
-                    ),
-                })),
-            removeCard: (cardId: string) =>
-                set((state) => ({
-                    cards: state.cards.filter((c) => c.id !== cardId),
-                })),
+    // Card actions
+    addCard: (card: BoardCard) => set((state: AppState) => ({ cards: [...state.cards, card] })),
+    updateCard: (card: BoardCard) => set((state: AppState) => ({ cards: state.cards.map((c: BoardCard) => (c.id === card.id ? card : c)) })),
+    removeCard: (cardId: string) => set((state: AppState) => ({ cards: state.cards.filter((c: BoardCard) => c.id !== cardId) })),
 
-            // Queue actions
-            enqueueBoardAction: (action: VioletKanbanAction) =>
-                set((state) => ({
-                    boardActionQueue: squashQueueActions(
-                        state.boardActionQueue,
-                        action
-                    ),
-                })),
-            enqueueListAction: (action: VioletKanbanAction) =>
-                set((state) => ({
-                    listActionQueue: squashQueueActions(
-                        state.listActionQueue,
-                        action
-                    ),
-                })),
-            enqueueCardAction: (action: VioletKanbanAction) =>
-                set((state) => ({
-                    cardActionQueue: squashQueueActions(
-                        state.cardActionQueue,
-                        action
-                    ),
-                })),
-            dequeueBoardAction: () =>
-                set((state) => ({
-                    boardActionQueue: state.boardActionQueue.slice(1),
-                })),
-            dequeueListAction: () =>
-                set((state) => ({
-                    listActionQueue: state.listActionQueue.slice(1),
-                })),
-            dequeueCardAction: () =>
-                set((state) => ({
-                    cardActionQueue: state.cardActionQueue.slice(1),
-                })),
+        // Queue actions
+    enqueueBoardAction: (action: VioletKanbanAction) => set((state: AppState) => ({ boardActionQueue: squashQueueActions(state.boardActionQueue, action) })),
+    enqueueListAction: (action: VioletKanbanAction) => set((state: AppState) => ({ listActionQueue: squashQueueActions(state.listActionQueue, action) })),
+    enqueueCardAction: (action: VioletKanbanAction) => set((state: AppState) => ({ cardActionQueue: squashQueueActions(state.cardActionQueue, action) })),
+    dequeueBoardAction: () => set((state: AppState) => ({ boardActionQueue: state.boardActionQueue.slice(1) })),
+    dequeueListAction: () => set((state: AppState) => ({ listActionQueue: state.listActionQueue.slice(1) })),
+    dequeueCardAction: () => set((state: AppState) => ({ cardActionQueue: state.cardActionQueue.slice(1) })),
 
-            // Process actions with conflict detection
-            processBoardAction: (action: VioletKanbanAction) => {
-                const boardId = getActionItemId(action);
-                let isStale = false;
-                // Check for staleness by timestamp
-                if (isBoardActionStale(action, get)) {
-                    isStale = true;
-                }
-                // If action is a delete-board, fully delete lists, mark cards as orphaned
-                if (action.type === 'delete-board' && boardId) {
-                    set((state) => ({
-                        lists: state.lists.filter(
-                            (list) => list.boardId !== boardId
-                        ),
-                        orphanedCards: [
-                            ...(state.orphanedCards ?? []),
-                            ...state.cards.filter(
-                                (card) => card.boardId === boardId
-                            ),
-                        ],
-                        // Cards remain accessible, boardId is preserved
-                    }));
-                }
-                if (isStale) {
-                    set((state) => ({
-                        staleBoardActions: [
-                            ...(state.staleBoardActions || []),
-                            action,
-                        ],
-                        boardActionQueue: state.boardActionQueue.filter(
-                            (a) => a !== action
-                        ),
-                    }));
-                } else {
-                    set((state) => ({
-                        boardActionQueue: squashQueueActions(
-                            state.boardActionQueue,
-                            action
-                        ),
-                    }));
-                }
-            },
-            processListAction: (action: VioletKanbanAction) => {
-                const listId = getActionItemId(action);
-                let isStale = false;
-                let missingBoard = false;
-                // Check if list exists and get boardId from payload
-                let boardId: string | undefined;
-                if ('payload' in action) {
-                    if ('data' in action.payload && action.payload.data) {
-                        const data = action.payload.data as Partial<BoardList>;
-                        if (
-                            'boardId' in data &&
-                            typeof data.boardId === 'string'
-                        ) {
+        // Process actions with conflict detection
+        processBoardAction: (action: VioletKanbanAction) => {
+            const boardId = getActionItemId(action);
+            let isStale = false;
+            if (isBoardActionStale(action, get)) {
+                isStale = true;
+            }
+            if (action.type === 'delete-board' && boardId) {
+                set((state: AppState) => ({
+                    lists: state.lists.filter(
+                        (list) => {
+                            if (!list) return true;
+                            const bId = (list as unknown as { boardId?: unknown }).boardId;
+                            return !(typeof bId === 'string' && bId === boardId);
+                        }
+                    ),
+                    orphanedCards: [
+                        ...(state.orphanedCards ?? []),
+                        ...state.cards.filter((card) => {
+                            if (!card) return false;
+                            const bId = (card as unknown as { boardId?: unknown }).boardId;
+                            return typeof bId === 'string' && bId === boardId;
+                        }),
+                    ],
+                }));
+            }
+            if (isStale) {
+                set((state: AppState) => ({
+                    staleBoardActions: [
+                        ...(state.staleBoardActions || []),
+                        action,
+                    ],
+                    boardActionQueue: state.boardActionQueue.filter((a) => a !== action),
+                }));
+            } else {
+                set((state: AppState) => ({
+                    boardActionQueue: squashQueueActions(state.boardActionQueue, action),
+                }));
+            }
+        },
+        processListAction: (action: VioletKanbanAction) => {
+            const listId = getActionItemId(action);
+            let isStale = false;
+            let missingBoard = false;
+            let boardId: string | undefined;
+            if ('payload' in action) {
+                const payload = action.payload as unknown;
+                    if (payload && typeof payload === 'object' && 'data' in (payload as Record<string, unknown>) && (payload as Record<string, unknown>).data) {
+                        const data = ((payload as Record<string, unknown>).data) as Partial<BoardList>;
+                        if ('boardId' in data && typeof data.boardId === 'string') {
                             boardId = data.boardId;
                         }
-                    } else {
-                        boardId = (action.payload as any).boardId;
+                    } else if (payload && typeof payload === 'object') {
+                        const p = payload as Record<string, unknown>;
+                        if (typeof p.boardId === 'string') boardId = p.boardId as string;
+                    }
+            }
+            if (boardId && !get().boards.some((b) => (b as { id: string }).id === boardId)) {
+                missingBoard = true;
+                isStale = true;
+            }
+            if (isListActionStale(action, get)) {
+                isStale = true;
+            }
+            if (action.type === 'delete-list' && listId) {
+                set((state: AppState) => ({ cards: state.cards.map((card: BoardCard) => (card.listId === listId ? { ...card, listId: null } : card)) }));
+            }
+            if (isStale) {
+                set((state: AppState) => ({
+                    staleListActions: [
+                        ...(state.staleListActions || []),
+                        { ...action, meta: { missingBoard } },
+                    ],
+                    listActionQueue: state.listActionQueue.filter((a) => a !== action),
+                }));
+            } else {
+                set((state: AppState) => ({ listActionQueue: squashQueueActions(state.listActionQueue, action) }));
+            }
+        },
+        processCardAction: (action: VioletKanbanAction) => {
+            const cardId = getActionItemId(action);
+            let isStale = false;
+            let missingBoard = false;
+            let missingList = false;
+            let boardId: string | undefined;
+            let listId: string | undefined;
+            if ('payload' in action) {
+                if ('data' in action.payload && (action.payload as any).data) {
+                    const data = (action.payload as any).data as Partial<BoardCard>;
+                    if ('boardId' in data && typeof data.boardId === 'string') {
+                        boardId = data.boardId;
+                    }
+                    if ('listId' in data && typeof data.listId === 'string') {
+                        listId = data.listId;
+                    }
+                } else {
+                    const payload = action.payload as unknown;
+                    if (payload && typeof payload === 'object') {
+                        const p = payload as Record<string, unknown>;
+                        if (typeof p.boardId === 'string') boardId = p.boardId as string;
+                        if (typeof p.listId === 'string') listId = p.listId as string;
                     }
                 }
-                // Validate boardId
-                if (boardId && !get().boards.some((b) => b.id === boardId)) {
-                    missingBoard = true;
-                    isStale = true;
-                }
-                // Check for staleness by timestamp
-                if (isListActionStale(action, get)) {
-                    isStale = true;
-                }
-                // If action is a delete-list, set listId to null for all cards referencing that list
-                if (action.type === 'delete-list' && listId) {
-                    set((state) => ({
-                        cards: state.cards.map((card) =>
-                            card.listId === listId
-                                ? { ...card, listId: null }
-                                : card
-                        ),
-                    }));
-                }
-                if (isStale) {
-                    set((state) => ({
-                        staleListActions: [
-                            ...(state.staleListActions || []),
-                            { ...action, meta: { missingBoard } },
-                        ],
-                        listActionQueue: state.listActionQueue.filter(
-                            (a) => a !== action
-                        ),
-                    }));
-                } else {
-                    set((state) => ({
-                        listActionQueue: squashQueueActions(
-                            state.listActionQueue,
-                            action
-                        ),
-                    }));
-                }
-            },
-            processCardAction: (action: VioletKanbanAction) => {
-                const cardId = getActionItemId(action);
-                let isStale = false;
-                let missingBoard = false;
-                let missingList = false;
-                // Check if card exists and get boardId/listId from payload
-                let boardId: string | undefined;
-                let listId: string | undefined;
-                if ('payload' in action) {
-                    if ('data' in action.payload && action.payload.data) {
-                        // Only extract boardId/listId if data is a BoardCard
-                        const data = action.payload.data as Partial<BoardCard>;
-                        if (
-                            'boardId' in data &&
-                            typeof data.boardId === 'string'
-                        ) {
-                            boardId = data.boardId;
-                        }
-                        if (
-                            'listId' in data &&
-                            typeof data.listId === 'string'
-                        ) {
-                            listId = data.listId;
-                        }
-                    } else {
-                        boardId = (action.payload as any).boardId;
-                        listId = (action.payload as any).listId;
-                    }
-                }
-                // Validate boardId and listId
-                if (boardId && !get().boards.some((b) => b.id === boardId)) {
-                    missingBoard = true;
-                    isStale = true;
-                }
-                if (listId && !get().lists.some((l) => l.id === listId)) {
-                    missingList = true;
-                    isStale = true;
-                }
-                // Check for staleness by timestamp
-                if (isCardActionStale(action, get)) {
-                    isStale = true;
-                }
-                if (isStale) {
-                    set((state) => ({
-                        staleCardActions: [
-                            ...(state.staleCardActions || []),
-                            { ...action, meta: { missingBoard, missingList } },
-                        ],
-                        cardActionQueue: state.cardActionQueue.filter(
-                            (a) => a !== action
-                        ),
-                    }));
-                } else {
-                    set((state) => ({
-                        cardActionQueue: squashQueueActions(
-                            state.cardActionQueue,
-                            action
-                        ),
-                    }));
-                }
-            },
+            }
+            if (boardId && !get().boards.some((b) => (b as { id: string }).id === boardId)) {
+                missingBoard = true;
+                isStale = true;
+            }
+            if (listId && !get().lists.some((l) => (l as { id: string }).id === listId)) {
+                missingList = true;
+                isStale = true;
+            }
+            if (isCardActionStale(action, get)) {
+                isStale = true;
+            }
+            if (isStale) {
+                set((state: AppState) => ({
+                    staleCardActions: [
+                        ...(state.staleCardActions || []),
+                        { ...action, meta: { missingBoard, missingList } },
+                    ],
+                    cardActionQueue: state.cardActionQueue.filter((a) => a !== action),
+                }));
+            } else {
+                set((state: AppState) => ({ cardActionQueue: squashQueueActions(state.cardActionQueue, action) }));
+            }
+        },
 
-            // Action to recover or reassign orphaned cards
-            recoverOrphanedCard: (cardId: string, newBoardId: string) =>
-                set((state) => ({
-                    orphanedCards: (state.orphanedCards ?? []).filter(
-                        (card) => card.id !== cardId
-                    ),
-                    cards: state.cards.map((card) =>
-                        card.id === cardId
-                            ? { ...card, boardId: newBoardId }
-                            : card
-                    ),
-                })),
+        // Action to recover or reassign orphaned cards
+        recoverOrphanedCard: (cardId: string, newBoardId: string) =>
+            set((state: AppState) => ({ orphanedCards: (state.orphanedCards ?? []).filter((card) => card.id !== cardId), cards: state.cards.map((card) => (card.id === cardId ? { ...card, boardId: newBoardId } : card)) })),
+    });
 
-            // Placeholder for custom middleware (queue squashing, conflict detection, etc.)
-            // These can be implemented as helper functions or Zustand middleware wrappers
-        }),
-        {
-            name: 'violet-kanban-storage', // localStorage key
-        }
-    )
-);
+    if (persistEnabled) {
+        return create<AppState>()(
+            persist(creator, { name: 'violet-kanban-storage' })
+        );
+    }
+    return create<AppState>()(creator);
+}
+
+let _appStore: import('zustand').UseBoundStore<StoreApi<AppState>> | null =
+    null;
+export function getOrCreateAppStore(): import('zustand').UseBoundStore<
+    StoreApi<AppState>
+> {
+    if (!_appStore) {
+        const persistEnabled = typeof window !== 'undefined';
+        _appStore = createAppStore(persistEnabled);
+    }
+    return _appStore;
+}
+
+export const useAppStore = getOrCreateAppStore();

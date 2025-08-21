@@ -33,18 +33,20 @@ export function initSyncWorker() {
     worker.onmessage = (event) => {
         const { type, payload, error } = event.data;
         if (type === 'ACTION_SUCCESS') {
-            if (payload.boardId) {
+            // payload includes local tempId and the created resource (board/list/card)
+            const tempId = payload?.tempId;
+            if (payload?.board) {
                 useQueueStore
                     .getState()
-                    .handleBoardActionSuccess(payload.timestamp, payload);
-            } else if (payload.listId) {
+                    .handleBoardActionSuccess(tempId, payload.board);
+            } else if (payload?.list) {
                 useQueueStore
                     .getState()
-                    .handleListActionSuccess(payload.timestamp, payload);
-            } else if (payload.cardId) {
+                    .handleListActionSuccess(tempId, payload.list);
+            } else if (payload?.card) {
                 useQueueStore
                     .getState()
-                    .handleCardActionSuccess(payload.timestamp, payload);
+                    .handleCardActionSuccess(tempId, payload.card);
             }
         } else if (type === 'ERROR' || type === 'ACTION_ERROR') {
             useSyncErrorStore.getState().addError({
@@ -86,12 +88,15 @@ export function processQueuedActions() {
         ];
         allActions.forEach((action) => {
             let orgId: string | null = null;
-            const payload = action.payload as Record<string, any>;
+            const payload = action.payload as unknown;
             if (
-                payload.data &&
-                typeof payload.data.organizationId === 'string'
+                payload &&
+                typeof payload === 'object' &&
+                'data' in (payload as Record<string, unknown>) &&
+                (payload as Record<string, unknown>).data &&
+                typeof ((payload as Record<string, unknown>).data as Record<string, unknown>).organizationId === 'string'
             ) {
-                orgId = payload.data.organizationId;
+                orgId = ((payload as Record<string, unknown>).data as Record<string, unknown>).organizationId as string;
             } else {
                 orgId = currentOrganizationId;
             }

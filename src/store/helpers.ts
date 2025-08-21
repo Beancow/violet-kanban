@@ -1,3 +1,7 @@
+import type { VioletKanbanAction } from './appStore';
+import type { Board, BoardList, BoardCard } from '../types/appState.type';
+import { isObject, hasDataProp, hasIdProp, hasTempIdProp, isStringId, isDateLike, isBoardLike, isBoardListLike, isBoardCardLike } from '@/types/typeGuards';
+
 // Detect conflicts for board, list, and card updates in the action queue
 export function detectActionConflicts(
     actionQueue: VioletKanbanAction[],
@@ -6,91 +10,80 @@ export function detectActionConflicts(
     cards: BoardCard[]
 ): Array<{
     id: string;
-    local: any;
-    server: any;
+    local: Board | BoardList | BoardCard;
+    server: Board | BoardList | BoardCard;
     action: VioletKanbanAction;
     type: 'board' | 'list' | 'card';
 }> {
     const conflicts: Array<{
         id: string;
-        local: any;
-        server: any;
+        local: Board | BoardList | BoardCard;
+        server: Board | BoardList | BoardCard;
         action: VioletKanbanAction;
         type: 'board' | 'list' | 'card';
     }> = [];
     actionQueue.forEach((action) => {
-        if (action.type === 'update-board') {
-            const local = action.payload.data;
-            const server = boards.find((b) => b.id === local.id);
-            if (
-                server &&
-                local.updatedAt &&
-                server.updatedAt &&
-                local.updatedAt !== server.updatedAt
-            ) {
-                conflicts.push({
-                    id: local.id,
-                    local,
-                    server,
-                    action,
-                    type: 'board',
-                });
+        if (action.type === 'update-board' && hasDataProp(action.payload)) {
+            const localPayload = action.payload.data;
+            if (isBoardLike(localPayload)) {
+                const local = localPayload;
+                const server = boards.find((b) => b.id === local.id);
+                if (server && local.updatedAt && server.updatedAt && local.updatedAt !== server.updatedAt) {
+                    conflicts.push({ id: local.id, local, server: server as Board, action, type: 'board' });
+                }
             }
-        } else if (action.type === 'update-list') {
-            const local = action.payload.data;
-            const server = lists.find((l) => l.id === local.id);
-            if (
-                server &&
-                local.updatedAt &&
-                server.updatedAt &&
-                local.updatedAt !== server.updatedAt
-            ) {
-                conflicts.push({
-                    id: local.id,
-                    local,
-                    server,
-                    action,
-                    type: 'list',
-                });
+        } else if (action.type === 'update-list' && hasDataProp(action.payload)) {
+            const localPayload = action.payload.data;
+            if (isBoardListLike(localPayload)) {
+                const local = localPayload;
+                const server = lists.find((l) => l.id === local.id);
+                if (server && local.updatedAt && server.updatedAt && local.updatedAt !== server.updatedAt) {
+                    conflicts.push({ id: local.id, local, server: server as BoardList, action, type: 'list' });
+                }
             }
-        } else if (action.type === 'update-card') {
-            const local = action.payload.data;
-            const server = cards.find((c) => c.id === local.id);
-            if (
-                server &&
-                local.updatedAt &&
-                server.updatedAt &&
-                local.updatedAt !== server.updatedAt
-            ) {
-                conflicts.push({
-                    id: local.id,
-                    local,
-                    server,
-                    action,
-                    type: 'card',
-                });
+        } else if (action.type === 'update-card' && hasDataProp(action.payload)) {
+            const localPayload = action.payload.data;
+            if (isBoardCardLike(localPayload)) {
+                const local = localPayload;
+                const server = cards.find((c) => c.id === local.id);
+                if (server && local.updatedAt && server.updatedAt && local.updatedAt !== server.updatedAt) {
+                    conflicts.push({ id: local.id, local, server: server as BoardCard, action, type: 'card' });
+                }
             }
         }
     });
     return conflicts;
 }
-import type { VioletKanbanAction } from './appStore';
-import type { Board, BoardList, BoardCard } from '../types/appState.type';
 
 // Extract item id from action
 export function getActionItemId(
     action: VioletKanbanAction
 ): string | undefined {
     if ('payload' in action) {
+        // Prefer explicit id on data
+        const payload: any = action.payload;
         if (
-            'data' in action.payload &&
-            action.payload.data &&
-            'id' in action.payload.data
+            payload.data &&
+            typeof payload.data === 'object' &&
+            'id' in payload.data
         ) {
-            return action.payload.data.id;
+            return payload.data.id as string;
         }
-        if ('id' in action.payload) {
-            return action.payload.id;
+        // If an id field exists on payload directly
+        if ('id' in payload) {
+            return payload.id as string;
+        }
+        // Support temporary ids used for offline-create flows
+        if ('tempId' in payload && payload.tempId) {
+            return payload.tempId as string;
+        }
+        // Also support tempId inside data (some payload shapes put tempId there)
+        if (
+            payload.data &&
+            typeof payload.data === 'object' &&
+            'tempId' in payload.data
+        ) {
+            return payload.data.tempId as string;
         }
     }
     return undefined;

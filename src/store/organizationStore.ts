@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create, StoreApi, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Organization } from '@/types/appState.type';
 
@@ -13,63 +13,78 @@ interface OrganizationState {
     refetchOrganizations: () => Promise<void>;
 }
 
-export const useOrganizationStore = create<OrganizationState>()(
-    persist(
-        (set, get) => ({
-            organizations: [],
-            loading: true,
-            currentOrganizationId: null,
-            currentOrganization: null,
-            setCurrentOrganizationId: (id) => {
-                set((state) => ({
-                    currentOrganizationId: id,
-                    currentOrganization:
-                        state.organizations.find((o) => o.id === id) || null,
-                }));
-            },
-            setOrganizations: (orgs) => {
-                set((state) => ({
-                    organizations: orgs,
-                    // If no org selected or selected org not found, pick first
-                    currentOrganizationId:
-                        !state.currentOrganizationId ||
-                        !orgs.find((o) => o.id === state.currentOrganizationId)
-                            ? orgs[0]?.id || null
-                            : state.currentOrganizationId,
-                    currentOrganization:
-                        orgs.find(
-                            (o) =>
-                                o.id ===
-                                (get().currentOrganizationId || orgs[0]?.id)
-                        ) || null,
-                }));
-            },
-            setLoading: (loading) => set({ loading }),
-            refetchOrganizations: async () => {
-                set({ loading: true });
-                try {
-                    // TODO: Replace with actual auth logic
-                    const res = await fetch('/api/orgs', {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            // Authorization: `Bearer ${idToken}`,
-                        },
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        get().setOrganizations(data.organizations || []);
-                    } else {
-                        // Handle error
-                        set({ organizations: [] });
-                    }
-                } catch (err) {
+export function createOrganizationStore(
+    persistEnabled = true
+): import('zustand').UseBoundStore<StoreApi<OrganizationState>> {
+    const creator: StateCreator<OrganizationState> = (set, get) => ({
+        organizations: [],
+        loading: true,
+        currentOrganizationId: null,
+        currentOrganization: null,
+        setCurrentOrganizationId: (id: string | null) => {
+            set((state: OrganizationState) => ({
+                currentOrganizationId: id,
+                currentOrganization:
+                    state.organizations.find((o) => o.id === id) || null,
+            }));
+        },
+        setOrganizations: (orgs: Organization[]) => {
+            set((state: OrganizationState) => ({
+                organizations: orgs,
+                currentOrganizationId:
+                    !state.currentOrganizationId ||
+                    !orgs.find((o) => o.id === state.currentOrganizationId)
+                        ? orgs[0]?.id || null
+                        : state.currentOrganizationId,
+                currentOrganization:
+                    orgs.find(
+                        (o) =>
+                            o.id ===
+                            (get().currentOrganizationId || orgs[0]?.id)
+                    ) || null,
+            }));
+        },
+        setLoading: (loading: boolean) => set({ loading }),
+        refetchOrganizations: async () => {
+            set({ loading: true });
+            try {
+                const res = await fetch('/api/orgs', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    get().setOrganizations(data.organizations || []);
+                } else {
                     set({ organizations: [] });
-                } finally {
-                    set({ loading: false });
                 }
-            },
-        }),
-        { name: 'violet-kanban-organization-storage' }
-    )
-);
+            } catch (err) {
+                set({ organizations: [] });
+            } finally {
+                set({ loading: false });
+            }
+        },
+    });
+
+    if (persistEnabled) {
+        return create<OrganizationState>()(
+            persist(creator, { name: 'violet-kanban-organization-storage' })
+        );
+    }
+    return create<OrganizationState>()(creator);
+}
+
+let _organizationStore:
+    | import('zustand').UseBoundStore<StoreApi<OrganizationState>>
+    | null = null;
+export function getOrCreateOrganizationStore(): import('zustand').UseBoundStore<
+    StoreApi<OrganizationState>
+> {
+    if (!_organizationStore) {
+        const persistEnabled = typeof window !== 'undefined';
+        _organizationStore = createOrganizationStore(persistEnabled);
+    }
+    return _organizationStore;
+}
+
+export const useOrganizationStore = getOrCreateOrganizationStore();
