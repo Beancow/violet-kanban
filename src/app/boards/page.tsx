@@ -5,7 +5,7 @@ import {
     useVioletKanbanData,
     useVioletKanbanEnqueueBoardCreateOrUpdate,
     useVioletKanbanEnqueueBoardDelete,
-} from '@/store/useVioletKanbanHooks';
+} from '@/providers/useVioletKanbanHooks';
 
 import { Heading, Text, Button, Flex, IconButton } from '@radix-ui/themes';
 import { TrashIcon, PlusIcon } from '@radix-ui/react-icons';

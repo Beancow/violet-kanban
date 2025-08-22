@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { getOrCreateQueueStore } from '@/store/queueStore';
-import { useQueueStore } from '@/store/queueStore';
+import { getOrCreateQueueStore } from '@/providers/QueueProvider';
+import { useQueueStore } from '@/providers/QueueProvider';
 import { useSyncErrorStore } from '@/store/syncErrorStore';
 import { getOrCreateAuthStore } from '@/store/authStore';
 import { getOrCreateOrganizationStore } from '@/store/organizationStore';

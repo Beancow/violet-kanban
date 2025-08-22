@@ -3,11 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Board } from '@/types/appState.type';
 import type { BoardFormValues } from '@/schema/boardSchema';
-import { useVioletKanbanEnqueueBoardCreateOrUpdate } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueBoardCreateOrUpdate } from '@/providers/useVioletKanbanHooks';
 import { BoardForm } from './BoardForm';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { BoardSchema } from '@/schema/boardSchema';
-import { useUiStore } from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 import { useCreatedBy } from '@/hooks/useCreatedBy';
 
 interface BoardFormWrapperProps {
@@ -15,7 +15,7 @@ interface BoardFormWrapperProps {
 }
 
 export function BoardFormWrapper({ board }: BoardFormWrapperProps) {
-    const close = useUiStore((state) => state.close);
+    const ui = useUi();
     const enqueueBoardAction = useVioletKanbanEnqueueBoardCreateOrUpdate();
     const currentOrganizationId = useOrganizationStore(
         (s) => s.currentOrganizationId
@@ -44,7 +44,7 @@ export function BoardFormWrapper({ board }: BoardFormWrapperProps) {
                     data?.organizationId ?? currentOrganizationId ?? '',
             } as Board;
             enqueueBoardAction(boardPayload);
-            close();
+            ui.close();
         },
         [board, enqueueBoardAction, close, currentOrganizationId]
     );

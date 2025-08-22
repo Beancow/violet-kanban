@@ -1,6 +1,6 @@
 'use client';
 import { useParams } from 'next/navigation';
-import { useVioletKanbanData } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanData } from '@/providers/useVioletKanbanHooks';
 import { BoardListComponent } from '@/components/BoardList';
 import LooseCardsPanel from '@/components/LooseCardsPanel';
 import styles from './BoardPage.module.css';

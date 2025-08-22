@@ -1,14 +1,7 @@
 import { create, StoreApi, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isUseBoundStore } from './factoryHelpers';
-
-export interface TempIdMapState {
-    tempIdMap: Record<string, string>; // tempId -> realId
-    setMapping: (tempId: string, realId: string) => void;
-    getRealId: (tempId: string) => string | undefined;
-    clearMapping: (tempId: string) => void;
-    clearAll: () => void;
-}
+import type { TempIdMapState } from '@/types/store-states';
 
 // Factory: create a fresh tempId map store. If `persistEnabled` is true, wrap with persist middleware.
 export function createTempIdMapStore(

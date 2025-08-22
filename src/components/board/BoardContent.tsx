@@ -3,7 +3,7 @@ import { Board, BoardList, BoardCard, User } from '@/types/appState.type';
 import { Flex, Box, Heading, Text, IconButton } from '@radix-ui/themes';
 import { PlusIcon } from '@radix-ui/react-icons';
 import BoardListColumn from './BoardListColumn';
-import { useUiStore } from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 
 interface BoardContentProps {
     board: Board;
@@ -41,9 +41,7 @@ export default function BoardContent({
                     size='3'
                     aria-label='Add new list'
                     onClick={() =>
-                        useUiStore
-                            .getState()
-                            .open('create-list', { boardId: board.id })
+                        useUi().open('create-list', { boardId: board.id })
                     }
                 >
                     <PlusIcon />

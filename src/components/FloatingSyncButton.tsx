@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useVioletKanbanQueues } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanQueues } from '@/providers/useVioletKanbanHooks';
 import { Box, IconButton, Badge, Tooltip } from '@radix-ui/themes';
 import { ArrowUpIcon } from '@radix-ui/react-icons';
 import { ActionQueue } from './ActionQueue';

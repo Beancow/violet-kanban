@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
 import { BoardCard } from '@/types/appState.type';
-import { useVioletKanbanEnqueueCardCreateOrUpdate } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueCardCreateOrUpdate } from '@/providers/useVioletKanbanHooks';
 import { CardForm } from './CardForm';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BoardCardFormValues, boardCardSchema } from '@/schema/boardCardSchema';
-import useUiStore from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 import { useOrganizationStore } from '@/store/organizationStore';
 import { useParams } from 'next/navigation';
 import { useCreatedBy } from '@/hooks/useCreatedBy';
@@ -22,7 +22,7 @@ export function CardFormWrapper({ card, listId }: CardFormWrapperProps) {
         (state) => state.currentOrganizationId
     );
     const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
-    const { close } = useUiStore();
+    const ui = useUi();
 
     const createdBy = useCreatedBy(card);
 
@@ -53,7 +53,7 @@ export function CardFormWrapper({ card, listId }: CardFormWrapperProps) {
                 createdBy,
             };
             enqueueCardAction(cardData);
-            close();
+            ui.close();
         },
         [enqueueCardAction, close, createdBy]
     );

@@ -32,20 +32,7 @@ export default createStoreFactory;
 
 // Lightweight adapter interfaces for stores used by queueStore.
 // These capture the small surface area queueStore needs and avoid broad `any` usage.
-export interface BoardStoreAdapter {
-    addBoard?: (b: import('../types/appState.type').Board) => void;
-    getState?: () => unknown;
-}
-
-export interface ListStoreAdapter {
-    addList?: (l: import('../types/appState.type').BoardList) => void;
-    getState?: () => unknown;
-}
-
-export interface CardStoreAdapter {
-    addCard?: (c: import('../types/appState.type').BoardCard) => void;
-    getState?: () => unknown;
-}
+import type { BoardStoreAdapter, ListStoreAdapter, CardStoreAdapter } from '@/types/store-adapters';
 
 // Helper to normalize an unknown store-like object into a Zustand StoreApi<T> if possible.
 import type { StoreApi } from 'zustand';

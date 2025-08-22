@@ -2,14 +2,14 @@ import { useEffect, useState, useMemo } from 'react';
 import {
     useVioletKanbanQueues,
     useVioletKanbanData,
-} from '@/store/useVioletKanbanHooks';
-import { useQueueStore } from '@/store/queueStore';
-import { getActionItemId, detectActionConflicts } from '@/store/helpers';
+} from '@/providers/useVioletKanbanHooks';
+import { useQueueStore } from '@/providers/QueueProvider';
+import { getActionItemId, detectActionConflicts } from '@/providers/helpers';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
 import { SyncAction } from '@/types/worker.type';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
-import { VioletKanbanAction } from '@/store/appStore';
+import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 
 export function ActionQueue() {
     const { boardActionQueue, listActionQueue, cardActionQueue } =
@@ -19,9 +19,8 @@ export function ActionQueue() {
         () => [...boardActionQueue, ...listActionQueue, ...cardActionQueue],
         [boardActionQueue, listActionQueue, cardActionQueue]
     );
-    const removeBoardAction = useQueueStore((s) => s.removeBoardAction);
-    const removeListAction = useQueueStore((s) => s.removeListAction);
-    const removeCardAction = useQueueStore((s) => s.removeCardAction);
+    const { removeBoardAction, removeListAction, removeCardAction } =
+        useQueueStore();
     const [conflicts, setConflicts] = useState<
         {
             id: string;

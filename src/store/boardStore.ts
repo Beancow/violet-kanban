@@ -7,12 +7,11 @@ import { getOrCreateListStore } from './listStore';
 import { getOrCreateCardStore } from './cardStore';
 import { isUseBoundStore } from './factoryHelpers';
 
-export interface BoardState {
-    boards: Board[];
-    addBoard: (board: Board) => void;
-    updateBoard: (board: PartialWithRequiredId<Board>) => void;
-    removeBoard: (boardId: string) => void;
-}
+// This file is intentionally disabled during the provider migration.
+// Runtime store functionality has been moved to providers and reducers.
+// Keep this file as reference only. Do not import runtime symbols from here.
+
+import type { BoardState } from '@/types/store-states';
 
 export function createBoardStore(
     persistEnabled = true

@@ -12,7 +12,7 @@ import { DropdownMenu, IconButton } from '@radix-ui/themes';
 import {
     useVioletKanbanEnqueueCardCreateOrUpdate,
     useVioletKanbanEnqueueCardDelete,
-} from '@/store/useVioletKanbanHooks';
+} from '@/providers/useVioletKanbanHooks';
 import { useCallback } from 'react';
 
 interface BoardCardItemProps {

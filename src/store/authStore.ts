@@ -18,36 +18,7 @@ interface AuthState {
 export function createAuthStore(
     persistEnabled = true
 ): import('zustand').StoreApi<AuthState> {
-    const creator: StateCreator<AuthState> = (set, get) => ({
-        authUser: null,
-        loading: true,
-        idToken: null,
-        setAuthUser: (user: FirebaseUser | null) => set({ authUser: user }),
-        setLoading: (loading: boolean) => set({ loading }),
-        setIdToken: (token: string | null) => set({ idToken: token }),
-        logout: async () => {
-            if (firebaseAuth && firebaseAuth.signOut) {
-                await firebaseAuth.signOut();
-            }
-            set({ authUser: null, idToken: null });
-        },
-        refreshIdToken: async () => {
-            const user = get().authUser;
-            if (user && user.getIdToken) {
-                const token = await user.getIdToken(true);
-                set({ idToken: token });
-            } else {
-                set({ idToken: null });
-            }
-        },
-    });
-
-    if (persistEnabled) {
-        return create<AuthState>()(
-            persist(creator, { name: 'violet-kanban-auth-storage' })
-        ) as unknown as StoreApi<AuthState>;
-    }
-    return create<AuthState>()(creator) as unknown as StoreApi<AuthState>;
+    throw new Error('STORE_DISABLED: createAuthStore is disabled during migration checks');
 }
 
 let _authStore: StoreApi<AuthState> | null = null;
@@ -55,52 +26,27 @@ let _authStore: StoreApi<AuthState> | null = null;
 export function initializeAuthStore(
     persistEnabled = typeof window !== 'undefined'
 ) {
-    if (!_authStore) {
-        _authStore = createAuthStore(persistEnabled);
-    }
-    return _authStore;
+    throw new Error('STORE_DISABLED: initializeAuthStore is disabled during migration checks');
 }
 
 export function getAuthStoreIfReady(): StoreApi<AuthState> | null {
-    return _authStore;
+    throw new Error('STORE_DISABLED: getAuthStoreIfReady is disabled during migration checks');
 }
 
 export function getOrCreateAuthStore(): StoreApi<AuthState> {
-    if (!_authStore) {
-        if (typeof window === 'undefined') {
-            return createAuthStore(false) as unknown as StoreApi<AuthState>;
-        }
-        throw new Error();
-    }
-    return _authStore;
+    throw new Error('STORE_DISABLED: getOrCreateAuthStore is disabled during migration checks');
 }
 
 export function createAuthStoreForTest() {
-    return createAuthStore(false);
+    throw new Error('STORE_DISABLED: createAuthStoreForTest is disabled during migration checks');
 }
 
 // Lazy UseBoundStore wrapper for components. Mirrors other stores so
 // non-React code can call `getOrCreateAuthStore()` and React components can call `useAuthStore`.
 export const useAuthStore: import('zustand').UseBoundStore<
     StoreApi<AuthState>
-> = ((...args: Array<unknown>) => {
-    const store = getAuthStoreIfReady() ?? createAuthStore(false);
-    if (isUseBoundStore<AuthState>(store)) {
-        const selector = (args.length > 0 ? args[0] : undefined) as
-            | ((s: AuthState) => unknown)
-            | undefined;
-        return (
-            store as unknown as (
-                selector?: (s: AuthState) => unknown
-            ) => unknown
-        )(selector);
-    }
-    const selector = args[0] as unknown;
-    const storeApi = store as StoreApi<AuthState>;
-    if (typeof selector === 'function') {
-        return (selector as (s: AuthState) => unknown)(storeApi.getState());
-    }
-    return storeApi.getState();
+> = ((..._args: Array<unknown>) => {
+    throw new Error('STORE_DISABLED: useAuthStore is disabled during migration checks');
 }) as unknown as import('zustand').UseBoundStore<StoreApi<AuthState>>;
 
 // Auth listener is intentionally not registered at module-eval time.

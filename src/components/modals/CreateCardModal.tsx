@@ -3,7 +3,7 @@
 import { Dialog } from '@radix-ui/themes';
 import { CardFormWrapper } from '@/components/forms/CardFormWrapper';
 import { BoardCard } from '@/types/appState.type';
-import useUiStore from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 
 interface CreateCardModalProps {
     card?: BoardCard;
@@ -11,9 +11,9 @@ interface CreateCardModalProps {
 }
 
 export function CreateCardModal({ card, listId }: CreateCardModalProps) {
-    const openModal = useUiStore((s) => s.openModal);
+    const ui = useUi();
     return (
-        <Dialog.Root open={openModal.name === 'createCard'}>
+        <Dialog.Root open={ui.openModal.name === 'create-card'}>
             <Dialog.Content style={{ maxWidth: 450 }}>
                 <Dialog.Title>Create New Card</Dialog.Title>
                 <CardFormWrapper card={card} listId={listId} />

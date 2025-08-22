@@ -5,6 +5,8 @@ import type { PartialWithRequiredId } from '@/types/utilityTypes';
 import { buildPatch } from '@/utils/patchHelpers';
 
 // Use the existing SyncAction type as a base for VioletKanbanAction
+import type { AppState } from '@/types/store-states';
+
 export type SyncAction = import('../types/worker.type').SyncAction;
 
 // Lightweight payload shape used by enqueue helpers so components can pass minimal data.
@@ -27,38 +29,7 @@ export type EnqueuePayload =
 
 export type VioletKanbanAction = SyncAction | EnqueuePayload;
 
-export interface AppState {
-    boards: Board[];
-    lists: BoardList[];
-    cards: BoardCard[];
-    boardActionQueue: VioletKanbanAction[];
-    listActionQueue: VioletKanbanAction[];
-    cardActionQueue: VioletKanbanAction[];
-    staleBoardActions?: VioletKanbanAction[];
-    staleListActions?: VioletKanbanAction[];
-    staleCardActions?: VioletKanbanAction[];
-    orphanedCards?: BoardCard[];
-    // actions
-    addBoard: (board: Board) => void;
-    updateBoard: (board: Board) => void;
-    removeBoard: (boardId: string) => void;
-    addList: (list: BoardList) => void;
-    updateList: (list: BoardList) => void;
-    removeList: (listId: string) => void;
-    addCard: (card: BoardCard) => void;
-    updateCard: (card: BoardCard) => void;
-    removeCard: (cardId: string) => void;
-    enqueueBoardAction: (action: VioletKanbanAction) => void;
-    enqueueListAction: (action: VioletKanbanAction) => void;
-    enqueueCardAction: (action: VioletKanbanAction) => void;
-    dequeueBoardAction: () => void;
-    dequeueListAction: () => void;
-    dequeueCardAction: () => void;
-    processBoardAction: (action: VioletKanbanAction) => void;
-    processListAction: (action: VioletKanbanAction) => void;
-    processCardAction: (action: VioletKanbanAction) => void;
-    recoverOrphanedCard: (cardId: string, newBoardId: string) => void;
-}
+// AppState is imported from '@/types/store-states'
 
 // Helper: Squash queue actions by item id and type
 function getActionItemId(action: VioletKanbanAction): string | undefined {

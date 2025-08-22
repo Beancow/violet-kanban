@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BoardList, User } from '@/types/appState.type';
-import { useVioletKanbanEnqueueListCreateOrUpdate } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueListCreateOrUpdate } from '@/providers/useVioletKanbanHooks';
 import { ListForm } from './ListForm';
 import type { BoardListFormValues } from '@/schema/boardListSchema';
 import { BoardListSchema } from '@/schema/boardListSchema';
-import { useUiStore } from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 
 interface ListFormWrapperProps {
     list?: BoardList;
@@ -33,7 +33,7 @@ export function ListFormWrapper({
         },
     });
 
-    const close = useUiStore((s) => s.close);
+    const ui = useUi();
 
     // OrganizationGate guarantees currentOrganizationId is always set
     const handleSubmit = useCallback(
@@ -48,7 +48,7 @@ export function ListFormWrapper({
             } as BoardList;
             enqueueListAction(payload);
             if (onClose) onClose();
-            else close();
+            else ui.close();
         },
         [list, boardId, enqueueListAction, onClose]
     );

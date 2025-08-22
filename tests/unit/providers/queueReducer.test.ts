@@ -10,23 +10,39 @@ function makeAction(type: string, id?: string, tempId?: string): ActionLike {
 }
 
 describe('queueReducer', () => {
-    const initial = { boardActionQueue: [], listActionQueue: [], cardActionQueue: [] } as any;
+    const initial = {
+        boardActionQueue: [],
+        listActionQueue: [],
+        cardActionQueue: [],
+    } as any;
 
     it('enqueues and squashes board actions by id and type', () => {
         const a1 = makeAction('CREATE_BOARD', undefined, 't1');
-        const enqueued1 = reducer(initial, { type: 'ENQUEUE_BOARD', action: a1 } as any);
+        const enqueued1 = reducer(initial, {
+            type: 'ENQUEUE_BOARD',
+            action: a1,
+        } as any);
         expect(enqueued1.boardActionQueue).toHaveLength(1);
 
         const a2 = makeAction('CREATE_BOARD', undefined, 't1');
-        const enqueued2 = reducer(enqueued1, { type: 'ENQUEUE_BOARD', action: a2 } as any);
+        const enqueued2 = reducer(enqueued1, {
+            type: 'ENQUEUE_BOARD',
+            action: a2,
+        } as any);
         expect(enqueued2.boardActionQueue).toHaveLength(1); // squashed
     });
 
     it('removes by id', () => {
         const a1 = makeAction('UPDATE_BOARD', 'r1');
-        const state1 = reducer(initial, { type: 'ENQUEUE_BOARD', action: a1 } as any);
+        const state1 = reducer(initial, {
+            type: 'ENQUEUE_BOARD',
+            action: a1,
+        } as any);
         expect(state1.boardActionQueue).toHaveLength(1);
-        const afterRemove = reducer(state1, { type: 'REMOVE_BOARD_BY_ID', itemId: 'r1' } as any);
+        const afterRemove = reducer(state1, {
+            type: 'REMOVE_BOARD_BY_ID',
+            itemId: 'r1',
+        } as any);
         expect(afterRemove.boardActionQueue).toHaveLength(0);
     });
 });

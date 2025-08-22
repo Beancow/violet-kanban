@@ -1,4 +1,4 @@
-import type { VioletKanbanAction } from './appStore';
+import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 import type { Board, BoardList, BoardCard } from '../types/appState.type';
 import {
     isObject,

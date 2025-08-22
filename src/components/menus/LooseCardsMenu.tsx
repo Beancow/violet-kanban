@@ -14,7 +14,7 @@ import {
     Cross1Icon,
     ReloadIcon,
 } from '@radix-ui/react-icons';
-import { useVioletKanbanRemoveCardAction } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanRemoveCardAction } from '@/providers/useVioletKanbanHooks';
 
 import styles from './LooseCardsMenu.module.css';
 

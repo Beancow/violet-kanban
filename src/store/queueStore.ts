@@ -5,19 +5,12 @@ import { getOrCreateTempIdMapStore } from './tempIdMapStore';
 import { useBoardStore, getBoardStoreIfReady } from './boardStore';
 import { useListStore, getListStoreIfReady } from './listStore';
 import { useCardStore, getCardStoreIfReady } from './cardStore';
-import {
-    isUseBoundStore,
-    BoardStoreAdapter,
-    ListStoreAdapter,
-    CardStoreAdapter,
-    getStoreApi,
-} from './factoryHelpers';
-import type { BoardState } from './boardStore';
-import type { ListState } from './listStore';
-import type { CardState } from './cardStore';
+import { isUseBoundStore, getStoreApi } from './factoryHelpers';
+import type { BoardStoreAdapter, ListStoreAdapter, CardStoreAdapter, TempIdMapAdapter } from '@/types/store-adapters';
+import type { BoardState, ListState, CardState, QueueState, TempIdMapState } from '@/types/store-states';
 import type { Board, BoardList, BoardCard } from '../types/appState.type';
 import type { VioletKanbanAction } from './appStore';
-import type { TempIdMapState } from './tempIdMapStore';
+// temp id map state is imported from '@/types/store-states'
 
 function hasSetMapping(
     obj: unknown
@@ -35,46 +28,7 @@ function hasClearMapping(
     return typeof maybe.clearMapping === 'function';
 }
 
-export interface QueueState {
-    boardActionQueue: VioletKanbanAction[];
-    listActionQueue: VioletKanbanAction[];
-    cardActionQueue: VioletKanbanAction[];
-    // low-level enqueuers that accept a fully-built VioletKanbanAction
-    enqueueBoardAction: (action: VioletKanbanAction) => void;
-    enqueueListAction: (action: VioletKanbanAction) => void;
-    // helpers to remove a processed action by its item id
-    removeBoardAction: (actionId: string) => void;
-    removeListAction: (actionId: string) => void;
-    removeCardAction: (actionId: string) => void;
-    // convenience: accept a Board domain object and enqueue create-or-update
-    enqueueBoardCreateOrUpdate: (data: Board) => void;
-    // enqueueListAction accepts a fully-built VioletKanbanAction
-    enqueueListCreateOrUpdate: (data: BoardList) => void;
-    // For create/update: enqueueCardCreateOrUpdate accepts a `BoardCard` object (may include id for updates)
-    enqueueCardCreateOrUpdate: (data: BoardCard) => void;
-    // Move/delete have dedicated helpers
-    enqueueCardDelete: (id: string) => void;
-    enqueueListDelete: (id: string) => void;
-    enqueueBoardDelete: (id: string) => void;
-    enqueueCardMove: (payload: {
-        id: string;
-        newIndex: number;
-        listId: string;
-        boardId?: string;
-    }) => void;
-    handleBoardActionSuccess: (
-        tempId: string | undefined,
-        newBoard: Board
-    ) => void;
-    handleListActionSuccess: (
-        tempId: string | undefined,
-        newList: BoardList
-    ) => void;
-    handleCardActionSuccess: (
-        tempId: string | undefined,
-        newCard: BoardCard
-    ) => void;
-}
+// QueueState is defined in '@/types/store-states'
 
 export function createQueueStore(
     persistEnabled = true,
@@ -83,14 +37,7 @@ export function createQueueStore(
         listStore?: ListStoreAdapter | ReturnType<typeof useListStore>;
         cardStore?: CardStoreAdapter | ReturnType<typeof useCardStore>;
         // optional test-injected temp id map store (can be UseBoundStore, StoreApi, or a minimal adapter)
-        tempIdMapStore?:
-            | ReturnType<typeof getOrCreateTempIdMapStore>
-            | StoreApi<TempIdMapState>
-            | {
-                  setMapping: (t: string, r: string) => void;
-                  clearMapping: (t: string) => void;
-              }
-            | unknown;
+        tempIdMapStore?: ReturnType<typeof getOrCreateTempIdMapStore> | StoreApi<TempIdMapState> | TempIdMapAdapter | unknown;
     }
 ) {
     // If adapters are provided for testing, use them; otherwise use the runtime singletons/hooks.

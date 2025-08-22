@@ -1,4 +1,4 @@
-import { useUiStore } from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 import {
     Card,
     Flex,
@@ -36,7 +36,7 @@ import {
     useVioletKanbanEnqueueListCreateOrUpdate,
     useVioletKanbanEnqueueCardMove,
     useVioletKanbanEnqueueListDelete,
-} from '@/store/useVioletKanbanHooks';
+} from '@/providers/useVioletKanbanHooks';
 import { useState } from 'react';
 import { BoardCard, BoardList } from '@/types/appState.type';
 
@@ -57,6 +57,7 @@ export default function BoardListColumn({
     const enqueueListAction = useVioletKanbanEnqueueListCreateOrUpdate();
     const enqueueCardMove = useVioletKanbanEnqueueCardMove();
     const enqueueListDelete = useVioletKanbanEnqueueListDelete();
+    const ui = useUi();
     const [listCards, setListCards] = useState<BoardCard[]>(
         cards
             .filter((card) => card.listId === list.id)
@@ -141,9 +142,7 @@ export default function BoardListColumn({
                         variant='soft'
                         aria-label='Add card'
                         onClick={() =>
-                            useUiStore
-                                .getState()
-                                .open('create-card', { listId: list.id })
+                            ui.open('create-card', { listId: list.id })
                         }
                     >
                         <PlusIcon />

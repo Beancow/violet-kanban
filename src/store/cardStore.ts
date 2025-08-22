@@ -5,14 +5,7 @@ import type { PartialWithRequiredId } from '@/types/utilityTypes';
 import { buildPatch } from '@/utils/patchHelpers';
 import { isUseBoundStore } from './factoryHelpers';
 
-export interface CardState {
-    cards: BoardCard[];
-    orphanedCards?: BoardCard[];
-    addCard: (card: BoardCard) => void;
-    updateCard: (card: PartialWithRequiredId<BoardCard>) => void;
-    removeCard: (cardId: string) => void;
-    markCardOrphaned: (cardId: string) => void;
-}
+import type { CardState } from '@/types/store-states';
 
 export function createCardStore(persistEnabled = true): StoreApi<CardState> {
     const creator: StateCreator<CardState> = function (set, _get) {

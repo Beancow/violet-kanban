@@ -1,5 +1,5 @@
 import { Draft, produce } from 'immer';
-import type { VioletKanbanAction } from '../../store/appStore';
+import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 
 export type QueueState = {
     boardActionQueue: VioletKanbanAction[];

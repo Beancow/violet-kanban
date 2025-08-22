@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import type { ReactNode } from 'react';
-import type { VioletKanbanAction } from '../store/appStore';
+import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 import { useTempIdMap } from './TempIdMapProvider';
 import { useBoardStore } from './BoardProvider';
 import { useListStore } from './ListProvider';

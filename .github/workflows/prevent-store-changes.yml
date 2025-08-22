@@ -1,0 +1,36 @@
+name: Prevent src/store edits
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened]
+
+jobs:
+    block-store-edits:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout PR
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Detect changes under src/store
+              id: detect
+              run: |
+                  echo "Comparing base -> head for changed files"
+                  git fetch origin ${{ github.event.pull_request.base.ref }}:base_branch
+                  git diff --name-only base_branch...${{ github.sha }} > changed_files.txt
+                  if grep -E '^src/store/' changed_files.txt; then
+                    echo 'store_changes=true' >> $GITHUB_OUTPUT
+                    echo 'Found edits under src/store:'
+                    grep -E '^src/store/' changed_files.txt || true
+                  else
+                    echo 'store_changes=false' >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Fail when store files changed
+              if: steps.detect.outputs.store_changes == 'true'
+              run: |
+                  echo 'This project is migrating away from the legacy `src/store` runtime singletons.'
+                  echo 'Edits to files under src/store are blocked by this check. If you need to update them,'
+                  echo 'please open an issue or request the change from the migration owners.'
+                  exit 1

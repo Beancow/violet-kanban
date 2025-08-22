@@ -4,7 +4,7 @@ import { Dialog } from '@radix-ui/themes';
 import { Board } from '@/types/appState.type';
 import type { BoardFormValues } from '@/schema/boardSchema';
 import { BoardFormWrapper } from '../forms/BoardFormWrapper';
-import useUiStore from '@/store/uiStore';
+import { useUi } from '@/providers/UiProvider';
 
 interface CreateBoardModalProps {
     open: boolean;
@@ -18,10 +18,10 @@ export default function CreateBoardModal({
     open,
     board,
 }: CreateBoardModalProps) {
-    const openModal = useUiStore((state) => state.openModal);
+    const ui = useUi();
 
     return (
-        <Dialog.Root open={openModal.name === 'create-board'}>
+        <Dialog.Root open={ui.openModal.name === 'create-board'}>
             <Dialog.Content>
                 <Dialog.Description hidden>
                     This is a modal that allows you to create or edit a boards.
