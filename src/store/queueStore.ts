@@ -527,7 +527,3 @@ export const useQueueStore: import('zustand').UseBoundStore<
     }
     return storeApi.getState();
 }) as unknown as import('zustand').UseBoundStore<StoreApi<QueueState>>;
-
-// Expose helper methods commonly used outside React (e.g., syncManager)
-// Note: we intentionally do NOT attach getState/setState/subscribe helpers onto `useQueueStore`.
-// Non-React code should call `getOrCreateQueueStore()` explicitly and use the returned StoreApi<QueueState>.

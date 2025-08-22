@@ -11,10 +11,16 @@ describe('queue reconciliation smoke tests', () => {
         } as any;
 
         // Enqueue create
-        queue.getState().enqueueCardAction(createAction);
-        expect(queue.getState().cardActionQueue.length).toBe(1);
+        queue.getState().enqueueBoardAction(createAction);
+        expect(queue.getState().boardActionQueue.length).toBe(1);
 
-        const createdCard = { id: 'real-card-1', title: 'Test card' };
+        const createdCard = {
+            id: 'real-card-1',
+            title: 'Test card',
+            listId: 'list-1',
+            boardId: 'board-1',
+            organizationId: 'org-1',
+        };
 
         // Call handler
         queue.getState().handleCardActionSuccess(tempId, createdCard);
@@ -41,7 +47,13 @@ describe('queue reconciliation smoke tests', () => {
         queue.getState().enqueueListAction(createAction);
         expect(queue.getState().listActionQueue.length).toBe(1);
 
-        const createdList = { id: 'real-list-1', title: 'L' };
+        const createdList = {
+            id: 'real-list-1',
+            title: 'L',
+            boardId: 'board-1',
+            position: 0,
+            organizationId: 'org-1',
+        };
         queue.getState().handleListActionSuccess(tempId, createdList);
 
         expect(queue.getState().listActionQueue.length).toBe(0);
@@ -61,7 +73,13 @@ describe('queue reconciliation smoke tests', () => {
         queue.getState().enqueueBoardAction(createAction);
         expect(queue.getState().boardActionQueue.length).toBe(1);
 
-        const createdBoard = { id: 'real-board-1', title: 'B' };
+        const createdBoard = {
+            id: 'real-board-1',
+            title: 'B',
+            organizationId: 'org-1',
+            lists: [],
+            cards: [],
+        };
         queue.getState().handleBoardActionSuccess(tempId, createdBoard);
 
         expect(queue.getState().boardActionQueue.length).toBe(0);
