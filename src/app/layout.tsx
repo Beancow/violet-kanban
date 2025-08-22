@@ -12,6 +12,7 @@ import AuthStoreProvider from '@/providers/AuthStoreProvider';
 import BoardStoreProvider from '@/providers/BoardStoreProvider';
 import ListStoreProvider from '@/providers/ListStoreProvider';
 import CardStoreProvider from '@/providers/CardStoreProvider';
+import OrganizationStoreProvider from '@/providers/OrganizationStoreProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -31,18 +32,20 @@ export default function RootLayout({
                 <Theme>
                     <Header />
                     <FloatingSyncButton />
-                    <SyncManager />
                     <AuthStoreProvider>
-                        <BoardStoreProvider>
-                            <ListStoreProvider>
-                                <CardStoreProvider>
-                                    <QueueStoreProvider>
-                                        {children}
-                                        <ModalProvider />
-                                    </QueueStoreProvider>
-                                </CardStoreProvider>
-                            </ListStoreProvider>
-                        </BoardStoreProvider>
+                        <OrganizationStoreProvider>
+                            <BoardStoreProvider>
+                                <ListStoreProvider>
+                                    <CardStoreProvider>
+                                        <QueueStoreProvider>
+                                            <SyncManager />
+                                            {children}
+                                            <ModalProvider />
+                                        </QueueStoreProvider>
+                                    </CardStoreProvider>
+                                </ListStoreProvider>
+                            </BoardStoreProvider>
+                        </OrganizationStoreProvider>
                     </AuthStoreProvider>
                 </Theme>
             </body>

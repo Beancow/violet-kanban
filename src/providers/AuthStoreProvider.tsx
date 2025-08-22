@@ -5,14 +5,18 @@ import { firebaseAuth } from '@/lib/firebase/firebase-config';
 import { initializeAuthStore, getAuthStoreIfReady } from '@/store/authStore';
 
 export function AuthStoreProvider({ children }: { children: React.ReactNode }) {
-    useEffect(() => {
-        if (!firebaseAuth || !onAuthStateChanged) return;
-        // Ensure store exists client-side
+    // Synchronously initialize the auth store on the client so non-React
+    // code (e.g. SyncManager) can access it immediately after mount.
+    if (typeof window !== 'undefined') {
         try {
             initializeAuthStore();
         } catch {
-            // ignore
+            /* ignore */
         }
+    }
+
+    useEffect(() => {
+        if (!firebaseAuth || !onAuthStateChanged) return;
         const unsub = onAuthStateChanged(
             firebaseAuth,
             async (user: FirebaseUser | null) => {

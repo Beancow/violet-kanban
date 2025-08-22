@@ -2,6 +2,7 @@ import { create, StoreApi, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { firebaseAuth } from '@/lib/firebase/firebase-config';
 import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
+import { isUseBoundStore } from './factoryHelpers';
 
 interface AuthState {
     authUser: FirebaseUser | null;
@@ -16,7 +17,7 @@ interface AuthState {
 
 export function createAuthStore(
     persistEnabled = true
-): import('zustand').UseBoundStore<StoreApi<AuthState>> {
+): import('zustand').StoreApi<AuthState> {
     const creator: StateCreator<AuthState> = (set, get) => ({
         authUser: null,
         loading: true,
@@ -44,13 +45,12 @@ export function createAuthStore(
     if (persistEnabled) {
         return create<AuthState>()(
             persist(creator, { name: 'violet-kanban-auth-storage' })
-        );
+        ) as unknown as StoreApi<AuthState>;
     }
-    return create<AuthState>()(creator);
+    return create<AuthState>()(creator) as unknown as StoreApi<AuthState>;
 }
 
-let _authStore: import('zustand').UseBoundStore<StoreApi<AuthState>> | null =
-    null;
+let _authStore: StoreApi<AuthState> | null = null;
 
 export function initializeAuthStore(
     persistEnabled = typeof window !== 'undefined'
@@ -61,15 +61,11 @@ export function initializeAuthStore(
     return _authStore;
 }
 
-export function getAuthStoreIfReady():
-    | import('zustand').UseBoundStore<StoreApi<AuthState>>
-    | null {
+export function getAuthStoreIfReady(): StoreApi<AuthState> | null {
     return _authStore;
 }
 
-export function getOrCreateAuthStore(): import('zustand').UseBoundStore<
-    StoreApi<AuthState>
-> {
+export function getOrCreateAuthStore(): StoreApi<AuthState> {
     if (!_authStore) {
         throw new Error(
             'Auth store not initialized. Call initializeAuthStore() from AuthStoreProvider before using non-React APIs.'
@@ -82,10 +78,29 @@ export function createAuthStoreForTest() {
     return createAuthStore(false);
 }
 
-export const useAuthStore = (() => {
+// Lazy UseBoundStore wrapper for components. Mirrors other stores so
+// non-React code can call `getOrCreateAuthStore()` and React components can call `useAuthStore`.
+export const useAuthStore: import('zustand').UseBoundStore<
+    StoreApi<AuthState>
+> = ((...args: Array<unknown>) => {
     const store = getOrCreateAuthStore();
-    return store;
-})();
+    if (isUseBoundStore<AuthState>(store)) {
+        const selector = (args.length > 0 ? args[0] : undefined) as
+            | ((s: AuthState) => unknown)
+            | undefined;
+        return (
+            store as unknown as (
+                selector?: (s: AuthState) => unknown
+            ) => unknown
+        )(selector);
+    }
+    const selector = args[0] as unknown;
+    const storeApi = store as StoreApi<AuthState>;
+    if (typeof selector === 'function') {
+        return (selector as (s: AuthState) => unknown)(storeApi.getState());
+    }
+    return storeApi.getState();
+}) as unknown as import('zustand').UseBoundStore<StoreApi<AuthState>>;
 
 // Auth listener is intentionally not registered at module-eval time.
 // Use `AuthStoreProvider` (client) to register onAuthStateChanged inside a useEffect.

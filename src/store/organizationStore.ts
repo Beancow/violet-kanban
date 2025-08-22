@@ -1,6 +1,7 @@
 import { create, StoreApi, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Organization } from '@/types/appState.type';
+import { isUseBoundStore } from './factoryHelpers';
 
 interface OrganizationState {
     organizations: Organization[];
@@ -15,7 +16,7 @@ interface OrganizationState {
 
 export function createOrganizationStore(
     persistEnabled = true
-): import('zustand').UseBoundStore<StoreApi<OrganizationState>> {
+): import('zustand').StoreApi<OrganizationState> {
     const creator: StateCreator<OrganizationState> = (set, get) => ({
         organizations: [],
         loading: true,
@@ -69,14 +70,14 @@ export function createOrganizationStore(
     if (persistEnabled) {
         return create<OrganizationState>()(
             persist(creator, { name: 'violet-kanban-organization-storage' })
-        );
+        ) as unknown as StoreApi<OrganizationState>;
     }
-    return create<OrganizationState>()(creator);
+    return create<OrganizationState>()(
+        creator
+    ) as unknown as StoreApi<OrganizationState>;
 }
 
-let _organizationStore:
-    | import('zustand').UseBoundStore<StoreApi<OrganizationState>>
-    | null = null;
+let _organizationStore: StoreApi<OrganizationState> | null = null;
 
 export function initializeOrganizationStore(
     persistEnabled = typeof window !== 'undefined'
@@ -87,15 +88,11 @@ export function initializeOrganizationStore(
     return _organizationStore;
 }
 
-export function getOrganizationStoreIfReady():
-    | import('zustand').UseBoundStore<StoreApi<OrganizationState>>
-    | null {
+export function getOrganizationStoreIfReady(): StoreApi<OrganizationState> | null {
     return _organizationStore;
 }
 
-export function getOrCreateOrganizationStore(): import('zustand').UseBoundStore<
-    StoreApi<OrganizationState>
-> {
+export function getOrCreateOrganizationStore(): StoreApi<OrganizationState> {
     if (!_organizationStore) {
         throw new Error(
             'Organization store not initialized. Call initializeOrganizationStore() from OrganizationStoreProvider before using non-React APIs.'
@@ -108,7 +105,28 @@ export function createOrganizationStoreForTest() {
     return createOrganizationStore(false);
 }
 
-export const useOrganizationStore = (() => {
+// Lazy UseBoundStore wrapper for components. Mirrors the pattern used by other stores so
+// non-React code can call `getOrCreateOrganizationStore()` and React components can call `useOrganizationStore`.
+export const useOrganizationStore: import('zustand').UseBoundStore<
+    StoreApi<OrganizationState>
+> = ((...args: Array<unknown>) => {
     const store = getOrCreateOrganizationStore();
-    return store;
-})();
+    if (isUseBoundStore<OrganizationState>(store)) {
+        const selector = (args.length > 0 ? args[0] : undefined) as
+            | ((s: OrganizationState) => unknown)
+            | undefined;
+        return (
+            store as unknown as (
+                selector?: (s: OrganizationState) => unknown
+            ) => unknown
+        )(selector);
+    }
+    const selector = args[0] as unknown;
+    const storeApi = store as StoreApi<OrganizationState>;
+    if (typeof selector === 'function') {
+        return (selector as (s: OrganizationState) => unknown)(
+            storeApi.getState()
+        );
+    }
+    return storeApi.getState();
+}) as unknown as import('zustand').UseBoundStore<StoreApi<OrganizationState>>;

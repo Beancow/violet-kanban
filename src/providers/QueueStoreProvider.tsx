@@ -8,8 +8,7 @@ export function QueueStoreProvider({
 }: {
     children: React.ReactNode;
 }) {
-    useEffect(() => {
-        // Ensure queue and temp id map stores are initialized client-side.
+    if (typeof window !== 'undefined') {
         try {
             initializeTempIdMapStore();
         } catch {
@@ -20,11 +19,11 @@ export function QueueStoreProvider({
         } catch {
             // ignore in non-browser
         }
-        // Sync lifecycle is managed by the <SyncManager/> component mounted in layout
+    }
 
-        return () => {
-            // syncManager handles its own cleanup for intervals/listeners if implemented
-        };
+    useEffect(() => {
+        // no-op effect; stores were initialized synchronously on client
+        return () => {};
     }, []);
 
     return <>{children}</>;

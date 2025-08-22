@@ -43,7 +43,7 @@ export function SyncManager() {
 
         function initWorker() {
             if (worker) return worker;
-            worker = new Worker('./dataSyncWorker.js');
+            worker = new Worker('dataSyncWorker.js');
 
             worker.onmessage = (event) => {
                 const { type, payload, error } = event.data;

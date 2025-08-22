@@ -12,17 +12,17 @@ export type EnqueuePayload =
     | {
           type: 'create-card' | 'update-card' | 'delete-card';
           payload: Record<string, unknown>;
-          timestamp?: number;
+          timestamp: number;
       }
     | {
           type: 'create-list' | 'update-list' | 'delete-list';
           payload: Record<string, unknown>;
-          timestamp?: number;
+          timestamp: number;
       }
     | {
           type: 'create-board' | 'update-board' | 'delete-board';
           payload: Record<string, unknown>;
-          timestamp?: number;
+          timestamp: number;
       };
 
 export type VioletKanbanAction = SyncAction | EnqueuePayload;
