@@ -7,6 +7,7 @@ import { useBoardStore } from './BoardProvider';
 import { useListStore } from './ListProvider';
 import { useCardStore } from './CardProvider';
 import { reducer as queueReducer } from './reducers/queueReducer';
+import { registerQueueAdapter } from './adapter';
 
 // Minimal queue reducer using same concepts: queues for board/list/card actions
 
@@ -115,6 +116,15 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         removeCardAction: (id: string) =>
             dispatch({ type: 'REMOVE_CARD_BY_ID', itemId: id }),
     };
+
+    useEffect(() => {
+        registerQueueAdapter({
+            enqueueBoardAction: api.enqueueBoardAction,
+            enqueueListAction: api.enqueueListAction,
+            enqueueCardAction: api.enqueueCardAction,
+        });
+        return () => registerQueueAdapter(null);
+    }, [state]);
 
     return (
         <QueueContext.Provider value={api}>{children}</QueueContext.Provider>

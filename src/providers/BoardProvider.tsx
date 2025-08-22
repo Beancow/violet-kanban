@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import { reducer as boardReducer } from './reducers/boardReducer';
+import { registerBoardAdapter } from './adapter';
 import type { ReactNode } from 'react';
 import type { Board } from '../types/appState.type';
 
@@ -54,9 +55,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         removeBoard: (boardId: string) =>
             dispatch({ type: 'REMOVE_BOARD', boardId }),
     };
-
-    // No runtime adapter registered; providers are self-contained.
-
+    useEffect(() => {
+        registerBoardAdapter({
+            addBoard: api.addBoard,
+            updateBoard: api.updateBoard,
+            removeBoard: api.removeBoard,
+        });
+        return () => registerBoardAdapter(null);
+    }, [state]);
     return (
         <BoardContext.Provider value={api}>{children}</BoardContext.Provider>
     );

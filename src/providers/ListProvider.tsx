@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import type { ReactNode } from 'react';
 import { reducer as listReducer } from './reducers/listReducer';
+import { registerListAdapter } from './adapter';
 import type { BoardList } from '../types/appState.type';
 
 type State = {
@@ -52,6 +53,15 @@ export function ListProvider({ children }: { children: ReactNode }) {
         removeList: (listId: string) =>
             dispatch({ type: 'REMOVE_LIST', listId }),
     };
+
+    useEffect(() => {
+        registerListAdapter({
+            addList: api.addList,
+            updateList: api.updateList,
+            removeList: api.removeList,
+        });
+        return () => registerListAdapter(null);
+    }, [state]);
 
     return <ListContext.Provider value={api}>{children}</ListContext.Provider>;
 }

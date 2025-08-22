@@ -3,6 +3,7 @@ import { Draft } from 'immer';
 import type { ReactNode } from 'react';
 import type { BoardCard } from '../types/appState.type';
 import { reducer as cardReducer } from './reducers/cardReducer';
+import { registerCardAdapter } from './adapter';
 
 type State = {
     cards: BoardCard[];
@@ -57,6 +58,16 @@ export function CardProvider({ children }: { children: ReactNode }) {
         markCardOrphaned: (cardId: string) =>
             dispatch({ type: 'MARK_ORPHANED', cardId }),
     };
+
+    useEffect(() => {
+        registerCardAdapter({
+            addCard: api.addCard,
+            updateCard: api.updateCard,
+            removeCard: api.removeCard,
+            markCardOrphaned: api.markCardOrphaned,
+        });
+        return () => registerCardAdapter(null);
+    }, [state]);
 
     return <CardContext.Provider value={api}>{children}</CardContext.Provider>;
 }
