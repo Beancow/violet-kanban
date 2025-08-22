@@ -60,10 +60,6 @@ export function createCardStore(persistEnabled = true): StoreApi<CardState> {
 
 let _cardStore: StoreApi<CardState> | null = null;
 
-/**
- * Initialize the global card store. Call from a client-only provider (e.g. CardStoreProvider).
- * Tests can also call this with `persistEnabled = false` to avoid persistence.
- */
 export function initializeCardStore(
     persistEnabled = typeof window !== 'undefined'
 ) {
@@ -80,16 +76,12 @@ export function getCardStoreIfReady(): StoreApi<CardState> | null {
     return _cardStore;
 }
 
-/**
- * Strict getter: throws if the store hasn't been initialized. This makes
- * incorrect server-side or early calls fail fast and encourages explicit
- * initialization inside a client provider.
- */
 export function getOrCreateCardStore(): StoreApi<CardState> {
     if (!_cardStore) {
-        throw new Error(
-            'Card store not initialized. Call initializeCardStore() from CardStoreProvider before using non-React APIs.'
-        );
+        if (typeof window === 'undefined') {
+            return createCardStore(false) as unknown as StoreApi<CardState>;
+        }
+        throw new Error();
     }
     return _cardStore;
 }
@@ -104,7 +96,7 @@ export function createCardStoreForTest() {
 export const useCardStore: import('zustand').UseBoundStore<
     StoreApi<CardState>
 > = ((...args: Array<unknown>) => {
-    const store = getOrCreateCardStore();
+    const store = getCardStoreIfReady() ?? createCardStore(false);
     if (isUseBoundStore<CardState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as
             | ((s: CardState) => unknown)

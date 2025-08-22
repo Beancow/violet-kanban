@@ -2,31 +2,47 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from '@/lib/sentryWrapper';
 
-Sentry.init({
-  dsn: "https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800",
+// Allow disabling Sentry on client with NEXT_PUBLIC_DISABLE_SENTRY.
+const CLIENT_DISABLED =
+    typeof process !== 'undefined' &&
+    (process.env.NEXT_PUBLIC_DISABLE_SENTRY === '1' ||
+        process.env.NEXT_PUBLIC_DISABLE_SENTRY === 'true');
 
-  // Add optional integrations for additional features
-  integrations: [
-    Sentry.replayIntegration(),
-  ],
+if (!CLIENT_DISABLED) {
+    Sentry.init({
+        dsn: 'https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800',
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+        // Add optional integrations for additional features
+        integrations: [Sentry.replayIntegration && Sentry.replayIntegration()],
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+        // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+        tracesSampleRate: 1,
+        // Enable logs to be sent to Sentry
+        enableLogs: true,
 
-  // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+        // Define how likely Replay events are sampled.
+        // This sets the sample rate to be 10%. You may want this to be 100% while
+        // in development and sample at a lower rate in production
+        replaysSessionSampleRate: 0.1,
 
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
-});
+        // Define how likely Replay events are sampled when an error occurs.
+        replaysOnErrorSampleRate: 1.0,
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+        // Setting this option to true will print useful information to the console while you're setting up Sentry.
+        debug: false,
+    });
+} else {
+    // eslint-disable-next-line no-console
+    console.log(
+        '[sentry] client disabled via NEXT_PUBLIC_DISABLE_SENTRY env var'
+    );
+}
+
+// Export a handler (may be used by other modules); when Sentry is disabled use a safe no-op.
+export const onRouterTransitionStart = (Sentry &&
+    (Sentry.captureRouterTransitionStart ?? (() => {}))) as unknown as (
+    href: string,
+    navigationType: string
+) => void;

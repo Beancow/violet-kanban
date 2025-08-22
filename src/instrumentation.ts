@@ -1,13 +1,26 @@
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from '@/lib/sentryWrapper';
+
+const DISABLED =
+    process.env.DISABLE_SENTRY === '1' || process.env.DISABLE_SENTRY === 'true';
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('../sentry.server.config');
-  }
+    if (DISABLED) {
+        // No-op register when disabled
+        // eslint-disable-next-line no-console
+        console.log('[sentry] register skipped because DISABLE_SENTRY is set');
+        return;
+    }
 
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    await import('../sentry.edge.config');
-  }
+    if (process.env.NEXT_RUNTIME === 'nodejs') {
+        await import('../sentry.server.config');
+    }
+
+    if (process.env.NEXT_RUNTIME === 'edge') {
+        await import('../sentry.edge.config');
+    }
 }
 
-export const onRequestError = Sentry.captureRequestError;
+// Export a safe handler; when Sentry is disabled export a no-op.
+export const onRequestError = DISABLED
+    ? (..._args: any[]) => {}
+    : Sentry.captureRequestError;

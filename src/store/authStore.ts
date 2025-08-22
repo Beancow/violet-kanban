@@ -67,9 +67,10 @@ export function getAuthStoreIfReady(): StoreApi<AuthState> | null {
 
 export function getOrCreateAuthStore(): StoreApi<AuthState> {
     if (!_authStore) {
-        throw new Error(
-            'Auth store not initialized. Call initializeAuthStore() from AuthStoreProvider before using non-React APIs.'
-        );
+        if (typeof window === 'undefined') {
+            return createAuthStore(false) as unknown as StoreApi<AuthState>;
+        }
+        throw new Error();
     }
     return _authStore;
 }
@@ -83,7 +84,7 @@ export function createAuthStoreForTest() {
 export const useAuthStore: import('zustand').UseBoundStore<
     StoreApi<AuthState>
 > = ((...args: Array<unknown>) => {
-    const store = getOrCreateAuthStore();
+    const store = getAuthStoreIfReady() ?? createAuthStore(false);
     if (isUseBoundStore<AuthState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as
             | ((s: AuthState) => unknown)
@@ -103,4 +104,3 @@ export const useAuthStore: import('zustand').UseBoundStore<
 }) as unknown as import('zustand').UseBoundStore<StoreApi<AuthState>>;
 
 // Auth listener is intentionally not registered at module-eval time.
-// Use `AuthStoreProvider` (client) to register onAuthStateChanged inside a useEffect.

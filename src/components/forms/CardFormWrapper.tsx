@@ -16,7 +16,8 @@ interface CardFormWrapperProps {
 }
 
 export function CardFormWrapper({ card, listId }: CardFormWrapperProps) {
-    const { boardId } = useParams();
+    const params = useParams();
+    const { boardId } = params as { boardId: string | undefined };
     const currentOrganizationId = useOrganizationStore(
         (state) => state.currentOrganizationId
     );

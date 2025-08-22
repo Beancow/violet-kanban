@@ -69,6 +69,13 @@ export function getOrCreateTempIdMapStore(): import('zustand').UseBoundStore<
     StoreApi<TempIdMapState>
 > {
     if (!_tempIdMapStore) {
+        if (typeof window === 'undefined') {
+            return createTempIdMapStore(
+                false
+            ) as unknown as import('zustand').UseBoundStore<
+                StoreApi<TempIdMapState>
+            >;
+        }
         throw new Error(
             'TempIdMap store not initialized. Call initializeTempIdMapStore() from a client provider before using non-React APIs.'
         );

@@ -3,7 +3,7 @@ import {
     DocumentData,
     QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import * as sentry from '@sentry/nextjs';
+import * as sentry from '@/lib/sentryWrapper';
 
 export const dataConverter = <T>(): FirestoreDataConverter<T> => ({
     toFirestore(data: T): DocumentData {

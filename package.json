@@ -5,12 +5,17 @@
     "description": "A Kanban board application built with Next.js and Radix UI.",
     "author": "Avery",
     "scripts": {
-        "dev": "next dev --turbopack",
+        "dev": "DISABLE_SENTRY=1 NEXT_PUBLIC_DISABLE_SENTRY=1 next dev --turbopack",
         "build": "next build",
         "start": "next start",
+        "dev:with-sentry": "next dev --turbopack",
         "lint": "next lint",
         "test": "jest --watchAll=false --passWithNoTests",
-        "test:smoke": "jest --watchAll=false --passWithNoTests tests/smoke"
+        "test:e2e": "playwright test",
+        "test:e2e:ci": "playwright test --reporter=github",
+        "test:smoke": "jest --watchAll=false --passWithNoTests tests/smoke",
+        "storybook": "storybook dev -p 6006",
+        "build-storybook": "storybook build"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",
@@ -30,8 +35,17 @@
         "zustand": "^5.0.8"
     },
     "devDependencies": {
+        "@babel/core": "^7.28.3",
+        "@babel/preset-react": "^7.27.1",
+        "@babel/preset-typescript": "^7.27.1",
+        "@playwright/test": "^1.44.0",
         "@radix-ui/colors": "^3.0.0",
         "@radix-ui/themes": "^3.2.1",
+        "@storybook/addon-essentials": "^8.6.14",
+        "@storybook/addon-interactions": "^8.6.14",
+        "@storybook/builder-vite": "^8.6.14",
+        "@storybook/react-vite": "^8.6.14",
+        "@types/jest": "^29.5.3",
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",
@@ -39,10 +53,14 @@
         "eslint-config-next": "^15.4.5",
         "firebase-admin": "^12.1.1",
         "jest": "^30.0.5",
-        "ts-jest": "^29.1.0",
-        "@types/jest": "^29.5.3",
+        "jest-environment-jsdom": "^28.1.3",
         "radix-ui": "^1.4.2",
+        "react-test-renderer": "^19.1.1",
+        "storybook": "^8.6.14",
+        "ts-jest": "^29.1.0",
         "typescript": "^5",
+        "vite": "^7.1.3",
+        "vite-tsconfig-paths": "^5.1.4",
         "zod": "^4.0.17"
     }
 }

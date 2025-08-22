@@ -70,7 +70,6 @@ export function createListStore(
 
 let _listStore: StoreApi<ListState> | null = null;
 
-/** Initialize the global list store. Call from a client-only provider. */
 export function initializeListStore(
     persistEnabled = typeof window !== 'undefined'
 ) {
@@ -87,21 +86,16 @@ export function getListStoreIfReady(): StoreApi<ListState> | null {
     return _listStore;
 }
 
-/**
- * Strict getter: throws if the store hasn't been initialized. This makes
- * incorrect server-side or early calls fail fast and encourages explicit
- * initialization inside a client provider.
- */
 export function getOrCreateListStore(): StoreApi<ListState> {
     if (!_listStore) {
-        throw new Error(
-            'List store not initialized. Call initializeListStore() from ListStoreProvider before using non-React APIs.'
-        );
+        if (typeof window === 'undefined') {
+            return createListStore(false) as unknown as StoreApi<ListState>;
+        }
+        throw new Error();
     }
     return _listStore;
 }
 
-/** Factory for tests: create a fresh store instance without touching the global singleton. */
 export function createListStoreForTest() {
     return createListStore(false);
 }
@@ -109,7 +103,7 @@ export function createListStoreForTest() {
 export const useListStore: import('zustand').UseBoundStore<
     StoreApi<ListState>
 > = ((...args: Array<unknown>) => {
-    const store = getOrCreateListStore();
+    const store = getListStoreIfReady() ?? createListStore(false);
     if (isUseBoundStore<ListState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as
             | ((s: ListState) => unknown)

@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { BoardList } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
-import * as sentry from '@sentry/nextjs';
+import * as sentry from '@/lib/sentryWrapper';
 import { FieldValue } from 'firebase-admin/firestore';
 
 // Dynamic import for firebase-admin-init
