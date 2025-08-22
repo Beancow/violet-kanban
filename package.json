@@ -59,7 +59,7 @@
         "storybook": "^8.6.14",
         "ts-jest": "^29.1.0",
         "typescript": "^5",
-    "vite": "^6.3.5",
+        "vite": "^6.3.5",
         "vite-tsconfig-paths": "^5.1.4",
         "zod": "^4.0.17"
     }

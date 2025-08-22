@@ -60,9 +60,15 @@ export function getCardAdapter(): CardAdapter | null {
 
 // Queue adapter (minimal surface)
 type QueueAdapter = {
-    enqueueBoardAction?: (a: import('../store/appStore').VioletKanbanAction) => void;
-    enqueueListAction?: (a: import('../store/appStore').VioletKanbanAction) => void;
-    enqueueCardAction?: (a: import('../store/appStore').VioletKanbanAction) => void;
+    enqueueBoardAction?: (
+        a: import('../store/appStore').VioletKanbanAction
+    ) => void;
+    enqueueListAction?: (
+        a: import('../store/appStore').VioletKanbanAction
+    ) => void;
+    enqueueCardAction?: (
+        a: import('../store/appStore').VioletKanbanAction
+    ) => void;
 };
 
 let queueAdapter: QueueAdapter | null = null;
