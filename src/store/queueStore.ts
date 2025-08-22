@@ -490,9 +490,10 @@ export function getQueueStoreIfReady(): StoreApi<QueueState> | null {
 
 export function getOrCreateQueueStore(): StoreApi<QueueState> {
     if (!_queueStore) {
-        throw new Error(
-            'Queue store not initialized. Call initializeQueueStore() from QueueStoreProvider before using non-React APIs.'
-        );
+        if (typeof window === 'undefined') {
+            return createQueueStore(false) as unknown as StoreApi<QueueState>;
+        }
+        throw new Error();
     }
     return _queueStore;
 }
@@ -506,7 +507,7 @@ export function createQueueStoreForTest() {
 export const useQueueStore: import('zustand').UseBoundStore<
     StoreApi<QueueState>
 > = ((...args: Array<unknown>) => {
-    const store = getOrCreateQueueStore();
+    const store = getQueueStoreIfReady() ?? createQueueStore(false);
     // If the underlying object is a UseBoundStore (callable), call it with the selector.
     if (isUseBoundStore<QueueState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as

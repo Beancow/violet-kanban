@@ -94,9 +94,12 @@ export function getOrganizationStoreIfReady(): StoreApi<OrganizationState> | nul
 
 export function getOrCreateOrganizationStore(): StoreApi<OrganizationState> {
     if (!_organizationStore) {
-        throw new Error(
-            'Organization store not initialized. Call initializeOrganizationStore() from OrganizationStoreProvider before using non-React APIs.'
-        );
+        if (typeof window === 'undefined') {
+            return createOrganizationStore(
+                false
+            ) as unknown as StoreApi<OrganizationState>;
+        }
+        throw new Error();
     }
     return _organizationStore;
 }
@@ -110,7 +113,8 @@ export function createOrganizationStoreForTest() {
 export const useOrganizationStore: import('zustand').UseBoundStore<
     StoreApi<OrganizationState>
 > = ((...args: Array<unknown>) => {
-    const store = getOrCreateOrganizationStore();
+    const store =
+        getOrganizationStoreIfReady() ?? createOrganizationStore(false);
     if (isUseBoundStore<OrganizationState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as
             | ((s: OrganizationState) => unknown)

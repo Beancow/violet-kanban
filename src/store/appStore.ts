@@ -496,9 +496,7 @@ export function getOrCreateAppStore(): import('zustand').UseBoundStore<
     StoreApi<AppState>
 > {
     if (!_appStore) {
-        throw new Error(
-            'App store not initialized. Call initializeAppStore() from a client provider before use.'
-        );
+        throw new Error();
     }
     return _appStore;
 }

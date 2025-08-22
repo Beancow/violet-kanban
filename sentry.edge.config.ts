@@ -5,15 +5,24 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
-  dsn: "https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800",
+// Allow disabling Sentry during large rewrites using environment variable.
+// Use DISABLE_SENTRY=1 (or 'true') to skip initialization in edge context.
+const DISABLED = process.env.DISABLE_SENTRY === '1' || process.env.DISABLE_SENTRY === 'true';
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+if (!DISABLED) {
+  Sentry.init({
+    dsn: "https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800",
 
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+    // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+    tracesSampleRate: 1,
 
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
-});
+    // Enable logs to be sent to Sentry
+    enableLogs: true,
+
+    // Setting this option to true will print useful information to the console while you're setting up Sentry.
+    debug: false,
+  });
+} else {
+  // eslint-disable-next-line no-console
+  console.log('[sentry] edge config disabled via DISABLE_SENTRY env var');
+}

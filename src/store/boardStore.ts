@@ -82,7 +82,6 @@ export function createBoardStore(
 
 let _boardStore: StoreApi<BoardState> | null = null;
 
-/** Initialize the global board store. Call from a client-only provider. */
 export function initializeBoardStore(
     persistEnabled = typeof window !== 'undefined'
 ) {
@@ -102,13 +101,16 @@ export function getBoardStoreIfReady(): StoreApi<BoardState> | null {
 /**
  * Strict getter: throws if the store hasn't been initialized. This makes
  * incorrect server-side or early calls fail fast and encourages explicit
- * initialization inside a client provider.
  */
 export function getOrCreateBoardStore(): StoreApi<BoardState> {
     if (!_boardStore) {
-        throw new Error(
-            'Board store not initialized. Call initializeBoardStore() from BoardStoreProvider before using non-React APIs.'
-        );
+        // During SSR we return an ephemeral non-persisting store so server
+        // rendering won't throw. Consumers running on the client must still
+        // initialize the global store via `initializeBoardStore()`.
+        if (typeof window === 'undefined') {
+            return createBoardStore(false) as unknown as StoreApi<BoardState>;
+        }
+        throw new Error();
     }
     return _boardStore;
 }
@@ -123,7 +125,10 @@ export function createBoardStoreForTest() {
 export const useBoardStore: import('zustand').UseBoundStore<
     StoreApi<BoardState>
 > = ((...args: Array<unknown>) => {
-    const store = getOrCreateBoardStore();
+    // Prefer the initialized global store. If it hasn't been initialized yet
+    // (for example during server-side rendering), fall back to a fresh
+    // non-persisting store instance so callers won't throw.
+    const store = getBoardStoreIfReady() ?? createBoardStore(false);
     if (isUseBoundStore<BoardState>(store)) {
         const selector = (args.length > 0 ? args[0] : undefined) as
             | ((s: BoardState) => unknown)
