@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button } from '@radix-ui/themes';
 import { CaretDownIcon } from '@radix-ui/react-icons';
@@ -11,16 +11,11 @@ type OrganizationFormValues = z.infer<typeof OrganizationSchema>;
 
 export default function OrganizationSelector() {
     const router = useRouter();
-    const organizations = useOrganizationStore((s) => s.organizations);
-    const currentOrganizationId = useOrganizationStore(
-        (s) => s.currentOrganizationId
-    );
-    const setCurrentOrganizationId = useOrganizationStore(
-        (s) => s.setCurrentOrganizationId
-    );
-    const refetchOrganizations = useOrganizationStore(
-        (s) => s.refetchOrganizations
-    );
+    const org = useOrganizationProvider();
+    const organizations = org.organizations;
+    const currentOrganizationId = org.currentOrganizationId;
+    const setCurrentOrganizationId = org.setCurrentOrganizationId;
+    const refetchOrganizations = org.refetchOrganizations;
     const [modalOpen, setModalOpen] = useState(false);
 
     const handleSetCurrentOrg = (orgId: string) => {

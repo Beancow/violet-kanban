@@ -54,10 +54,16 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         organizations: state.organizations,
         loading: state.loading,
         currentOrganizationId: state.currentOrganizationId,
-        currentOrganization: state.organizations.find((o) => o.id === state.currentOrganizationId) ?? null,
-        setCurrentOrganizationId: (id: string | null) => dispatch({ type: 'SET_CURRENT_ORG_ID', id }),
-        setOrganizations: (orgs: Organization[]) => dispatch({ type: 'SET_ORGANIZATIONS', orgs }),
-        setLoading: (loading: boolean) => dispatch({ type: 'SET_LOADING', loading }),
+        currentOrganization:
+            state.organizations.find(
+                (o) => o.id === state.currentOrganizationId
+            ) ?? null,
+        setCurrentOrganizationId: (id: string | null) =>
+            dispatch({ type: 'SET_CURRENT_ORG_ID', id }),
+        setOrganizations: (orgs: Organization[]) =>
+            dispatch({ type: 'SET_ORGANIZATIONS', orgs }),
+        setLoading: (loading: boolean) =>
+            dispatch({ type: 'SET_LOADING', loading }),
         refetchOrganizations: async () => {
             // Placeholder: consumers can call and providers can wire fetching into reducer
             return;
@@ -67,28 +73,38 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     // Keep a lightweight adapter that exposes current API; this mirrors the old getOrCreateOrganizationStore API surface
     _adapter = { getState: () => api };
 
-    return <OrganizationContext.Provider value={api}>{children}</OrganizationContext.Provider>;
+    return (
+        <OrganizationContext.Provider value={api}>
+            {children}
+        </OrganizationContext.Provider>
+    );
 }
 
 export function useOrganizationProvider() {
     const ctx = useContext(OrganizationContext);
-    if (!ctx) throw new Error('useOrganizationProvider must be used within OrganizationProvider');
+    if (!ctx)
+        throw new Error(
+            'useOrganizationProvider must be used within OrganizationProvider'
+        );
     return ctx;
 }
 
 export function getOrCreateOrganizationProviderStore() {
     if (!_adapter) {
         // Return a minimal shim until provider mounts
-        return { getState: () => ({
-            organizations: [],
-            loading: true,
-            currentOrganizationId: null,
-            currentOrganization: null,
-            setCurrentOrganizationId: () => undefined,
-            setOrganizations: () => undefined,
-            setLoading: () => undefined,
-            refetchOrganizations: async () => {},
-        } as OrganizationApi) };
+        return {
+            getState: () =>
+                ({
+                    organizations: [],
+                    loading: true,
+                    currentOrganizationId: null,
+                    currentOrganization: null,
+                    setCurrentOrganizationId: () => undefined,
+                    setOrganizations: () => undefined,
+                    setLoading: () => undefined,
+                    refetchOrganizations: async () => {},
+                } as OrganizationApi),
+        };
     }
     return _adapter;
 }

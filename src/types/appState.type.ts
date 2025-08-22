@@ -1,28 +1,23 @@
-type BoardList = {
+export type Creator = {
+    userId: string;
+    name: string;
+    email: string;
+};
+
+export type User = {
     id: string;
-    boardId: string;
-    title: string;
-    description?: string;
-    position: number;
-    organizationId: string;
-    createdBy?: Creator;
+    displayName: string;
+    name: string;
+    email: string;
+    photoURL?: string;
     createdAt?: string;
     updatedAt?: string;
 };
 
-type Board = {
-    id: string;
-    organizationId: string;
-    title: string;
-    description?: string;
-    createdAt?: Date | string;
-    updatedAt?: Date | string;
-    lists: BoardList[];
-    cards: BoardCard[];
-    createdBy?: Creator;
-};
+// Backwards-compat alias expected by some providers
+export type AuthUser = User;
 
-type BoardCard = {
+export type BoardCard = {
     id: string;
     title: string;
     description?: string;
@@ -38,23 +33,31 @@ type BoardCard = {
     createdBy?: Creator;
 };
 
-type User = {
+export type BoardList = {
     id: string;
-    displayName: string;
-    name: string;
-    email: string;
-    photoURL?: string;
+    boardId: string;
+    title: string;
+    description?: string;
+    position: number;
+    organizationId: string;
+    createdBy?: Creator;
     createdAt?: string;
     updatedAt?: string;
 };
 
-type Creator = {
-    userId: string;
-    name: string;
-    email: string;
+export type Board = {
+    id: string;
+    organizationId: string;
+    title: string;
+    description?: string;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    lists: BoardList[];
+    cards: BoardCard[];
+    createdBy?: Creator;
 };
 
-type Organization = {
+export type Organization = {
     id: string;
     name: string;
     orgType?: 'personal' | 'company' | 'private';
@@ -93,4 +96,4 @@ export type CreateCardResult = {
     error?: Error;
 };
 
-export type { BoardList, Board, BoardCard, User, Organization };
+// (types exported inline above)

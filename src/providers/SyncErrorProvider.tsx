@@ -42,12 +42,19 @@ export function SyncErrorProvider({ children }: { children: ReactNode }) {
         clearErrors: () => dispatch({ type: 'CLEAR_ERRORS' }),
     };
 
-    return <SyncErrorContext.Provider value={api}>{children}</SyncErrorContext.Provider>;
+    return (
+        <SyncErrorContext.Provider value={api}>
+            {children}
+        </SyncErrorContext.Provider>
+    );
 }
 
 export function useSyncErrorProvider() {
     const ctx = useContext(SyncErrorContext);
-    if (!ctx) throw new Error('useSyncErrorProvider must be used within SyncErrorProvider');
+    if (!ctx)
+        throw new Error(
+            'useSyncErrorProvider must be used within SyncErrorProvider'
+        );
     return ctx;
 }
 

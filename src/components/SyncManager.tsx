@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { getOrCreateQueueStore } from '@/providers/QueueProvider';
+import { getQueueAdapter } from '@/providers/adapter';
 import { useQueueStore } from '@/providers/QueueProvider';
-import { useSyncErrorStore } from '@/store/syncErrorStore';
-import { getOrCreateAuthStore } from '@/store/authStore';
-import { getOrCreateOrganizationStore } from '@/store/organizationStore';
-import log from '@/utils/logHelpers';
+import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
+import { useAuthProvider } from '@/providers/AuthProvider';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 
 export function SyncManager() {
+    const queueApi = useQueueStore();
     const { boardActionQueue, listActionQueue, cardActionQueue } =
-        useQueueStore();
-    const { errors, clearErrors } = useSyncErrorStore();
+        queueApi.state;
+    const syncError = useSyncErrorProvider();
+    const auth = useAuthProvider();
+    const org = useOrganizationProvider();
     const lastQueueLength = useRef(
         boardActionQueue.length +
             listActionQueue.length +
@@ -20,13 +22,15 @@ export function SyncManager() {
 
     // Show toast for sync errors
     useEffect(() => {
-        if (errors.length > 0) {
-            errors.forEach((err) => {
-                log('Error', `Sync error: ${err.message}`);
+        // show any errors from the sync error provider
+        // provider exposes errors array and a clear method
+        if (syncError.errors && syncError.errors.length > 0) {
+            syncError.errors.forEach((err) => {
+                console.error('Sync error:', err.message);
             });
-            clearErrors();
+            if (syncError.clearErrors) syncError.clearErrors();
         }
-    }, [errors, clearErrors]);
+    }, [syncError.errors, syncError.clearErrors]);
 
     // Update last queue length (used to detect transitions)
     useEffect(() => {
@@ -47,28 +51,34 @@ export function SyncManager() {
 
             worker.onmessage = (event) => {
                 const { type, payload, error } = event.data;
+                const queueAdapter = getQueueAdapter();
                 if (type === 'ACTION_SUCCESS') {
                     const tempId = payload?.tempId;
                     if (payload?.board) {
-                        getOrCreateQueueStore()
-                            .getState()
-                            .handleBoardActionSuccess(tempId, payload.board);
+                        queueAdapter?.enqueueBoardAction?.({
+                            type: 'RECONCILE_BOARD',
+                            payload: { tempId, board: payload.board },
+                        } as any);
                     } else if (payload?.list) {
-                        getOrCreateQueueStore()
-                            .getState()
-                            .handleListActionSuccess(tempId, payload.list);
+                        queueAdapter?.enqueueListAction?.({
+                            type: 'RECONCILE_LIST',
+                            payload: { tempId, list: payload.list },
+                        } as any);
                     } else if (payload?.card) {
-                        getOrCreateQueueStore()
-                            .getState()
-                            .handleCardActionSuccess(tempId, payload.card);
+                        queueAdapter?.enqueueCardAction?.({
+                            type: 'RECONCILE_CARD',
+                            payload: { tempId, card: payload.card },
+                        } as any);
                     }
                 } else if (type === 'ERROR' || type === 'ACTION_ERROR') {
-                    useSyncErrorStore.getState().addError({
-                        timestamp: payload?.timestamp || Date.now(),
-                        message: error?.message || 'Unknown sync error',
-                        actionType: payload?.type,
-                        payload,
-                    });
+                    if (syncError.addError) {
+                        syncError.addError({
+                            timestamp: payload?.timestamp || Date.now(),
+                            message: error?.message || 'Unknown sync error',
+                            actionType: payload?.type,
+                            payload,
+                        });
+                    }
                     console.error(
                         '[SyncManager] Worker error:',
                         error,
@@ -91,20 +101,23 @@ export function SyncManager() {
         }
 
         function processQueuedActions() {
-            const { boardActionQueue, listActionQueue, cardActionQueue } =
-                getOrCreateQueueStore().getState();
-            const { refreshIdToken } = getOrCreateAuthStore().getState();
-            const { currentOrganizationId } =
-                getOrCreateOrganizationStore().getState();
+            const queueAdapter = getQueueAdapter();
             const syncWorker = initWorker();
 
-            refreshIdToken().then(() => {
-                const freshToken = getOrCreateAuthStore().getState().idToken;
+            // ensure token is fresh
+            const refreshPromise = auth.refreshIdToken
+                ? auth.refreshIdToken()
+                : Promise.resolve();
+
+            refreshPromise.then(() => {
+                const freshToken = auth.idToken;
+                // read current queues from provider state
                 const allActions = [
                     ...boardActionQueue,
                     ...listActionQueue,
                     ...cardActionQueue,
                 ];
+
                 allActions.forEach((action) => {
                     let orgId: string | null = null;
                     const payload = action.payload as unknown;
@@ -127,7 +140,7 @@ export function SyncManager() {
                             >
                         ).organizationId as string;
                     } else {
-                        orgId = currentOrganizationId;
+                        orgId = org.currentOrganizationId;
                     }
                     syncWorker.postMessage({
                         ...action,

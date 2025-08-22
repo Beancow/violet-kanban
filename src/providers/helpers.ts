@@ -116,7 +116,10 @@ function hasPayload(
 ): action is VioletKanbanAction & { payload: unknown } {
     // runtime check for the presence of a payload property
     // use a safe cast to access the payload property without `any`
-    return 'payload' in action && (action as { payload?: unknown }).payload !== undefined;
+    return (
+        'payload' in action &&
+        (action as { payload?: unknown }).payload !== undefined
+    );
 }
 
 function payloadIsRecord(payload: unknown): payload is Record<string, unknown> {
@@ -128,7 +131,9 @@ function hasIdField(x: unknown): x is { id: string } {
 }
 
 function hasTempIdField(x: unknown): x is { tempId: string } {
-    return isObject(x) && typeof (x as Record<string, unknown>).tempId === 'string';
+    return (
+        isObject(x) && typeof (x as Record<string, unknown>).tempId === 'string'
+    );
 }
 
 function isSyncActionWithData(
@@ -138,7 +143,9 @@ function isSyncActionWithData(
     if (!hasPayload(action)) return false;
     const payload = action.payload;
     if (!payloadIsRecord(payload)) return false;
-    return 'data' in payload && isObject((payload as Record<string, unknown>).data);
+    return (
+        'data' in payload && isObject((payload as Record<string, unknown>).data)
+    );
 }
 
 function extractUpdatedAt(value: unknown): string | undefined {

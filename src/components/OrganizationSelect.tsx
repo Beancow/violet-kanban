@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Select, Button, Flex } from '@radix-ui/themes';
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { mockOrganizations } from '@/mock/mockOrganizations';
 
 export default function OrganizationSelect({
@@ -14,13 +14,10 @@ export default function OrganizationSelect({
     value?: string;
     style?: React.CSSProperties;
 }) {
-    const organizations = useOrganizationStore((s) => s.organizations);
-    const setCurrentOrganizationId = useOrganizationStore(
-        (s) => s.setCurrentOrganizationId
-    );
-    const currentOrganizationId = useOrganizationStore(
-        (s) => s.currentOrganizationId
-    );
+    const org = useOrganizationProvider();
+    const organizations = org.organizations;
+    const currentOrganizationId = org.currentOrganizationId;
+    const setCurrentOrganizationId = org.setCurrentOrganizationId;
     const [orgs, setOrgs] = useState(organizations);
     const [selected, setSelected] = useState(
         value || currentOrganizationId || ''
@@ -49,9 +46,9 @@ export default function OrganizationSelect({
             <Select.Root value={selected} onValueChange={handleChange}>
                 <Select.Trigger />
                 <Select.Content>
-                    {orgs.map((org) => (
-                        <Select.Item key={org.id} value={org.id}>
-                            {org.name}
+                    {orgs.map((o: { id: string; name: string }) => (
+                        <Select.Item key={o.id} value={o.id}>
+                            {o.name}
                         </Select.Item>
                     ))}
                 </Select.Content>

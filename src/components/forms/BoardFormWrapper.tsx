@@ -5,7 +5,7 @@ import { Board } from '@/types/appState.type';
 import type { BoardFormValues } from '@/schema/boardSchema';
 import { useVioletKanbanEnqueueBoardCreateOrUpdate } from '@/providers/useVioletKanbanHooks';
 import { BoardForm } from './BoardForm';
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { BoardSchema } from '@/schema/boardSchema';
 import { useUi } from '@/providers/UiProvider';
 import { useCreatedBy } from '@/hooks/useCreatedBy';
@@ -17,9 +17,8 @@ interface BoardFormWrapperProps {
 export function BoardFormWrapper({ board }: BoardFormWrapperProps) {
     const ui = useUi();
     const enqueueBoardAction = useVioletKanbanEnqueueBoardCreateOrUpdate();
-    const currentOrganizationId = useOrganizationStore(
-        (s) => s.currentOrganizationId
-    );
+    const currentOrganizationId =
+        useOrganizationProvider().currentOrganizationId;
 
     const createdBy = useCreatedBy(board);
 

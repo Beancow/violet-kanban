@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { Button, Flex } from '@radix-ui/themes';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthProvider } from '@/providers/AuthProvider';
 import LoadingPage from '@/components/LoadingPage';
 
 export default function UserPage() {
-    const user = useAuthStore((s) => s.authUser);
+    const auth = useAuthProvider();
+    const user = auth.authUser;
 
     if (!user) return <LoadingPage dataType='user' />;
 

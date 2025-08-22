@@ -26,7 +26,12 @@ export type EnqueuePayload =
       }
     | {
           type: 'create-card';
-          payload: { data: CardCreate; boardId: string; listId: string; tempId: string };
+          payload: {
+              data: CardCreate;
+              boardId: string;
+              listId: string;
+              tempId: string;
+          };
           timestamp: number;
       }
     | {
@@ -35,7 +40,12 @@ export type EnqueuePayload =
           timestamp: number;
       }
     | {
-          type: 'delete-board' | 'delete-list' | 'delete-card' | 'soft-delete-card' | 'restore-card';
+          type:
+              | 'delete-board'
+              | 'delete-list'
+              | 'delete-card'
+              | 'soft-delete-card'
+              | 'restore-card';
           payload: { id: string };
           timestamp: number;
       };

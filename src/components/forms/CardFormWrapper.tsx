@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BoardCardFormValues, boardCardSchema } from '@/schema/boardCardSchema';
 import { useUi } from '@/providers/UiProvider';
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { useParams } from 'next/navigation';
 import { useCreatedBy } from '@/hooks/useCreatedBy';
 
@@ -18,9 +18,8 @@ interface CardFormWrapperProps {
 export function CardFormWrapper({ card, listId }: CardFormWrapperProps) {
     const params = useParams();
     const { boardId } = params as { boardId: string | undefined };
-    const currentOrganizationId = useOrganizationStore(
-        (state) => state.currentOrganizationId
-    );
+    const currentOrganizationId =
+        useOrganizationProvider().currentOrganizationId;
     const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
     const ui = useUi();
 

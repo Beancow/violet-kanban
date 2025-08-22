@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import {
     useVioletKanbanData,
     useVioletKanbanEnqueueBoardCreateOrUpdate,
@@ -16,11 +16,10 @@ import CreateBoardModal from '@/components/modals/CreateBoardModal';
 import type { BoardFormValues } from '@/schema/boardSchema';
 
 export default function UserBoardsPage() {
-    const currentOrganizationId = useOrganizationStore(
-        (s) => s.currentOrganizationId
-    );
-    const organizations = useOrganizationStore((s) => s.organizations);
-    const orgsLoading = useOrganizationStore((s) => s.loading);
+    const org = useOrganizationProvider();
+    const currentOrganizationId = org.currentOrganizationId;
+    const organizations = org.organizations;
+    const orgsLoading = org.loading;
     const { boards } = useVioletKanbanData();
     const enqueueBoardCreateOrUpdate =
         useVioletKanbanEnqueueBoardCreateOrUpdate();

@@ -17,10 +17,24 @@ export interface QueueState {
     enqueueCardDelete: (id: string) => void;
     enqueueListDelete: (id: string) => void;
     enqueueBoardDelete: (id: string) => void;
-    enqueueCardMove: (payload: { id: string; newIndex: number; listId: string; boardId?: string }) => void;
-    handleBoardActionSuccess: (tempId: string | undefined, newBoard: Board) => void;
-    handleListActionSuccess: (tempId: string | undefined, newList: BoardList) => void;
-    handleCardActionSuccess: (tempId: string | undefined, newCard: BoardCard) => void;
+    enqueueCardMove: (payload: {
+        id: string;
+        newIndex: number;
+        listId: string;
+        boardId?: string;
+    }) => void;
+    handleBoardActionSuccess: (
+        tempId: string | undefined,
+        newBoard: Board
+    ) => void;
+    handleListActionSuccess: (
+        tempId: string | undefined,
+        newList: BoardList
+    ) => void;
+    handleCardActionSuccess: (
+        tempId: string | undefined,
+        newCard: BoardCard
+    ) => void;
 }
 
 export interface CardState {

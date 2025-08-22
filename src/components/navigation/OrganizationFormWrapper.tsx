@@ -1,4 +1,4 @@
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import OrganizationForm from '../forms/OrganizationForm';
 import { Organization } from '@/types/appState.type';
 import { useForm } from 'react-hook-form';
@@ -15,9 +15,7 @@ export default function OrganizationFormWrapper({
     onClose?: () => void;
     organization?: Organization;
 }) {
-    const refetchOrganizations = useOrganizationStore(
-        (s) => s.refetchOrganizations
-    );
+    const refetchOrganizations = useOrganizationProvider().refetchOrganizations;
     const form = useForm<OrganizationFormValues>({
         resolver: zodResolver(OrganizationSchema),
         defaultValues: {

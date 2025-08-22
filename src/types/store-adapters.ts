@@ -18,7 +18,10 @@ export interface CardStoreAdapter {
 
 // Minimal TempIdMap adapter shape used by the queue for tests
 export type TempIdMapAdapter =
-    | { setMapping: (t: string, r: string) => void; clearMapping: (t: string) => void }
+    | {
+          setMapping: (t: string, r: string) => void;
+          clearMapping: (t: string) => void;
+      }
     | { getState: () => unknown };
 
 export default {};

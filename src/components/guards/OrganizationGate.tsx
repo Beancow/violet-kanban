@@ -1,6 +1,6 @@
 'use client';
 
-import { useOrganizationStore } from '@/store/organizationStore';
+import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingPage from '@/components/LoadingPage';
@@ -10,14 +10,11 @@ export default function OrganizationGate({
 }: {
     children: React.ReactNode;
 }) {
-    const organizations = useOrganizationStore((s) => s.organizations);
-    const loading = useOrganizationStore((s) => s.loading);
-    const currentOrganizationId = useOrganizationStore(
-        (s) => s.currentOrganizationId
-    );
-    const setCurrentOrganizationId = useOrganizationStore(
-        (s) => s.setCurrentOrganizationId
-    );
+    const org = useOrganizationProvider();
+    const organizations = org.organizations;
+    const loading = org.loading;
+    const currentOrganizationId = org.currentOrganizationId;
+    const setCurrentOrganizationId = org.setCurrentOrganizationId;
     const router = useRouter();
     const [isOnline, setIsOnline] = useState(true);
 
