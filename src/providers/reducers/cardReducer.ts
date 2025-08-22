@@ -20,9 +20,14 @@ export function reducer(state: CardState, action: Action): CardState {
                 draft.cards.push(action.card);
                 return;
             case 'UPDATE_CARD': {
-                const idx = draft.cards.findIndex((c) => c.id === action.card.id);
+                const idx = draft.cards.findIndex(
+                    (c) => c.id === action.card.id
+                );
                 if (idx >= 0) {
-                    draft.cards[idx] = { ...draft.cards[idx], ...action.card } as BoardCard;
+                    draft.cards[idx] = {
+                        ...draft.cards[idx],
+                        ...action.card,
+                    } as BoardCard;
                 }
                 return;
             }
@@ -32,7 +37,10 @@ export function reducer(state: CardState, action: Action): CardState {
             case 'MARK_ORPHANED': {
                 const card = draft.cards.find((c) => c.id === action.cardId);
                 if (card) {
-                    draft.orphanedCards = [...(draft.orphanedCards ?? []), card];
+                    draft.orphanedCards = [
+                        ...(draft.orphanedCards ?? []),
+                        card,
+                    ];
                 }
                 return;
             }

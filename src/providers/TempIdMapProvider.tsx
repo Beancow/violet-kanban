@@ -61,6 +61,7 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
 
 export function useTempIdMap() {
     const ctx = useContext(TempIdMapContext);
-    if (!ctx) throw new Error('useTempIdMap must be used within TempIdMapProvider');
+    if (!ctx)
+        throw new Error('useTempIdMap must be used within TempIdMapProvider');
     return ctx;
 }

@@ -3,7 +3,9 @@
 
 type BoardAdapter = {
     addBoard?: (b: import('../types/appState.type').Board) => void;
-    updateBoard?: (b: Partial<import('../types/appState.type').Board> & { id: string }) => void;
+    updateBoard?: (
+        b: Partial<import('../types/appState.type').Board> & { id: string }
+    ) => void;
     removeBoard?: (id: string) => void;
 };
 

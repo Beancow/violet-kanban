@@ -34,7 +34,8 @@ function getActionItemId(action: VioletKanbanAction): string | undefined {
         if (payload) {
             if (payload.data && typeof payload.data === 'object') {
                 if (typeof payload.data.id === 'string') return payload.data.id;
-                if (typeof payload.data.tempId === 'string') return payload.data.tempId;
+                if (typeof payload.data.tempId === 'string')
+                    return payload.data.tempId;
             }
             if (typeof payload.id === 'string') return payload.id;
             if (typeof payload.tempId === 'string') return payload.tempId;
@@ -45,7 +46,10 @@ function getActionItemId(action: VioletKanbanAction): string | undefined {
     return undefined;
 }
 
-function squashQueueActions(queue: VioletKanbanAction[], newAction: VioletKanbanAction) {
+function squashQueueActions(
+    queue: VioletKanbanAction[],
+    newAction: VioletKanbanAction
+) {
     const newId = getActionItemId(newAction);
     const newType = newAction.type;
     const filteredQueue = queue.filter((action) => {
@@ -68,14 +72,22 @@ const QueueContext = createContext<{
 } | null>(null);
 
 export function QueueProvider({ children }: { children: ReactNode }) {
-    let initial: State = { boardActionQueue: [], listActionQueue: [], cardActionQueue: [] };
+    let initial: State = {
+        boardActionQueue: [],
+        listActionQueue: [],
+        cardActionQueue: [],
+    };
     try {
         if (typeof window !== 'undefined') {
             const raw = window.localStorage.getItem(STORAGE_KEY);
             if (raw) initial = JSON.parse(raw) as State;
         }
     } catch (e) {
-        initial = { boardActionQueue: [], listActionQueue: [], cardActionQueue: [] };
+        initial = {
+            boardActionQueue: [],
+            listActionQueue: [],
+            cardActionQueue: [],
+        };
     }
 
     const [state, dispatch] = useReducer(queueReducer as any, initial);
@@ -90,20 +102,29 @@ export function QueueProvider({ children }: { children: ReactNode }) {
 
     const api = {
         state,
-        enqueueBoardAction: (a: VioletKanbanAction) => dispatch({ type: 'ENQUEUE_BOARD', action: a }),
-        enqueueListAction: (a: VioletKanbanAction) => dispatch({ type: 'ENQUEUE_LIST', action: a }),
-        enqueueCardAction: (a: VioletKanbanAction) => dispatch({ type: 'ENQUEUE_CARD', action: a }),
-        removeBoardAction: (id: string) => dispatch({ type: 'REMOVE_BOARD_BY_ID', itemId: id }),
-        removeListAction: (id: string) => dispatch({ type: 'REMOVE_LIST_BY_ID', itemId: id }),
-        removeCardAction: (id: string) => dispatch({ type: 'REMOVE_CARD_BY_ID', itemId: id }),
+        enqueueBoardAction: (a: VioletKanbanAction) =>
+            dispatch({ type: 'ENQUEUE_BOARD', action: a }),
+        enqueueListAction: (a: VioletKanbanAction) =>
+            dispatch({ type: 'ENQUEUE_LIST', action: a }),
+        enqueueCardAction: (a: VioletKanbanAction) =>
+            dispatch({ type: 'ENQUEUE_CARD', action: a }),
+        removeBoardAction: (id: string) =>
+            dispatch({ type: 'REMOVE_BOARD_BY_ID', itemId: id }),
+        removeListAction: (id: string) =>
+            dispatch({ type: 'REMOVE_LIST_BY_ID', itemId: id }),
+        removeCardAction: (id: string) =>
+            dispatch({ type: 'REMOVE_CARD_BY_ID', itemId: id }),
     };
 
-    return <QueueContext.Provider value={api}>{children}</QueueContext.Provider>;
+    return (
+        <QueueContext.Provider value={api}>{children}</QueueContext.Provider>
+    );
 }
 
 export function useQueueStore() {
     const ctx = useContext(QueueContext);
-    if (!ctx) throw new Error('useQueueStore must be used within QueueProvider');
+    if (!ctx)
+        throw new Error('useQueueStore must be used within QueueProvider');
     return ctx;
 }
 

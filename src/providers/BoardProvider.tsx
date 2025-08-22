@@ -17,7 +17,6 @@ type Action =
 
 const STORAGE_KEY = 'violet-kanban-board-storage';
 
-
 const BoardContext = createContext<{
     state: State;
     addBoard: (board: Board) => void;
@@ -53,24 +52,28 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         addBoard: (board: Board) => dispatch({ type: 'ADD_BOARD', board }),
         updateBoard: (board: Partial<Board> & { id: string }) =>
             dispatch({ type: 'UPDATE_BOARD', board }),
-        removeBoard: (boardId: string) => dispatch({ type: 'REMOVE_BOARD', boardId }),
+        removeBoard: (boardId: string) =>
+            dispatch({ type: 'REMOVE_BOARD', boardId }),
     };
-    
-        // Register runtime adapter for non-React code that may call getOrCreateBoardStore()
-        React.useEffect(() => {
-            registerBoardAdapter({
-                addBoard: api.addBoard,
-                updateBoard: api.updateBoard,
-                removeBoard: api.removeBoard,
-            });
-            return () => registerBoardAdapter(null as any);
-        }, []);
 
-    return <BoardContext.Provider value={api}>{children}</BoardContext.Provider>;
+    // Register runtime adapter for non-React code that may call getOrCreateBoardStore()
+    React.useEffect(() => {
+        registerBoardAdapter({
+            addBoard: api.addBoard,
+            updateBoard: api.updateBoard,
+            removeBoard: api.removeBoard,
+        });
+        return () => registerBoardAdapter(null as any);
+    }, []);
+
+    return (
+        <BoardContext.Provider value={api}>{children}</BoardContext.Provider>
+    );
 }
 
 export function useBoardStore() {
     const ctx = useContext(BoardContext);
-    if (!ctx) throw new Error('useBoardStore must be used within BoardProvider');
+    if (!ctx)
+        throw new Error('useBoardStore must be used within BoardProvider');
     return ctx;
 }

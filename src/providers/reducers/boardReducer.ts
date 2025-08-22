@@ -18,14 +18,21 @@ export function reducer(state: BoardState, action: Action): BoardState {
                 draft.boards.push(action.board);
                 return;
             case 'UPDATE_BOARD': {
-                const idx = draft.boards.findIndex((b) => b.id === action.board.id);
+                const idx = draft.boards.findIndex(
+                    (b) => b.id === action.board.id
+                );
                 if (idx >= 0) {
-                    draft.boards[idx] = { ...draft.boards[idx], ...action.board } as Board;
+                    draft.boards[idx] = {
+                        ...draft.boards[idx],
+                        ...action.board,
+                    } as Board;
                 }
                 return;
             }
             case 'REMOVE_BOARD':
-                draft.boards = draft.boards.filter((b) => b.id !== action.boardId);
+                draft.boards = draft.boards.filter(
+                    (b) => b.id !== action.boardId
+                );
                 return;
             case 'SET_BOARDS':
                 draft.boards = action.boards;

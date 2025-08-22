@@ -18,9 +18,14 @@ export function reducer(state: ListState, action: Action): ListState {
                 draft.lists.push(action.list);
                 return;
             case 'UPDATE_LIST': {
-                const idx = draft.lists.findIndex((l) => l.id === action.list.id);
+                const idx = draft.lists.findIndex(
+                    (l) => l.id === action.list.id
+                );
                 if (idx >= 0) {
-                    draft.lists[idx] = { ...draft.lists[idx], ...action.list } as BoardList;
+                    draft.lists[idx] = {
+                        ...draft.lists[idx],
+                        ...action.list,
+                    } as BoardList;
                 }
                 return;
             }

@@ -52,8 +52,10 @@ export function CardProvider({ children }: { children: ReactNode }) {
         addCard: (card: BoardCard) => dispatch({ type: 'ADD_CARD', card }),
         updateCard: (card: Partial<BoardCard> & { id: string }) =>
             dispatch({ type: 'UPDATE_CARD', card }),
-        removeCard: (cardId: string) => dispatch({ type: 'REMOVE_CARD', cardId }),
-        markCardOrphaned: (cardId: string) => dispatch({ type: 'MARK_ORPHANED', cardId }),
+        removeCard: (cardId: string) =>
+            dispatch({ type: 'REMOVE_CARD', cardId }),
+        markCardOrphaned: (cardId: string) =>
+            dispatch({ type: 'MARK_ORPHANED', cardId }),
     };
 
     return <CardContext.Provider value={api}>{children}</CardContext.Provider>;

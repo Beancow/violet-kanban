@@ -16,7 +16,6 @@ type Action =
 
 const STORAGE_KEY = 'violet-kanban-list-storage';
 
-
 const ListContext = createContext<{
     state: State;
     addList: (list: BoardList) => void;
@@ -50,7 +49,8 @@ export function ListProvider({ children }: { children: ReactNode }) {
         addList: (list: BoardList) => dispatch({ type: 'ADD_LIST', list }),
         updateList: (list: Partial<BoardList> & { id: string }) =>
             dispatch({ type: 'UPDATE_LIST', list }),
-        removeList: (listId: string) => dispatch({ type: 'REMOVE_LIST', listId }),
+        removeList: (listId: string) =>
+            dispatch({ type: 'REMOVE_LIST', listId }),
     };
 
     return <ListContext.Provider value={api}>{children}</ListContext.Provider>;
