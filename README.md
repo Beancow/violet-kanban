@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+<!-- Playwright manual cross-browser status badge -->
+
+[![Playwright E2E](https://github.com/Beancow/violet-kanban/actions/workflows/playwright-schedule.yml/badge.svg?branch=main)](https://github.com/Beancow/violet-kanban/actions/workflows/playwright-schedule.yml)
+
+<!-- Storybook deploy badge -->
+[![Storybook](https://github.com/Beancow/violet-kanban/actions/workflows/deploy-storybook.yml/badge.svg?branch=main)](https://github.com/Beancow/violet-kanban/actions/workflows/deploy-storybook.yml)
+
 ## Getting Started
 
 First, run the development server (npm is preferred):

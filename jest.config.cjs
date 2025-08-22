@@ -9,11 +9,11 @@ module.exports = {
     globals: {
         'ts-jest': {
             tsconfig: {
-                jsx: 'react-jsx'
-            }
-        }
+                jsx: 'react-jsx',
+            },
+        },
     },
     transform: {
-        '^.+\\.(ts|tsx)$': 'ts-jest'
+        '^.+\\.(ts|tsx)$': 'ts-jest',
     },
 };

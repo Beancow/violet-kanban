@@ -1,6 +1,6 @@
+import React, { useState } from 'react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
-import { useState } from 'react';
 import styles from './BoardList.module.css';
 
 type BoardListComponentProps = {
