@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { mockBoards } from '@/mock/mockData';
+import type { Board } from '@/types/appState.type';
 
 export default function MockDataToggle({
     onSetBoards,
 }: {
-    onSetBoards: (boards: any[]) => void;
+    onSetBoards: (boards: Board[]) => void;
 }) {
     const [useMock, setUseMock] = useState(false);
 

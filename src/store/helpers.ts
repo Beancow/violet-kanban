@@ -1,3 +1,17 @@
+import type { VioletKanbanAction } from './appStore';
+import type { Board, BoardList, BoardCard } from '../types/appState.type';
+import {
+    isObject,
+    hasDataProp,
+    hasIdProp,
+    hasTempIdProp,
+    isStringId,
+    isDateLike,
+    isBoardLike,
+    isBoardListLike,
+    isBoardCardLike,
+} from '@/types/typeGuards';
+
 // Detect conflicts for board, list, and card updates in the action queue
 export function detectActionConflicts(
     actionQueue: VioletKanbanAction[],
@@ -6,91 +20,105 @@ export function detectActionConflicts(
     cards: BoardCard[]
 ): Array<{
     id: string;
-    local: any;
-    server: any;
+    local: Board | BoardList | BoardCard;
+    server: Board | BoardList | BoardCard;
     action: VioletKanbanAction;
     type: 'board' | 'list' | 'card';
 }> {
     const conflicts: Array<{
         id: string;
-        local: any;
-        server: any;
+        local: Board | BoardList | BoardCard;
+        server: Board | BoardList | BoardCard;
         action: VioletKanbanAction;
         type: 'board' | 'list' | 'card';
     }> = [];
     actionQueue.forEach((action) => {
-        if (action.type === 'update-board') {
-            const local = action.payload.data;
-            const server = boards.find((b) => b.id === local.id);
-            if (
-                server &&
-                local.updatedAt &&
-                server.updatedAt &&
-                local.updatedAt !== server.updatedAt
-            ) {
-                conflicts.push({
-                    id: local.id,
-                    local,
-                    server,
-                    action,
-                    type: 'board',
-                });
+        if (action.type === 'update-board' && hasDataProp(action.payload)) {
+            const localPayload = action.payload.data;
+            if (isBoardLike(localPayload)) {
+                const local = localPayload;
+                const server = boards.find((b) => b.id === local.id);
+                if (
+                    server &&
+                    local.updatedAt &&
+                    server.updatedAt &&
+                    local.updatedAt !== server.updatedAt
+                ) {
+                    conflicts.push({
+                        id: local.id,
+                        local,
+                        server: server as Board,
+                        action,
+                        type: 'board',
+                    });
+                }
             }
-        } else if (action.type === 'update-list') {
-            const local = action.payload.data;
-            const server = lists.find((l) => l.id === local.id);
-            if (
-                server &&
-                local.updatedAt &&
-                server.updatedAt &&
-                local.updatedAt !== server.updatedAt
-            ) {
-                conflicts.push({
-                    id: local.id,
-                    local,
-                    server,
-                    action,
-                    type: 'list',
-                });
+        } else if (
+            action.type === 'update-list' &&
+            hasDataProp(action.payload)
+        ) {
+            const localPayload = action.payload.data;
+            if (isBoardListLike(localPayload)) {
+                const local = localPayload;
+                const server = lists.find((l) => l.id === local.id);
+                if (
+                    server &&
+                    local.updatedAt &&
+                    server.updatedAt &&
+                    local.updatedAt !== server.updatedAt
+                ) {
+                    conflicts.push({
+                        id: local.id,
+                        local,
+                        server: server as BoardList,
+                        action,
+                        type: 'list',
+                    });
+                }
             }
-        } else if (action.type === 'update-card') {
-            const local = action.payload.data;
-            const server = cards.find((c) => c.id === local.id);
-            if (
-                server &&
-                local.updatedAt &&
-                server.updatedAt &&
-                local.updatedAt !== server.updatedAt
-            ) {
-                conflicts.push({
-                    id: local.id,
-                    local,
-                    server,
-                    action,
-                    type: 'card',
-                });
+        } else if (
+            action.type === 'update-card' &&
+            hasDataProp(action.payload)
+        ) {
+            const localPayload = action.payload.data;
+            if (isBoardCardLike(localPayload)) {
+                const local = localPayload;
+                const server = cards.find((c) => c.id === local.id);
+                if (
+                    server &&
+                    local.updatedAt &&
+                    server.updatedAt &&
+                    local.updatedAt !== server.updatedAt
+                ) {
+                    conflicts.push({
+                        id: local.id,
+                        local,
+                        server: server as BoardCard,
+                        action,
+                        type: 'card',
+                    });
+                }
             }
         }
     });
     return conflicts;
 }
-import type { VioletKanbanAction } from './appStore';
-import type { Board, BoardList, BoardCard } from '../types/appState.type';
 
 // Extract item id from action
 export function getActionItemId(
     action: VioletKanbanAction
 ): string | undefined {
     if ('payload' in action) {
-        if (
-            'data' in action.payload &&
-            action.payload.data &&
-            'id' in action.payload.data
-        ) {
-            return action.payload.data.id;
-        }
-        if ('id' in action.payload) {
-            return action.payload.id;
+        const payload = action.payload as unknown;
+        if (payload && typeof payload === 'object') {
+            const p = payload as Record<string, unknown>;
+            if ('data' in p && p.data && typeof p.data === 'object') {
+                const d = p.data as Record<string, unknown>;
+                if (typeof d.id === 'string') return d.id;
+                if (typeof d.tempId === 'string') return d.tempId;
+            }
+            if (typeof p.id === 'string') return p.id;
+            if (typeof p.tempId === 'string') return p.tempId;
         }
     }
     return undefined;

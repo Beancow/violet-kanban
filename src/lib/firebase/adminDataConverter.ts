@@ -15,23 +15,35 @@ interface AdminFirestoreDataConverter<T> {
 
 export const adminDataConverter = <T>(): AdminFirestoreDataConverter<T> => ({
     toFirestore(data: T): AdminDocumentData {
-        if (data === null || data === undefined || !(data instanceof Object)) {
-            throw new Error(
-                'Data must be an object or an instance of FormData'
-            );
+        if (data === null || data === undefined || typeof data !== 'object') {
+            throw new Error('Data must be a plain object');
         }
-        return { ...data };
+        // Shallow-copy to a plain object
+        return Object.assign({}, data) as AdminDocumentData;
     },
-    fromFirestore(snapshot: AdminQueryDocumentSnapshot): Promise<T> {
+    fromFirestore(snapshot: AdminQueryDocumentSnapshot): T {
         const data = snapshot.data();
-        const convertedData = { ...data, id: snapshot.id } as T;
+        const convertedData: AdminDocumentData = { ...data, id: snapshot.id };
 
-        // Convert Firestore Timestamps to ISO strings
-        for (const key in convertedData) {
-            if (convertedData[key] && typeof convertedData[key] === 'object' && convertedData[key].toDate) {
-                convertedData[key] = convertedData[key].toDate().toISOString();
+        // Convert Firestore Timestamp-like objects to ISO strings when detected.
+        for (const key of Object.keys(convertedData)) {
+            const val = convertedData[key];
+            if (val && typeof val === 'object') {
+                const v = val as { toDate?: unknown };
+                if (typeof v.toDate === 'function') {
+                    try {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                        convertedData[key] = (
+                            v.toDate as () => Date
+                        )().toISOString();
+                    } catch (_) {
+                        // leave original value
+                    }
+                }
             }
         }
-        return convertedData;
+
+        // Treat convertedData as the target shape after normalization
+        return convertedData as T;
     },
 });

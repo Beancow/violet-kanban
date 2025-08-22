@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button } from '@radix-ui/themes';
 import { CaretDownIcon } from '@radix-ui/react-icons';
 import CreateOrEditOrganizationModal from '@/components/modals/CreateOrEditOrganizationModal';
+import { z } from 'zod';
+import { OrganizationSchema } from '@/schema/organizationSchema';
+type OrganizationFormValues = z.infer<typeof OrganizationSchema>;
 
 export default function OrganizationSelector() {
     const router = useRouter();
@@ -25,7 +28,9 @@ export default function OrganizationSelector() {
         router.push('/boards');
     };
 
-    const handleCreateOrganization = async (orgData: any) => {
+    const handleCreateOrganization = async (
+        orgData: OrganizationFormValues
+    ) => {
         try {
             const res = await fetch('/api/orgs', {
                 method: 'POST',

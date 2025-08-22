@@ -58,21 +58,24 @@ async function handleFetchOrgData(action) {
 
 async function handleCreateBoard(action) {
     const { data, tempId, idToken } = action.payload;
+    // Do NOT send tempId to the server; keep it local to the worker
     const response = await fetch('/api/boards/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ data, tempId }),
+        body: JSON.stringify({ data }),
     });
     if (response.ok) {
         const { data: responseData } = await response.json();
         self.postMessage({
             type: 'ACTION_SUCCESS',
+            // Attach local tempId for reconciliation but do NOT forward it to server
             payload: {
-                ...responseData,
                 timestamp: action.timestamp,
+                tempId: tempId,
+                board: responseData?.data?.board || responseData?.board || null,
                 type: action.type,
             },
         });
@@ -87,21 +90,23 @@ async function handleCreateBoard(action) {
 
 async function handleCreateList(action) {
     const { data, boardId, tempId, idToken } = action.payload;
+    // Do NOT send tempId to server
     const response = await fetch('/api/lists/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ data, boardId, tempId }),
+        body: JSON.stringify({ data, boardId }),
     });
     if (response.ok) {
         const { data: responseData } = await response.json();
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: {
-                ...responseData,
                 timestamp: action.timestamp,
+                tempId: tempId,
+                list: responseData?.data?.list || responseData?.list || null,
                 type: action.type,
             },
         });
@@ -116,21 +121,23 @@ async function handleCreateList(action) {
 
 async function handleCreateCard(action) {
     const { data, boardId, listId, tempId, idToken } = action.payload;
+    // Do NOT send tempId to the server
     const response = await fetch('/api/cards/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ data, boardId, listId, tempId }),
+        body: JSON.stringify({ data, boardId, listId }),
     });
     if (response.ok) {
         const { data: responseData } = await response.json();
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: {
-                ...responseData,
                 timestamp: action.timestamp,
+                tempId: tempId,
+                card: responseData?.data?.card || responseData?.card || null,
                 type: action.type,
             },
         });

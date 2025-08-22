@@ -1,10 +1,9 @@
 'use client';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Flex, Text, Select, TextField, Button, Grid } from '@radix-ui/themes';
-import { z } from 'zod';
+import type { UseFormReturn } from 'react-hook-form';
 import type { Organization } from '@/types/appState.type';
-import { OrganizationSchema } from '@/schema/organizationSchema';
+import type { z } from 'zod';
+import type { OrganizationSchema as OrgSchemaType } from '@/schema/organizationSchema';
 import { Pencil1Icon } from '@radix-ui/react-icons';
 
 const ORG_TYPES = [
@@ -13,16 +12,20 @@ const ORG_TYPES = [
     { value: 'private', label: 'Private' },
 ];
 
-type OrganizationFormValues = z.infer<typeof OrganizationSchema>;
+type OrganizationFormValues = z.infer<
+    typeof import('@/schema/organizationSchema').OrganizationSchema
+>;
 
 interface OrganizationFormProps {
     organization?: Organization;
     onSubmit: (orgData: OrganizationFormValues) => void;
+    form: UseFormReturn<OrganizationFormValues>;
 }
 
 export default function OrganizationForm({
     organization,
     onSubmit,
+    form,
 }: OrganizationFormProps) {
     const {
         register,
@@ -30,16 +33,7 @@ export default function OrganizationForm({
         formState: { errors },
         setValue,
         watch,
-    } = useForm<OrganizationFormValues>({
-        resolver: zodResolver(OrganizationSchema),
-        defaultValues: {
-            name: organization?.name ?? '',
-            orgType: organization?.orgType ?? 'company',
-            companyName: organization?.companyName ?? '',
-            companyWebsite: organization?.companyWebsite ?? '',
-            logoURL: organization?.logoURL ?? '',
-        },
-    });
+    } = form;
 
     const orgType = watch('orgType');
 

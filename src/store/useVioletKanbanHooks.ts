@@ -39,19 +39,36 @@ export function useVioletKanbanAddCard() {
     return useCardStore((state) => state.addCard);
 }
 
-// Example: Hook to enqueue a board action
-export function useVioletKanbanEnqueueBoardAction() {
-    return useQueueStore((state) => state.enqueueBoardAction);
+// NOTE: low-level enqueue helpers that accept raw VioletKanbanAction
+// are intentionally not exported to discourage manual action construction.
+// Convenience: enqueue a Board domain object for create or update
+export function useVioletKanbanEnqueueBoardCreateOrUpdate() {
+    return useQueueStore((state) => state.enqueueBoardCreateOrUpdate);
 }
 
-// Example: Hook to enqueue a list action
-export function useVioletKanbanEnqueueListAction() {
-    return useQueueStore((state) => state.enqueueListAction);
+// Convenience: enqueue a List domain object for create or update
+export function useVioletKanbanEnqueueListCreateOrUpdate() {
+    return useQueueStore((state) => state.enqueueListCreateOrUpdate);
 }
-
 // Example: Hook to enqueue a card action
-export function useVioletKanbanEnqueueCardAction() {
-    return useQueueStore((state) => state.enqueueCardAction);
+export function useVioletKanbanEnqueueCardCreateOrUpdate() {
+    return useQueueStore((state) => state.enqueueCardCreateOrUpdate);
+}
+
+export function useVioletKanbanEnqueueCardMove() {
+    return useQueueStore((state) => state.enqueueCardMove);
+}
+
+export function useVioletKanbanEnqueueCardDelete() {
+    return useQueueStore((state) => state.enqueueCardDelete);
+}
+
+export function useVioletKanbanEnqueueListDelete() {
+    return useQueueStore((state) => state.enqueueListDelete);
+}
+
+export function useVioletKanbanEnqueueBoardDelete() {
+    return useQueueStore((state) => state.enqueueBoardDelete);
 }
 
 // Example: Hook to remove a processed board action

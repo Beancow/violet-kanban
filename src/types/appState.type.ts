@@ -80,7 +80,6 @@ export type AddMemberToOrganizationResult =
 export type CreateBoardResult = {
     success: boolean;
     data?: {
-        tempId: string;
         board: Board;
     };
     error?: Error;
@@ -89,7 +88,6 @@ export type CreateBoardResult = {
 export type CreateCardResult = {
     success: boolean;
     data?: {
-        tempId: string;
         card: BoardCard;
     };
     error?: Error;

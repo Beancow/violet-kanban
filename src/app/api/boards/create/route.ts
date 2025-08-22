@@ -6,13 +6,12 @@ import { Board } from '@/types/appState.type';
 export async function POST(request: NextRequest) {
     try {
         const { orgId, user } = await getAuthAndOrgContext(request);
-        const { data: boardData, tempId } = await request.json();
+        const { data: boardData } = await request.json();
 
         const result = await createBoardServerAction({
             data: boardData as Omit<Board, 'id'>,
             user,
             orgId,
-            tempId,
         });
 
         if (!result.success) {

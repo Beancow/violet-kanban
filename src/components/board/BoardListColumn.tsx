@@ -1,9 +1,9 @@
+import { useUiStore } from '@/store/uiStore';
 import {
     Card,
     Flex,
     Heading,
     IconButton,
-    Dialog,
     DropdownMenu,
     Box,
     TextField,
@@ -30,40 +30,33 @@ import {
     verticalListSortingStrategy,
     arrayMove,
 } from '@dnd-kit/sortable';
-import { CardForm } from '../forms/CardForm';
+// CardForm removed; list and card creation use wrappers and enqueue actions
+import {
+    useVioletKanbanEnqueueCardCreateOrUpdate,
+    useVioletKanbanEnqueueListCreateOrUpdate,
+    useVioletKanbanEnqueueCardMove,
+    useVioletKanbanEnqueueListDelete,
+} from '@/store/useVioletKanbanHooks';
 import { useState } from 'react';
-import { BoardCard, BoardList, User } from '@/types/appState.type';
+import { BoardCard, BoardList } from '@/types/appState.type';
 
 interface BoardListColumnProps {
     list: BoardList;
     cards: BoardCard[];
-    user: User | null;
-    onDeleteList: (listId: string) => void;
     onSelectCard: (card: BoardCard) => void;
-    onCreateCard: (
-        event: React.FormEvent<HTMLFormElement>,
-        listId: string
-    ) => Promise<void>;
-    showAddCardDialog: string | null;
-    setShowAddCardDialog: (listId: string | null) => void;
-    onUpdateCardOrder: (listId: string, newOrder: string[]) => void;
-    onUpdateListTitle: (listId: string, newTitle: string) => void;
     onEditList: (list: BoardList) => void;
 }
 
 export default function BoardListColumn({
     list,
     cards,
-    user,
-    onDeleteList,
     onSelectCard,
-    onCreateCard,
-    showAddCardDialog,
-    setShowAddCardDialog,
-    onUpdateCardOrder,
-    onUpdateListTitle,
     onEditList,
 }: BoardListColumnProps) {
+    const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
+    const enqueueListAction = useVioletKanbanEnqueueListCreateOrUpdate();
+    const enqueueCardMove = useVioletKanbanEnqueueCardMove();
+    const enqueueListDelete = useVioletKanbanEnqueueListDelete();
     const [listCards, setListCards] = useState<BoardCard[]>(
         cards
             .filter((card) => card.listId === list.id)
@@ -87,10 +80,13 @@ export default function BoardListColumn({
                 );
                 const newIndex = items.findIndex((item) => item.id === over.id);
                 const newOrderedCards = arrayMove(items, oldIndex, newIndex);
-                onUpdateCardOrder(
-                    list.id,
-                    newOrderedCards.map((card) => card.id)
-                );
+                // enqueue a move-card action for the moved card
+                enqueueCardMove({
+                    id: String(active.id),
+                    newIndex,
+                    listId: list.id,
+                    boardId: list.boardId,
+                });
                 return newOrderedCards;
             });
         }
@@ -98,7 +94,10 @@ export default function BoardListColumn({
 
     const handleUpdateListTitle = () => {
         if (editedTitle.trim() !== '' && editedTitle.trim() !== list.title) {
-            onUpdateListTitle(list.id, editedTitle.trim());
+            enqueueListAction({
+                ...list,
+                title: editedTitle.trim(),
+            } as BoardList);
         }
         setIsEditingTitle(false);
     };
@@ -137,29 +136,18 @@ export default function BoardListColumn({
                     </Heading>
                 )}
                 <Flex gap='2' style={{ flex: 1, justifyContent: 'flex-end' }}>
-                    <Dialog.Root
-                        open={showAddCardDialog === list.id}
-                        onOpenChange={(open) =>
-                            setShowAddCardDialog(open ? list.id : null)
+                    <IconButton
+                        size='1'
+                        variant='soft'
+                        aria-label='Add card'
+                        onClick={() =>
+                            useUiStore
+                                .getState()
+                                .open('create-card', { listId: list.id })
                         }
                     >
-                        <Dialog.Trigger>
-                            <IconButton
-                                size='1'
-                                variant='soft'
-                                aria-label='Add card'
-                            >
-                                <PlusIcon />
-                            </IconButton>
-                        </Dialog.Trigger>
-                        <Dialog.Content style={{ maxWidth: 450 }}>
-                            <Dialog.Title>Create New Card</Dialog.Title>
-                            <CardForm
-                                onSubmit={(e) => onCreateCard(e, list.id)}
-                                onClose={() => {}}
-                            />
-                        </Dialog.Content>
-                    </Dialog.Root>
+                        <PlusIcon />
+                    </IconButton>
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger>
                             <IconButton size='1' variant='soft'>
@@ -189,7 +177,7 @@ export default function BoardListColumn({
                             </DropdownMenu.Sub>
                             <DropdownMenu.Item
                                 color='red'
-                                onClick={() => onDeleteList(list.id)}
+                                onClick={() => enqueueListDelete(list.id)}
                             >
                                 <TrashIcon />
                                 Delete List

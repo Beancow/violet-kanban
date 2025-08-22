@@ -1,29 +1,24 @@
 'use client';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Flex, Text, Button, TextField, TextArea } from '@radix-ui/themes';
+import type { UseFormReturn } from 'react-hook-form';
 import { Board } from '@/types/appState.type';
-import { BoardSchema, BoardFormValues } from '@/schema/boardSchema';
+import type { BoardFormValues } from '@/schema/boardSchema';
 import { Pencil2Icon } from '@radix-ui/react-icons';
 
 export function BoardForm({
     onSubmit,
     board,
+    form,
 }: {
     onSubmit: (data: BoardFormValues) => void;
     board?: Board;
+    form: UseFormReturn<BoardFormValues>;
 }) {
     const {
         register,
         handleSubmit,
         formState: { errors },
-    } = useForm<BoardFormValues>({
-        resolver: zodResolver(BoardSchema),
-        defaultValues: {
-            title: board?.title ?? '',
-            description: board?.description ?? '',
-        },
-    });
+    } = form;
 
     return (
         <form onSubmit={handleSubmit(onSubmit)}>

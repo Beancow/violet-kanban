@@ -11,8 +11,8 @@ export const boardCardSchema = z.object({
     completed: z.boolean().optional(),
     isDeleted: z.boolean().optional(),
     isArchived: z.boolean().optional(),
-    createdAt: z.union([z.string(), z.date()]).optional(),
-    updatedAt: z.union([z.string(), z.date()]).optional(),
+    createdAt: z.union([z.string()]).optional(),
+    updatedAt: z.union([z.string()]).optional(),
     createdBy: z
         .object({
             userId: z.string(),
@@ -23,3 +23,4 @@ export const boardCardSchema = z.object({
 });
 
 export type BoardCardSchema = typeof boardCardSchema;
+export type BoardCardFormValues = z.infer<typeof boardCardSchema>;

@@ -15,12 +15,10 @@ export async function createBoardServerAction({
     data,
     user,
     orgId,
-    tempId,
 }: {
     data: Omit<Board, 'id'>;
     user: User;
     orgId: string;
-    tempId: string;
 }): Promise<CreateBoardResult> {
     if (!orgId || !user?.id) {
         const error = new Error(
@@ -69,7 +67,6 @@ export async function createBoardServerAction({
         return {
             success: true,
             data: {
-                tempId: tempId,
                 board: newBoard,
             },
         };

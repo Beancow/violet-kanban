@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     useVioletKanbanQueues,
     useVioletKanbanData,
@@ -8,25 +8,26 @@ import { getActionItemId, detectActionConflicts } from '@/store/helpers';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
 import { SyncAction } from '@/types/worker.type';
+import type { Board, BoardList, BoardCard } from '@/types/appState.type';
+import { VioletKanbanAction } from '@/store/appStore';
 
 export function ActionQueue() {
     const { boardActionQueue, listActionQueue, cardActionQueue } =
         useVioletKanbanQueues();
     const { boards, lists, cards } = useVioletKanbanData();
-    const actionQueue = [
-        ...boardActionQueue,
-        ...listActionQueue,
-        ...cardActionQueue,
-    ];
+    const actionQueue = useMemo(
+        () => [...boardActionQueue, ...listActionQueue, ...cardActionQueue],
+        [boardActionQueue, listActionQueue, cardActionQueue]
+    );
     const removeBoardAction = useQueueStore((s) => s.removeBoardAction);
     const removeListAction = useQueueStore((s) => s.removeListAction);
     const removeCardAction = useQueueStore((s) => s.removeCardAction);
     const [conflicts, setConflicts] = useState<
         {
             id: string;
-            local: any;
-            server: any;
-            action: SyncAction;
+            local: Board | BoardList | BoardCard;
+            server: Board | BoardList | BoardCard;
+            action: VioletKanbanAction;
             type: 'board' | 'list' | 'card';
         }[]
     >([]);
@@ -40,7 +41,7 @@ export function ActionQueue() {
         return <Text>No pending actions.</Text>;
     }
 
-    const getItemName = (action: SyncAction) => {
+    const getItemName = (action: VioletKanbanAction) => {
         switch (action.type) {
             case 'create-board':
             case 'update-board':
@@ -93,7 +94,6 @@ export function ActionQueue() {
             case 'error':
                 return 'Error';
             default: {
-                const _exhaustive: never = action;
                 return 'Unknown Action';
             }
         }
@@ -119,13 +119,11 @@ export function ActionQueue() {
                                     <Box>
                                         <Text size='1'>
                                             <b>Local update:</b>{' '}
-                                            {local.updatedAt} (queued at{' '}
-                                            {new Date(
-                                                action.timestamp
-                                            ).toLocaleString()}
+                                            {String(local.updatedAt)} (queued at{' '}
+                                            {action.timestamp}
                                             )<br />
                                             <b>Server update:</b>{' '}
-                                            {server.updatedAt}
+                                            {String(server.updatedAt)}
                                         </Text>
                                         <Box mt='2'>
                                             <button
@@ -183,7 +181,7 @@ export function ActionQueue() {
                             </Text>
                         </Box>
                         <Text size='1' color='gray'>
-                            {new Date(action.timestamp).toLocaleString()}
+                            {action.timestamp}
                         </Text>
                     </li>
                 ))}

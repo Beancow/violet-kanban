@@ -3,17 +3,13 @@ import { Box, Card, Flex, Button } from '@radix-ui/themes';
 import { BoardCard } from '@/types/appState.type';
 import { TrashIcon } from '@radix-ui/react-icons';
 import { CardForm } from '../forms/CardForm';
-import { safeParse } from 'zod';
-import { boardCardSchema } from '@/schema/boardCardSchema';
 
 export function CardDetails({
     card,
     onDelete,
-    onClose,
 }: {
     card: BoardCard | null;
     onDelete: (cardId: string) => void;
-    onClose: () => void;
 }) {
     if (!card) return null;
 
@@ -33,11 +29,7 @@ export function CardDetails({
             }}
         >
             <Card style={{ minWidth: '300px', maxWidth: '500px' }}>
-                <CardForm
-                    card={card}
-                    onSubmit={(data) => {}}
-                    onClose={onClose}
-                />
+                {/* <CardForm card={card} /> */}
                 <Flex justify='end' mt='4'>
                     <Button color='red' onClick={() => onDelete(card.id)}>
                         <TrashIcon />

@@ -1,59 +1,61 @@
 import { useCallback } from 'react';
 import { BoardCard } from '@/types/appState.type';
-import { useVioletKanbanEnqueueCardAction } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueCardCreateOrUpdate } from '@/store/useVioletKanbanHooks';
 import { CardForm } from './CardForm';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { BoardCardFormValues, boardCardSchema } from '@/schema/boardCardSchema';
+import useUiStore from '@/store/uiStore';
+import { useOrganizationStore } from '@/store/organizationStore';
+import { useParams } from 'next/navigation';
+import { useCreatedBy } from '@/hooks/useCreatedBy';
 
 interface CardFormWrapperProps {
     card?: BoardCard;
-    onClose: () => void;
-    hideTitle?: boolean;
-    small?: boolean;
+    listId: string;
 }
 
-export function CardFormWrapper({
-    card,
-    onClose,
-    hideTitle,
-    small,
-}: CardFormWrapperProps) {
-    const enqueueCardAction = useVioletKanbanEnqueueCardAction();
+export function CardFormWrapper({ card, listId }: CardFormWrapperProps) {
+    const { boardId } = useParams();
+    const currentOrganizationId = useOrganizationStore(
+        (state) => state.currentOrganizationId
+    );
+    const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
+    const { close } = useUiStore();
 
-    // OrganizationGate guarantees currentOrganizationId is always set
-    const handleSubmit = useCallback(
-        (data: any) => {
-            if (card?.id) {
-                enqueueCardAction({
-                    type: 'update-card',
-                    payload: { data },
-                    timestamp: Date.now(),
-                });
-            } else {
-                const tempId = `temp-card-${Date.now()}-${Math.random()
-                    .toString(36)
-                    .slice(2)}`;
-                enqueueCardAction({
-                    type: 'create-card',
-                    payload: {
-                        data,
-                        boardId: data.boardId,
-                        listId: data.listId,
-                        tempId,
-                    },
-                    timestamp: Date.now(),
-                });
-            }
-            onClose();
+    const createdBy = useCreatedBy(card);
+
+    const form = useForm<BoardCardFormValues>({
+        resolver: zodResolver(boardCardSchema),
+        defaultValues: {
+            id: card?.id ?? 'temp-card',
+            title: card?.title || '',
+            description: card?.description || '',
+            priority: card?.priority ?? 0,
+            listId: card?.listId ?? listId,
+            boardId: card?.boardId ?? boardId?.toString(),
+            organizationId: card?.organizationId ?? currentOrganizationId ?? '',
+            completed: card?.completed,
+            isDeleted: card?.isDeleted,
+            isArchived: card?.isArchived,
+            createdAt: card?.createdAt ?? '',
+            updatedAt: card?.updatedAt ?? '',
+            createdBy,
         },
-        [card, enqueueCardAction, onClose]
+    });
+
+    const handleSubmit = useCallback(
+        (data: BoardCardFormValues) => {
+            const cardData: BoardCard = {
+                ...data,
+                id: data.id ?? 'temp-card',
+                createdBy,
+            };
+            enqueueCardAction(cardData);
+            close();
+        },
+        [enqueueCardAction, close, createdBy]
     );
 
-    return (
-        <CardForm
-            card={card}
-            onSubmit={handleSubmit}
-            onClose={onClose}
-            hideTitle={hideTitle}
-            small={small}
-        />
-    );
+    return <CardForm card={card} form={form} onSubmit={handleSubmit} />;
 }

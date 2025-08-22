@@ -8,33 +8,26 @@ import {
     TextField,
     TextArea,
 } from '@radix-ui/themes';
+import type { UseFormReturn } from 'react-hook-form';
 import { BoardList, User } from '@/types/appState.type';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { BoardListSchema, BoardListFormValues } from '@/schema/boardListSchema';
+import type { BoardListFormValues } from '@/schema/boardListSchema';
 
 export function ListForm({
     user,
     onSubmit,
     list,
+    form,
 }: {
     user: User | null;
     onSubmit: (data: BoardListFormValues) => void;
     list?: BoardList;
+    form: UseFormReturn<BoardListFormValues>;
 }) {
     const {
         register,
         handleSubmit,
         formState: { errors },
-    } = useForm<BoardListFormValues>({
-        resolver: zodResolver(BoardListSchema),
-        defaultValues: {
-            title: list?.title || '',
-            description: list?.description || '',
-            position: list?.position ?? 0,
-            boardId: list?.boardId ?? '',
-        },
-    });
+    } = form;
 
     return (
         <Card size='4' style={{ width: 425, margin: '0 auto' }}>

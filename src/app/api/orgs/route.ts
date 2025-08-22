@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromAuthHeader } from '@/lib/serverUtils';
-import { getOrganizationsForUserServerAction } from '@/lib/firebase/orgServerActions';
+import {
+    getOrganizationsForUserServerAction,
+    createOrganizationServerAction,
+} from '@/lib/firebase/orgServerActions';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const user = await getUserFromAuthHeader(request);
+        const user = await getUserFromAuthHeader(_request);
         const result = await getOrganizationsForUserServerAction(user.id);
         if (!result.success) {
             return NextResponse.json(
@@ -22,10 +25,38 @@ export async function GET(request: NextRequest) {
 }
 
 // Example POST handler for /api/orgs
-export async function POST(request: NextRequest) {
-    // TODO: Replace with real org creation logic
-    return NextResponse.json({
-        success: true,
-        message: 'Organization created.',
-    });
+export async function POST(_request: NextRequest) {
+    try {
+        const user = await getUserFromAuthHeader(_request);
+        const body = await _request.json();
+
+        if (!body || typeof body !== 'object') {
+            return NextResponse.json(
+                { success: false, error: 'Request body required' },
+                { status: 400 }
+            );
+        }
+
+        const result = await createOrganizationServerAction(body, user.id);
+        if (!result.success) {
+            return NextResponse.json(
+                { success: false, error: result.error?.message },
+                { status: 400 }
+            );
+        }
+
+        return NextResponse.json(
+            {
+                success: true,
+                orgId: result.data?.orgId,
+                message: result.data?.message,
+            },
+            { status: 201 }
+        );
+    } catch (error) {
+        return NextResponse.json(
+            { success: false, error: (error as Error).message },
+            { status: 500 }
+        );
+    }
 }

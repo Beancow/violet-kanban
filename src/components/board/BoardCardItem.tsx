@@ -9,31 +9,27 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DropdownMenu, IconButton } from '@radix-ui/themes';
-import { useVioletKanbanEnqueueCardAction } from '@/store/useVioletKanbanHooks';
+import {
+    useVioletKanbanEnqueueCardCreateOrUpdate,
+    useVioletKanbanEnqueueCardDelete,
+} from '@/store/useVioletKanbanHooks';
 import { useCallback } from 'react';
 
 interface BoardCardItemProps {
     card: BoardCard;
-    boardId: string;
+    boardId: string; // kept for API compatibility
     handleEditCard: (card: BoardCard) => void;
 }
 
-export function BoardCardItem({
-    card,
-    boardId,
-    handleEditCard,
-}: BoardCardItemProps) {
+export function BoardCardItem({ card, handleEditCard }: BoardCardItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition } =
         useSortable({ id: card.id });
-    const enqueueCardAction = useVioletKanbanEnqueueCardAction();
+    const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
+    const enqueueCardDelete = useVioletKanbanEnqueueCardDelete();
 
     const handleDelete = useCallback(() => {
-        enqueueCardAction({
-            type: 'delete-card',
-            payload: { id: card.id },
-            timestamp: Date.now(),
-        });
-    }, [enqueueCardAction, card.id]);
+        enqueueCardDelete(card.id);
+    }, [enqueueCardDelete, card.id]);
 
     const style = {
         transform: CSS.Transform.toString(transform),

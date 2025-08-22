@@ -5,21 +5,25 @@ import type {
     Organization,
 } from './appState.type';
 
+// Helper create payload shapes
+export type BoardCreate = Omit<Board, 'id' | 'lists' | 'cards'>;
+export type ListCreate = Omit<BoardList, 'id'>;
+export type CardCreate = Omit<BoardCard, 'id'>;
 export type SyncAction =
     | {
           type: 'create-board';
-          payload: { data: Board; tempId: string; idToken?: string };
+          payload: { data: BoardCreate; tempId: string; idToken?: string };
           timestamp: number;
       }
     | {
           type: 'update-board';
-          payload: { data: Board; idToken?: string };
+          payload: { data: Partial<Board> & { id: string }; idToken?: string };
           timestamp: number;
       }
     | {
           type: 'create-list';
           payload: {
-              data: BoardList;
+              data: ListCreate;
               boardId: string;
               tempId: string;
               idToken?: string;
@@ -28,13 +32,16 @@ export type SyncAction =
       }
     | {
           type: 'update-list';
-          payload: { data: BoardList; idToken?: string };
+          payload: {
+              data: Partial<BoardList> & { id: string };
+              idToken?: string;
+          };
           timestamp: number;
       }
     | {
           type: 'create-card';
           payload: {
-              data: BoardCard;
+              data: CardCreate;
               boardId: string;
               listId: string;
               tempId: string;
@@ -44,7 +51,10 @@ export type SyncAction =
       }
     | {
           type: 'update-card';
-          payload: { data: BoardCard; idToken?: string };
+          payload: {
+              data: Partial<BoardCard> & { id: string };
+              idToken?: string;
+          };
           timestamp: number;
       }
     | {
