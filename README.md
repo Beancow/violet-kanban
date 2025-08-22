@@ -75,6 +75,16 @@ Recommended patterns:
 
 This keeps update code concise and avoids repeated `Object.entries` boilerplate.
 
+## Local Sentry controls for development
+
+When working on large rewrites you may want to avoid sending events to Sentry.
+Create or use the repository root `.env.development` to control Sentry behavior locally.
+
+-   `DISABLE_SENTRY=1` prevents server/edge Sentry initialization.
+-   `NEXT_PUBLIC_DISABLE_SENTRY=1` prevents client-side Sentry initialization.
+
+The project includes a `.env.development` that sets both flags to `1` by default so `npm run dev` won't initialize Sentry locally. To enable Sentry during local development, unset the flags or run the `dev:with-sentry` script instead.
+
 ## Migration notes — stores moved into context providers
 
 We recently changed how Zustand stores are created and consumed across the app:

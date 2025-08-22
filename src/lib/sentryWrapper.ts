@@ -75,6 +75,13 @@ export const Sentry = realSentry ?? {
     captureRequestError: noop,
     captureRouterTransitionStart: noop,
     replayIntegration: () => undefined,
+    // nextjs webpack helper (stubbed when missing)
+    withSentryConfig: (nextConfig: any, _opts?: any) => nextConfig,
 };
+
+export const withSentryConfig = (nextConfig: any, opts?: any) =>
+    realSentry && (realSentry as any).withSentryConfig
+        ? (realSentry as any).withSentryConfig(nextConfig, opts)
+        : nextConfig;
 
 export default Sentry;

@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from '@/lib/sentryWrapper';
 
 const DISABLED =
     process.env.DISABLE_SENTRY === '1' || process.env.DISABLE_SENTRY === 'true';

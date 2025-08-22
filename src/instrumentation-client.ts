@@ -2,7 +2,7 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from '@/lib/sentryWrapper';
 
 // Allow disabling Sentry on client with NEXT_PUBLIC_DISABLE_SENTRY.
 const CLIENT_DISABLED =
@@ -15,7 +15,7 @@ if (!CLIENT_DISABLED) {
         dsn: 'https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800',
 
         // Add optional integrations for additional features
-        integrations: [Sentry.replayIntegration()],
+        integrations: [Sentry.replayIntegration && Sentry.replayIntegration()],
 
         // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
         tracesSampleRate: 1,
