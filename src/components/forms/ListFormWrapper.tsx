@@ -1,14 +1,18 @@
 import { useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { BoardList, User } from '@/types/appState.type';
-import { useVioletKanbanEnqueueListAction } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueListCreateOrUpdate } from '@/store/useVioletKanbanHooks';
 import { ListForm } from './ListForm';
 import type { BoardListFormValues } from '@/schema/boardListSchema';
+import { BoardListSchema } from '@/schema/boardListSchema';
+import { useUiStore } from '@/store/uiStore';
 
 interface ListFormWrapperProps {
     list?: BoardList;
     boardId: string;
     user: User | null;
-    onClose: () => void;
+    onClose?: () => void;
 }
 
 export function ListFormWrapper({
@@ -17,50 +21,39 @@ export function ListFormWrapper({
     user,
     onClose,
 }: ListFormWrapperProps) {
-    const enqueueListAction = useVioletKanbanEnqueueListAction();
+    const enqueueListAction = useVioletKanbanEnqueueListCreateOrUpdate();
+    const form = useForm<BoardListFormValues>({
+        resolver: zodResolver(BoardListSchema),
+        defaultValues: {
+            id: list?.id ?? 'temp-list',
+            title: list?.title ?? '',
+            description: list?.description ?? '',
+            position: list?.position ?? 0,
+            boardId: boardId,
+        },
+    });
+
+    const close = useUiStore((s) => s.close);
 
     // OrganizationGate guarantees currentOrganizationId is always set
     const handleSubmit = useCallback(
         (data: BoardListFormValues) => {
-            if (list?.id) {
-                const updatePayload: Partial<BoardList> & { id: string } = {
-                    id: list.id,
-                    title: data.title,
-                    description: data.description,
-                    position: data.position,
-                    boardId: data.boardId,
-                    createdBy: data.createdBy,
-                };
-                enqueueListAction({
-                    type: 'update-list',
-                    payload: { data: updatePayload },
-                    timestamp: Date.now(),
-                });
-            } else {
-                const tempId = `temp-list-${Date.now()}-${Math.random()
-                    .toString(36)
-                    .slice(2)}`;
-                const createData: Omit<BoardList, 'id'> = {
-                    title: data.title,
-                    description: data.description,
-                    position: data.position ?? 0,
-                    boardId: boardId,
-                    organizationId: '',
-                } as Omit<BoardList, 'id'>;
-                enqueueListAction({
-                    type: 'create-list',
-                    payload: {
-                        data: createData,
-                        boardId,
-                        tempId,
-                    },
-                    timestamp: Date.now(),
-                });
-            }
-            onClose();
+            const payload: BoardList = {
+                ...(list ?? {}),
+                title: data.title,
+                description: data.description,
+                position: data.position ?? 0,
+                boardId: boardId,
+                id: data.id ?? 'temp-list',
+            } as BoardList;
+            enqueueListAction(payload);
+            if (onClose) onClose();
+            else close();
         },
         [list, boardId, enqueueListAction, onClose]
     );
 
-    return <ListForm list={list} user={user} onSubmit={handleSubmit} />;
+    return (
+        <ListForm list={list} user={user} form={form} onSubmit={handleSubmit} />
+    );
 }

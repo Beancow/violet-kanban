@@ -9,7 +9,12 @@ export function createTestStores() {
     const listStore = createListStore(false);
     const boardStore = createBoardStore(false);
     const tempMap = createTempIdMapStore(false);
-    const queue = createQueueStore(false, { cardStore, listStore, boardStore, tempIdMapStore: tempMap });
+    const queue = createQueueStore(false, {
+        cardStore,
+        listStore,
+        boardStore,
+        tempIdMapStore: tempMap,
+    });
 
     return { cardStore, listStore, boardStore, tempMap, queue };
 }

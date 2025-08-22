@@ -1,5 +1,6 @@
 import { User } from '@/types/appState.type';
 import { getAdminAuth } from './firebase/firebase-admin-init';
+import { NextRequest } from 'next/server';
 
 /**
  * Extracts the UID from the Authorization header.
@@ -7,7 +8,9 @@ import { getAdminAuth } from './firebase/firebase-admin-init';
  * @param request The NextRequest object.
  * @returns The user's UID.
  */
-export async function getUserFromAuthHeader(request: Request): Promise<User> {
+export async function getUserFromAuthHeader(
+    request: NextRequest
+): Promise<User> {
     const authHeader =
         request.headers.get('authorization') ||
         request.headers.get('Authorization');
@@ -38,7 +41,7 @@ export async function getUserFromAuthHeader(request: Request): Promise<User> {
  * @param request The NextRequest object.
  * @returns An object containing the uid and orgId.
  */
-export async function getAuthAndOrgContext(request: Request) {
+export async function getAuthAndOrgContext(request: NextRequest) {
     const user = await getUserFromAuthHeader(request);
     const orgId = request.headers.get('x-organization-id');
 

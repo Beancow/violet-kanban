@@ -9,6 +9,7 @@ import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
 import { SyncAction } from '@/types/worker.type';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
+import { VioletKanbanAction } from '@/store/appStore';
 
 export function ActionQueue() {
     const { boardActionQueue, listActionQueue, cardActionQueue } =
@@ -26,7 +27,7 @@ export function ActionQueue() {
             id: string;
             local: Board | BoardList | BoardCard;
             server: Board | BoardList | BoardCard;
-            action: SyncAction;
+            action: VioletKanbanAction;
             type: 'board' | 'list' | 'card';
         }[]
     >([]);
@@ -40,7 +41,7 @@ export function ActionQueue() {
         return <Text>No pending actions.</Text>;
     }
 
-    const getItemName = (action: SyncAction) => {
+    const getItemName = (action: VioletKanbanAction) => {
         switch (action.type) {
             case 'create-board':
             case 'update-board':
@@ -93,7 +94,6 @@ export function ActionQueue() {
             case 'error':
                 return 'Error';
             default: {
-                const _exhaustive: never = action;
                 return 'Unknown Action';
             }
         }
@@ -120,9 +120,7 @@ export function ActionQueue() {
                                         <Text size='1'>
                                             <b>Local update:</b>{' '}
                                             {String(local.updatedAt)} (queued at{' '}
-                                            {new Date(
-                                                action.timestamp
-                                            ).toLocaleString()}
+                                            {action.timestamp}
                                             )<br />
                                             <b>Server update:</b>{' '}
                                             {String(server.updatedAt)}
@@ -183,7 +181,7 @@ export function ActionQueue() {
                             </Text>
                         </Box>
                         <Text size='1' color='gray'>
-                            {new Date(action.timestamp).toLocaleString()}
+                            {action.timestamp}
                         </Text>
                     </li>
                 ))}

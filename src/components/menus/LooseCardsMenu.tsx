@@ -15,9 +15,7 @@ import {
     ReloadIcon,
 } from '@radix-ui/react-icons';
 import { useVioletKanbanRemoveCardAction } from '@/store/useVioletKanbanHooks';
-import { useOrganizationStore } from '@/store/organizationStore';
 
-import { CardForm } from '@/components/forms/CardForm';
 import styles from './LooseCardsMenu.module.css';
 
 interface LooseCardsMenuProps {
@@ -29,9 +27,6 @@ export function LooseCardsMenu({ cards, boardId }: LooseCardsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
     const removeCardAction = useVioletKanbanRemoveCardAction();
-    const currentOrganizationId = useOrganizationStore(
-        (state) => state.currentOrganizationId
-    );
     // OrganizationGate guarantees currentOrganizationId is always set
     // removeCardAction only needs cardId, orgId is not required
     const handleRestore = useCallback(
@@ -80,14 +75,7 @@ export function LooseCardsMenu({ cards, boardId }: LooseCardsMenuProps) {
                         looseCards.map((card) =>
                             expandedCardId === card.id ? (
                                 <div className={styles.looseCard} key={card.id}>
-                                    <CardForm
-                                        key={card.id}
-                                        card={card}
-                                        onSubmit={() => {}}
-                                        onClose={() => setExpandedCardId(null)}
-                                        hideTitle={true}
-                                        small={true}
-                                    />
+                                    <>Todo - fix this</>
                                 </div>
                             ) : (
                                 <Box key={card.id}>

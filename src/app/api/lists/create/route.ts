@@ -1,15 +1,14 @@
 import { createListServerAction } from '@/lib/firebase/listServerActions';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { getAuthAndOrgContext } from '@/lib/serverUtils';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     const { orgId } = await getAuthAndOrgContext(request);
-    const { data, tempId } = await request.json();
+    const { data } = await request.json();
 
     const result = await createListServerAction({
         data,
         orgId,
-        tempId,
     });
 
     return NextResponse.json(result);

@@ -23,7 +23,8 @@ export function createTempIdMapStore(
         getRealId: (tempId: string) => get().tempIdMap[tempId],
         clearMapping: (tempId: string) =>
             set((state: TempIdMapState) => {
-                const { [tempId]: _, ...rest } = state.tempIdMap;
+                // remove key from map
+                const { [tempId]: _removed, ...rest } = state.tempIdMap;
                 return { tempIdMap: rest };
             }),
         clearAll: () => set({ tempIdMap: {} }),
@@ -89,13 +90,17 @@ export const useTempIdMapStore: import('zustand').UseBoundStore<
             | ((s: TempIdMapState) => unknown)
             | undefined;
         return (
-            store as unknown as (selector?: (s: TempIdMapState) => unknown) => unknown
+            store as unknown as (
+                selector?: (s: TempIdMapState) => unknown
+            ) => unknown
         )(selector);
     }
     const selector = args[0] as unknown;
     const storeApi = store as import('zustand').StoreApi<TempIdMapState>;
     if (typeof selector === 'function') {
-        return (selector as (s: TempIdMapState) => unknown)(storeApi.getState());
+        return (selector as (s: TempIdMapState) => unknown)(
+            storeApi.getState()
+        );
     }
     return storeApi.getState();
 }) as unknown as import('zustand').UseBoundStore<StoreApi<TempIdMapState>>;

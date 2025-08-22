@@ -4,9 +4,9 @@ import { getListsServerAction } from '@/lib/firebase/listServerActions';
 import type { BoardList } from '@/types/appState.type';
 import { getBoardsForOrganizationServerAction } from '@/lib/firebase/boardServerActions';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
     try {
-        const { orgId } = await getAuthAndOrgContext(_request);
+        const { orgId } = await getAuthAndOrgContext(request);
         // Get all boards for the organization
         const boardsResult = await getBoardsForOrganizationServerAction(orgId);
         if (!boardsResult.success || !Array.isArray(boardsResult.data)) {

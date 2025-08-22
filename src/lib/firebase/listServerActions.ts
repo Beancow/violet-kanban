@@ -88,11 +88,9 @@ export async function getListsServerAction({
 export async function createListServerAction({
     data,
     orgId,
-    tempId,
 }: {
     data: Omit<BoardList, 'id'>;
     orgId: string;
-    tempId: string;
 }) {
     const list: Omit<BoardList, 'id'> = {
         ...data,
@@ -116,7 +114,6 @@ export async function createListServerAction({
         return {
             success: true,
             data: {
-                tempId,
                 list: newList,
             },
         };

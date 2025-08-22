@@ -12,12 +12,12 @@ export function QueueStoreProvider({
         // Ensure queue and temp id map stores are initialized client-side.
         try {
             initializeTempIdMapStore();
-            } catch (_) {
+        } catch {
             // ignore in non-browser
         }
         try {
             initializeQueueStore();
-            } catch (_) {
+        } catch {
             // ignore in non-browser
         }
         // Sync lifecycle is managed by the <SyncManager/> component mounted in layout

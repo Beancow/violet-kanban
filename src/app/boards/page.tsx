@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useOrganizationStore } from '@/store/organizationStore';
 import {
     useVioletKanbanData,
-    useVioletKanbanEnqueueBoardAction,
-    useVioletKanbanRemoveBoardAction,
+    useVioletKanbanEnqueueBoardCreateOrUpdate,
+    useVioletKanbanEnqueueBoardDelete,
 } from '@/store/useVioletKanbanHooks';
 
 import { Heading, Text, Button, Flex, IconButton } from '@radix-ui/themes';
@@ -13,7 +13,6 @@ import Link from 'next/link';
 import LoadingPage from '@/components/LoadingPage';
 import OrganizationGate from '@/components/guards/OrganizationGate';
 import CreateBoardModal from '@/components/modals/CreateBoardModal';
-import { Board } from '@/types/appState.type';
 import type { BoardFormValues } from '@/schema/boardSchema';
 
 export default function UserBoardsPage() {
@@ -23,8 +22,9 @@ export default function UserBoardsPage() {
     const organizations = useOrganizationStore((s) => s.organizations);
     const orgsLoading = useOrganizationStore((s) => s.loading);
     const { boards } = useVioletKanbanData();
-    const enqueueBoardAction = useVioletKanbanEnqueueBoardAction();
-    const removeBoardAction = useVioletKanbanRemoveBoardAction();
+    const enqueueBoardCreateOrUpdate =
+        useVioletKanbanEnqueueBoardCreateOrUpdate();
+    const enqueueBoardDelete = useVioletKanbanEnqueueBoardDelete();
 
     const [modalOpen, setModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,31 +41,17 @@ export default function UserBoardsPage() {
                 'Are you sure you want to delete this board? This action cannot be undone.'
             )
         ) {
-            enqueueBoardAction({
-                type: 'delete-board',
-                payload: { id: boardId },
-                timestamp: Date.now(),
-            });
+            enqueueBoardDelete(boardId);
         }
     };
 
     const handleCreateBoard = async (data: BoardFormValues) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
-        const tempId = `temp-board-${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2)}`;
-        enqueueBoardAction({
-            type: 'create-board',
-            payload: {
-                data: {
-                    ...data,
-                    organizationId: currentOrganizationId || '',
-                },
-                tempId,
-            },
-            timestamp: Date.now(),
-        });
+        enqueueBoardCreateOrUpdate({
+            ...data,
+            organizationId: currentOrganizationId || '',
+        } as unknown as import('@/types/appState.type').Board);
         setIsSubmitting(false);
         setModalOpen(false);
     };

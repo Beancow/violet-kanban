@@ -10,7 +10,7 @@ export function AuthStoreProvider({ children }: { children: React.ReactNode }) {
         // Ensure store exists client-side
         try {
             initializeAuthStore();
-        } catch (_) {
+        } catch {
             // ignore
         }
         const unsub = onAuthStateChanged(

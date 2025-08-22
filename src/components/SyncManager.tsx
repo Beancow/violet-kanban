@@ -43,7 +43,7 @@ export function SyncManager() {
 
         function initWorker() {
             if (worker) return worker;
-            worker = new Worker('/dataSyncWorker.js');
+            worker = new Worker('./dataSyncWorker.js');
 
             worker.onmessage = (event) => {
                 const { type, payload, error } = event.data;
@@ -145,7 +145,7 @@ export function SyncManager() {
         try {
             initWorker();
             processQueuedActions();
-        } catch (e) {
+        } catch {
             // ignore during SSR / no-window scenarios
         }
 
@@ -154,7 +154,7 @@ export function SyncManager() {
             if (worker) {
                 try {
                     worker.terminate();
-                } catch (e) {
+                } catch {
                     /* ignore */
                 }
                 worker = null;

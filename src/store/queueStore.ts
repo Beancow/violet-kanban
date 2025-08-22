@@ -2,21 +2,9 @@ import { create, StoreApi, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getActionItemId, squashQueueActions } from './helpers';
 import { getOrCreateTempIdMapStore } from './tempIdMapStore';
-import {
-    getOrCreateBoardStore,
-    useBoardStore,
-    getBoardStoreIfReady,
-} from './boardStore';
-import {
-    getOrCreateListStore,
-    useListStore,
-    getListStoreIfReady,
-} from './listStore';
-import {
-    getOrCreateCardStore,
-    useCardStore,
-    getCardStoreIfReady,
-} from './cardStore';
+import { useBoardStore, getBoardStoreIfReady } from './boardStore';
+import { useListStore, getListStoreIfReady } from './listStore';
+import { useCardStore, getCardStoreIfReady } from './cardStore';
 import {
     isUseBoundStore,
     BoardStoreAdapter,
@@ -31,19 +19,17 @@ import type { Board, BoardList, BoardCard } from '../types/appState.type';
 import type { VioletKanbanAction } from './appStore';
 import type { TempIdMapState } from './tempIdMapStore';
 
-// Minimal adapter type and runtime guards for injected temp id map objects used in tests.
-type MinimalTempIdMapAdapter = {
-    setMapping?: (t: string, r: string) => void;
-    clearMapping?: (t: string) => void;
-};
-
-function hasSetMapping(obj: unknown): obj is { setMapping: (t: string, r: string) => void } {
+function hasSetMapping(
+    obj: unknown
+): obj is { setMapping: (t: string, r: string) => void } {
     if (!obj || typeof obj !== 'object') return false;
     const maybe = obj as { setMapping?: unknown };
     return typeof maybe.setMapping === 'function';
 }
 
-function hasClearMapping(obj: unknown): obj is { clearMapping: (t: string) => void } {
+function hasClearMapping(
+    obj: unknown
+): obj is { clearMapping: (t: string) => void } {
     if (!obj || typeof obj !== 'object') return false;
     const maybe = obj as { clearMapping?: unknown };
     return typeof maybe.clearMapping === 'function';
@@ -53,12 +39,29 @@ export interface QueueState {
     boardActionQueue: VioletKanbanAction[];
     listActionQueue: VioletKanbanAction[];
     cardActionQueue: VioletKanbanAction[];
+    // low-level enqueuers that accept a fully-built VioletKanbanAction
     enqueueBoardAction: (action: VioletKanbanAction) => void;
     enqueueListAction: (action: VioletKanbanAction) => void;
-    enqueueCardAction: (action: VioletKanbanAction) => void;
+    // helpers to remove a processed action by its item id
     removeBoardAction: (actionId: string) => void;
     removeListAction: (actionId: string) => void;
     removeCardAction: (actionId: string) => void;
+    // convenience: accept a Board domain object and enqueue create-or-update
+    enqueueBoardCreateOrUpdate: (data: Board) => void;
+    // enqueueListAction accepts a fully-built VioletKanbanAction
+    enqueueListCreateOrUpdate: (data: BoardList) => void;
+    // For create/update: enqueueCardCreateOrUpdate accepts a `BoardCard` object (may include id for updates)
+    enqueueCardCreateOrUpdate: (data: BoardCard) => void;
+    // Move/delete have dedicated helpers
+    enqueueCardDelete: (id: string) => void;
+    enqueueListDelete: (id: string) => void;
+    enqueueBoardDelete: (id: string) => void;
+    enqueueCardMove: (payload: {
+        id: string;
+        newIndex: number;
+        listId: string;
+        boardId?: string;
+    }) => void;
     handleBoardActionSuccess: (
         tempId: string | undefined,
         newBoard: Board
@@ -83,7 +86,10 @@ export function createQueueStore(
         tempIdMapStore?:
             | ReturnType<typeof getOrCreateTempIdMapStore>
             | StoreApi<TempIdMapState>
-            | { setMapping: (t: string, r: string) => void; clearMapping: (t: string) => void }
+            | {
+                  setMapping: (t: string, r: string) => void;
+                  clearMapping: (t: string) => void;
+              }
             | unknown;
     }
 ) {
@@ -116,7 +122,8 @@ export function createQueueStore(
             return;
         }
         const adapter = boardStoreInstance as BoardStoreAdapter;
-        if (adapter && typeof adapter.addBoard === 'function') adapter.addBoard(board);
+        if (adapter && typeof adapter.addBoard === 'function')
+            adapter.addBoard(board);
     };
 
     const addListFn = (list: BoardList) => {
@@ -127,7 +134,8 @@ export function createQueueStore(
             return;
         }
         const adapter = listStoreInstance as ListStoreAdapter;
-        if (adapter && typeof adapter.addList === 'function') adapter.addList(list);
+        if (adapter && typeof adapter.addList === 'function')
+            adapter.addList(list);
     };
 
     const addCardFn = (card: BoardCard) => {
@@ -138,132 +146,326 @@ export function createQueueStore(
             return;
         }
         const adapter = cardStoreInstance as CardStoreAdapter;
-        if (adapter && typeof adapter.addCard === 'function') adapter.addCard(card);
+        if (adapter && typeof adapter.addCard === 'function')
+            adapter.addCard(card);
     };
 
-    const creator: StateCreator<QueueState> = (set, _get) => ({
-        boardActionQueue: [] as VioletKanbanAction[],
-        listActionQueue: [] as VioletKanbanAction[],
-        cardActionQueue: [] as VioletKanbanAction[],
-        enqueueBoardAction: (action: VioletKanbanAction) =>
-            set((state: QueueState) => ({
-                boardActionQueue: squashQueueActions(state.boardActionQueue, action),
-            })),
-        enqueueListAction: (action: VioletKanbanAction) =>
-            set((state: QueueState) => ({
-                listActionQueue: squashQueueActions(state.listActionQueue, action),
-            })),
-        enqueueCardAction: (action: VioletKanbanAction) =>
-            set((state: QueueState) => ({
-                cardActionQueue: squashQueueActions(state.cardActionQueue, action),
-            })),
-        removeBoardAction: (actionId: string) =>
-            set((state: QueueState) => ({
-                boardActionQueue: state.boardActionQueue.filter(
-                    (action: VioletKanbanAction) => getActionItemId(action) !== actionId
-                ),
-            })),
-        removeListAction: (actionId: string) =>
-            set((state: QueueState) => ({
-                listActionQueue: state.listActionQueue.filter(
-                    (action: VioletKanbanAction) => getActionItemId(action) !== actionId
-                ),
-            })),
-        removeCardAction: (actionId: string) =>
-            set((state: QueueState) => ({
-                cardActionQueue: state.cardActionQueue.filter(
-                    (action: VioletKanbanAction) => getActionItemId(action) !== actionId
-                ),
-            })),
-        handleBoardActionSuccess: (tempId: string | undefined, newBoard: Board) => {
-            if (!tempId) return;
-            const realId = newBoard.id;
-            // Update tempId map so other parts can look up the real id
-            const tempMap = options && options.tempIdMapStore ? options.tempIdMapStore : getOrCreateTempIdMapStore();
-            const tempApi = getStoreApi<TempIdMapState>(tempMap);
-            if (tempApi) {
-                tempApi.getState().setMapping(tempId, realId);
-            } else if (hasSetMapping(tempMap)) {
-                tempMap.setMapping(tempId, realId);
+    const creator: StateCreator<QueueState> = (set, _get) => {
+        // Helper to build a create or update VioletKanbanAction for boards/lists/cards
+        const buildCreateOrUpdateAction = (
+            entity: 'board' | 'list' | 'card',
+            payload: {
+                data: Record<string, unknown>;
+            }
+        ): VioletKanbanAction => {
+            const idCandidate = (payload.data as Record<string, unknown>)?.id;
+            // create (temp id present or missing)
+            if (
+                (typeof idCandidate === 'string' &&
+                    idCandidate.startsWith('temp-')) ||
+                !idCandidate
+            ) {
+                const tempId =
+                    (idCandidate as string) ||
+                    `${entity}-temp-${Date.now()}-${Math.random()
+                        .toString(36)
+                        .slice(2)}`;
+                const createData = { ...payload.data } as Record<
+                    string,
+                    unknown
+                >;
+                delete (createData as Record<string, unknown>).id;
+                if (entity === 'board') {
+                    return {
+                        type: 'create-board',
+                        payload: { data: createData, tempId },
+                        timestamp: Date.now(),
+                    } as VioletKanbanAction;
+                }
+                if (entity === 'list') {
+                    // ensure boardId is present in create data (may be inside payload.data)
+                    (createData as Record<string, unknown>).boardId =
+                        (payload.data as Record<string, unknown>).boardId ?? '';
+                    return {
+                        type: 'create-list',
+                        payload: { data: createData, tempId },
+                        timestamp: Date.now(),
+                    } as VioletKanbanAction;
+                }
+                // card
+                // card: move boardId/listId into data
+                (createData as Record<string, unknown>).boardId =
+                    (payload.data as Record<string, unknown>).boardId ?? '';
+                (createData as Record<string, unknown>).listId =
+                    (payload.data as Record<string, unknown>).listId ?? '';
+                return {
+                    type: 'create-card',
+                    payload: { data: createData, tempId },
+                    timestamp: Date.now(),
+                } as VioletKanbanAction;
             }
 
-            // Move the created board into the real store (ensure no duplicates)
-            addBoardFn(newBoard);
-
-            // Remove queued actions that referenced the tempId
-            set((state: QueueState) => ({
-                boardActionQueue: state.boardActionQueue.filter(
-                    (action: VioletKanbanAction) => getActionItemId(action) !== tempId
-                ),
-            }));
-
-            // Clear temp map for this id
-            if (tempApi) {
-                tempApi.getState().clearMapping(tempId);
-            } else if (hasClearMapping(tempMap)) {
-                tempMap.clearMapping(tempId);
+            // otherwise update
+            if (entity === 'board') {
+                return {
+                    type: 'update-board',
+                    payload: { data: payload.data },
+                    timestamp: Date.now(),
+                } as VioletKanbanAction;
             }
-        },
-        handleListActionSuccess: (tempId: string | undefined, newList: BoardList) => {
-            if (!tempId) return;
-            const realId = newList.id;
-            const tempMap = options && options.tempIdMapStore ? options.tempIdMapStore : getOrCreateTempIdMapStore();
-            const tempApi = getStoreApi<TempIdMapState>(tempMap);
-            if (tempApi) {
-                tempApi.getState().setMapping(tempId, realId);
-            } else if (hasSetMapping(tempMap)) {
-                tempMap.setMapping(tempId, realId);
+            if (entity === 'list') {
+                return {
+                    type: 'update-list',
+                    payload: { data: payload.data },
+                    timestamp: Date.now(),
+                } as VioletKanbanAction;
             }
+            return {
+                type: 'update-card',
+                payload: { data: payload.data },
+                timestamp: Date.now(),
+            } as VioletKanbanAction;
+        };
+        // Return the store shape matching QueueState
+        return {
+            boardActionQueue: [] as VioletKanbanAction[],
+            listActionQueue: [] as VioletKanbanAction[],
+            cardActionQueue: [] as VioletKanbanAction[],
 
-            // Add the real list
-            addListFn(newList);
+            enqueueBoardAction: (action: VioletKanbanAction) =>
+                set((state: QueueState) => ({
+                    boardActionQueue: squashQueueActions(
+                        state.boardActionQueue,
+                        action
+                    ),
+                })),
 
-            // Remove queued actions that referenced the tempId
-            set((state: QueueState) => ({
-                listActionQueue: state.listActionQueue.filter(
-                    (action: VioletKanbanAction) => getActionItemId(action) !== tempId
-                ),
-            }));
+            enqueueBoardCreateOrUpdate: (data: Board) =>
+                set((state: QueueState) => {
+                    const actionToEnqueue = buildCreateOrUpdateAction('board', {
+                        data: data as unknown as Record<string, unknown>,
+                    });
+                    return {
+                        boardActionQueue: squashQueueActions(
+                            state.boardActionQueue,
+                            actionToEnqueue
+                        ),
+                    };
+                }),
 
-            // Clear mapping
-            if (tempApi) {
-                tempApi.getState().clearMapping(tempId);
-            } else if (hasClearMapping(tempMap)) {
-                tempMap.clearMapping(tempId);
-            }
-        },
-        handleCardActionSuccess: (tempId: string | undefined, newCard: BoardCard) => {
-            if (!tempId) return;
-            const realId = newCard.id;
-            const tempMap = options && options.tempIdMapStore ? options.tempIdMapStore : getOrCreateTempIdMapStore();
-            const tempApi = getStoreApi<TempIdMapState>(tempMap);
-            if (tempApi) {
-                tempApi.getState().setMapping(tempId, realId);
-            } else if (hasSetMapping(tempMap)) {
-                tempMap.setMapping(tempId, realId);
-            }
+            // thin API for components: accept a BoardCard object; empty id ('') is treated as create
+            enqueueCardCreateOrUpdate: (data: BoardCard) =>
+                set((state: QueueState) => {
+                    const actionToEnqueue = buildCreateOrUpdateAction('card', {
+                        data: data as unknown as Record<string, unknown>,
+                    });
+                    return {
+                        cardActionQueue: squashQueueActions(
+                            state.cardActionQueue,
+                            actionToEnqueue
+                        ),
+                    };
+                }),
 
-            // Add the real card
-            addCardFn(newCard);
+            enqueueCardDelete: (id: string) =>
+                set((state: QueueState) => ({
+                    cardActionQueue: squashQueueActions(state.cardActionQueue, {
+                        type: 'delete-card',
+                        payload: { data: { id } },
+                        timestamp: Date.now(),
+                    } as VioletKanbanAction),
+                })),
 
-            // Remove queued actions that referenced the tempId
-            set((state: QueueState) => ({
-                cardActionQueue: state.cardActionQueue.filter(
-                    (action: VioletKanbanAction) => getActionItemId(action) !== tempId
-                ),
-            }));
+            enqueueListDelete: (id: string) =>
+                set((state: QueueState) => ({
+                    listActionQueue: squashQueueActions(state.listActionQueue, {
+                        type: 'delete-list',
+                        payload: { data: { id } },
+                        timestamp: Date.now(),
+                    } as VioletKanbanAction),
+                })),
 
-            // Clear mapping
-            if (tempApi) {
-                tempApi.getState().clearMapping(tempId);
-            } else if (hasClearMapping(tempMap)) {
-                tempMap.clearMapping(tempId);
-            }
-        },
-    });
+            enqueueBoardDelete: (id: string) =>
+                set((state: QueueState) => ({
+                    boardActionQueue: squashQueueActions(
+                        state.boardActionQueue,
+                        {
+                            type: 'delete-board',
+                            payload: { data: { id } },
+                            timestamp: Date.now(),
+                        } as VioletKanbanAction
+                    ),
+                })),
+
+            enqueueListAction: (action: VioletKanbanAction) =>
+                set((state: QueueState) => ({
+                    listActionQueue: squashQueueActions(
+                        state.listActionQueue,
+                        action
+                    ),
+                })),
+
+            enqueueListCreateOrUpdate: (data: BoardList) =>
+                set((state: QueueState) => {
+                    const actionToEnqueue = buildCreateOrUpdateAction('list', {
+                        data: data as unknown as Record<string, unknown>,
+                    });
+                    return {
+                        listActionQueue: squashQueueActions(
+                            state.listActionQueue,
+                            actionToEnqueue
+                        ),
+                    };
+                }),
+
+            enqueueCardMove: (payload: {
+                id: string;
+                newIndex: number;
+                listId: string;
+                boardId?: string;
+            }) =>
+                set((state: QueueState) => ({
+                    cardActionQueue: squashQueueActions(state.cardActionQueue, {
+                        type: 'move-card',
+                        payload: {
+                            id: payload.id,
+                            newIndex: payload.newIndex,
+                            listId: payload.listId,
+                            boardId: payload.boardId ?? '',
+                        },
+                        timestamp: Date.now(),
+                    } as VioletKanbanAction),
+                })),
+
+            removeBoardAction: (actionId: string) =>
+                set((state: QueueState) => ({
+                    boardActionQueue: state.boardActionQueue.filter(
+                        (action: VioletKanbanAction) =>
+                            getActionItemId(action) !== actionId
+                    ),
+                })),
+
+            removeListAction: (actionId: string) =>
+                set((state: QueueState) => ({
+                    listActionQueue: state.listActionQueue.filter(
+                        (action: VioletKanbanAction) =>
+                            getActionItemId(action) !== actionId
+                    ),
+                })),
+
+            removeCardAction: (actionId: string) =>
+                set((state: QueueState) => ({
+                    cardActionQueue: state.cardActionQueue.filter(
+                        (action: VioletKanbanAction) =>
+                            getActionItemId(action) !== actionId
+                    ),
+                })),
+
+            handleBoardActionSuccess: (
+                tempId: string | undefined,
+                newBoard: Board
+            ) => {
+                if (!tempId) return;
+                const realId = newBoard.id;
+                const tempMap =
+                    options && options.tempIdMapStore
+                        ? options.tempIdMapStore
+                        : getOrCreateTempIdMapStore();
+                const tempApi = getStoreApi<TempIdMapState>(tempMap);
+                if (tempApi) {
+                    tempApi.getState().setMapping(tempId, realId);
+                } else if (hasSetMapping(tempMap)) {
+                    tempMap.setMapping(tempId, realId);
+                }
+
+                addBoardFn(newBoard);
+
+                set((state: QueueState) => ({
+                    boardActionQueue: state.boardActionQueue.filter(
+                        (action: VioletKanbanAction) =>
+                            getActionItemId(action) !== tempId
+                    ),
+                }));
+
+                if (tempApi) {
+                    tempApi.getState().clearMapping(tempId);
+                } else if (hasClearMapping(tempMap)) {
+                    tempMap.clearMapping(tempId);
+                }
+            },
+
+            handleListActionSuccess: (
+                tempId: string | undefined,
+                newList: BoardList
+            ) => {
+                if (!tempId) return;
+                const realId = newList.id;
+                const tempMap =
+                    options && options.tempIdMapStore
+                        ? options.tempIdMapStore
+                        : getOrCreateTempIdMapStore();
+                const tempApi = getStoreApi<TempIdMapState>(tempMap);
+                if (tempApi) {
+                    tempApi.getState().setMapping(tempId, realId);
+                } else if (hasSetMapping(tempMap)) {
+                    tempMap.setMapping(tempId, realId);
+                }
+
+                addListFn(newList);
+
+                set((state: QueueState) => ({
+                    listActionQueue: state.listActionQueue.filter(
+                        (action: VioletKanbanAction) =>
+                            getActionItemId(action) !== tempId
+                    ),
+                }));
+
+                if (tempApi) {
+                    tempApi.getState().clearMapping(tempId);
+                } else if (hasClearMapping(tempMap)) {
+                    tempMap.clearMapping(tempId);
+                }
+            },
+
+            handleCardActionSuccess: (
+                tempId: string | undefined,
+                newCard: BoardCard
+            ) => {
+                if (!tempId) return;
+                const realId = newCard.id;
+                const tempMap =
+                    options && options.tempIdMapStore
+                        ? options.tempIdMapStore
+                        : getOrCreateTempIdMapStore();
+                const tempApi = getStoreApi<TempIdMapState>(tempMap);
+                if (tempApi) {
+                    tempApi.getState().setMapping(tempId, realId);
+                } else if (hasSetMapping(tempMap)) {
+                    tempMap.setMapping(tempId, realId);
+                }
+
+                addCardFn(newCard);
+
+                set((state: QueueState) => ({
+                    cardActionQueue: state.cardActionQueue.filter(
+                        (action: VioletKanbanAction) =>
+                            getActionItemId(action) !== tempId
+                    ),
+                }));
+
+                if (tempApi) {
+                    tempApi.getState().clearMapping(tempId);
+                } else if (hasClearMapping(tempMap)) {
+                    tempMap.clearMapping(tempId);
+                }
+            },
+        };
+    };
 
     if (persistEnabled) {
-        return create<QueueState>()(persist(creator, { name: 'violet-kanban-queue-storage' }));
+        return create<QueueState>()(
+            persist(creator, { name: 'violet-kanban-queue-storage' })
+        );
     }
 
     return create<QueueState>()(creator);

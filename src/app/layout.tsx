@@ -7,6 +7,7 @@ import { FloatingSyncButton } from '@/components/FloatingSyncButton';
 import { SyncManager } from '@/components/SyncManager';
 import Header from '@/components/navigation/Header';
 import QueueStoreProvider from '@/providers/QueueStoreProvider';
+import ModalProvider from '@/providers/ModalProvider';
 import AuthStoreProvider from '@/providers/AuthStoreProvider';
 import BoardStoreProvider from '@/providers/BoardStoreProvider';
 import ListStoreProvider from '@/providers/ListStoreProvider';
@@ -37,6 +38,7 @@ export default function RootLayout({
                                 <CardStoreProvider>
                                     <QueueStoreProvider>
                                         {children}
+                                        <ModalProvider />
                                     </QueueStoreProvider>
                                 </CardStoreProvider>
                             </ListStoreProvider>

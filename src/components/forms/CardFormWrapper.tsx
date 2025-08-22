@@ -1,101 +1,61 @@
 import { useCallback } from 'react';
 import { BoardCard } from '@/types/appState.type';
-import { useVioletKanbanEnqueueCardAction } from '@/store/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueCardCreateOrUpdate } from '@/store/useVioletKanbanHooks';
 import { CardForm } from './CardForm';
-import type { BoardCardFormValues } from '@/schema/boardCardSchema';
-import type { CardCreate } from '@/types/worker.type';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { BoardCardFormValues, boardCardSchema } from '@/schema/boardCardSchema';
+import useUiStore from '@/store/uiStore';
+import { useOrganizationStore } from '@/store/organizationStore';
+import { useParams } from 'next/navigation';
+import { useCreatedBy } from '@/hooks/useCreatedBy';
 
 interface CardFormWrapperProps {
     card?: BoardCard;
-    onClose: () => void;
-    hideTitle?: boolean;
-    small?: boolean;
+    listId: string;
 }
 
-export function CardFormWrapper({
-    card,
-    onClose,
-    hideTitle,
-    small,
-}: CardFormWrapperProps) {
-    const enqueueCardAction = useVioletKanbanEnqueueCardAction();
+export function CardFormWrapper({ card, listId }: CardFormWrapperProps) {
+    const { boardId } = useParams();
+    const currentOrganizationId = useOrganizationStore(
+        (state) => state.currentOrganizationId
+    );
+    const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
+    const { close } = useUiStore();
 
-    // OrganizationGate guarantees currentOrganizationId is always set
+    const createdBy = useCreatedBy(card);
+
+    const form = useForm<BoardCardFormValues>({
+        resolver: zodResolver(boardCardSchema),
+        defaultValues: {
+            id: card?.id ?? 'temp-card',
+            title: card?.title || '',
+            description: card?.description || '',
+            priority: card?.priority ?? 0,
+            listId: card?.listId ?? listId,
+            boardId: card?.boardId ?? boardId?.toString(),
+            organizationId: card?.organizationId ?? currentOrganizationId ?? '',
+            completed: card?.completed,
+            isDeleted: card?.isDeleted,
+            isArchived: card?.isArchived,
+            createdAt: card?.createdAt ?? '',
+            updatedAt: card?.updatedAt ?? '',
+            createdBy,
+        },
+    });
+
     const handleSubmit = useCallback(
         (data: BoardCardFormValues) => {
-            const toStringOrUndefined = (v?: string | Date) =>
-                v == null
-                    ? undefined
-                    : typeof v === 'string'
-                    ? v
-                    : v.toString();
-
-            if (card?.id) {
-                const updatePayload: Partial<
-                    import('@/types/appState.type').BoardCard
-                > & {
-                    id: string;
-                } = {
-                    id: card.id,
-                    title: data.title,
-                    description: data.description,
-                    priority: data.priority,
-                    listId: data.listId ?? '',
-                    boardId: data.boardId,
-                    organizationId: data.organizationId,
-                    completed: data.completed,
-                    isDeleted: data.isDeleted,
-                    isArchived: data.isArchived,
-                    createdAt: toStringOrUndefined(data.createdAt),
-                    updatedAt: toStringOrUndefined(data.updatedAt),
-                    createdBy: data.createdBy,
-                };
-                enqueueCardAction({
-                    type: 'update-card',
-                    payload: { data: updatePayload },
-                    timestamp: Date.now(),
-                });
-            } else {
-                const tempId = `temp-card-${Date.now()}-${Math.random()
-                    .toString(36)
-                    .slice(2)}`;
-                const createData: CardCreate = {
-                    title: data.title,
-                    description: data.description,
-                    priority: data.priority,
-                    listId: data.listId ?? '',
-                    boardId: data.boardId,
-                    organizationId: data.organizationId,
-                    completed: data.completed,
-                    isDeleted: data.isDeleted,
-                    isArchived: data.isArchived,
-                    createdAt: toStringOrUndefined(data.createdAt),
-                    updatedAt: toStringOrUndefined(data.updatedAt),
-                    createdBy: data.createdBy,
-                };
-                enqueueCardAction({
-                    type: 'create-card',
-                    payload: {
-                        data: createData,
-                        boardId: data.boardId,
-                        listId: data.listId ?? '',
-                        tempId,
-                    },
-                    timestamp: Date.now(),
-                });
-            }
-            onClose();
+            const cardData: BoardCard = {
+                ...data,
+                id: data.id ?? 'temp-card',
+                createdBy,
+            };
+            enqueueCardAction(cardData);
+            close();
         },
-        [card, enqueueCardAction, onClose]
+        [enqueueCardAction, close, createdBy]
     );
 
-    return (
-        <CardForm
-            card={card}
-            onSubmit={handleSubmit}
-            onClose={onClose}
-            hideTitle={hideTitle}
-            small={small}
-        />
-    );
+    return <CardForm card={card} form={form} onSubmit={handleSubmit} />;
 }

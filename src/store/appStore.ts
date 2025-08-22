@@ -5,7 +5,27 @@ import type { PartialWithRequiredId } from '@/types/utilityTypes';
 import { buildPatch } from '@/utils/patchHelpers';
 
 // Use the existing SyncAction type as a base for VioletKanbanAction
-export type VioletKanbanAction = import('../types/worker.type').SyncAction;
+export type SyncAction = import('../types/worker.type').SyncAction;
+
+// Lightweight payload shape used by enqueue helpers so components can pass minimal data.
+export type EnqueuePayload =
+    | {
+          type: 'create-card' | 'update-card' | 'delete-card';
+          payload: Record<string, unknown>;
+          timestamp?: number;
+      }
+    | {
+          type: 'create-list' | 'update-list' | 'delete-list';
+          payload: Record<string, unknown>;
+          timestamp?: number;
+      }
+    | {
+          type: 'create-board' | 'update-board' | 'delete-board';
+          payload: Record<string, unknown>;
+          timestamp?: number;
+      };
+
+export type VioletKanbanAction = SyncAction | EnqueuePayload;
 
 export interface AppState {
     boards: Board[];
@@ -43,16 +63,21 @@ export interface AppState {
 // Helper: Squash queue actions by item id and type
 function getActionItemId(action: VioletKanbanAction): string | undefined {
     // Try to extract the item id from payload.data or payload.id
-    if ('payload' in action) {
+    // action.payload may be a Record or unknown (due to EnqueuePayload), so guard carefully
+    const payload = (action as unknown as { payload?: unknown }).payload;
+    if (payload && typeof payload === 'object') {
+        const data = (payload as Record<string, unknown>).data;
         if (
-            'data' in action.payload &&
-            action.payload.data &&
-            'id' in action.payload.data
+            data &&
+            typeof data === 'object' &&
+            'id' in (data as Record<string, unknown>)
         ) {
-            return action.payload.data.id;
+            const id = (data as Record<string, unknown>).id as unknown;
+            return typeof id === 'string' ? id : undefined;
         }
-        if ('id' in action.payload) {
-            return action.payload.id;
+        if ('id' in payload) {
+            const id = (payload as Record<string, unknown>).id as unknown;
+            return typeof id === 'string' ? id : undefined;
         }
     }
     return undefined;
@@ -78,7 +103,9 @@ export function isActionStale(
     serverUpdatedAt: string | number | undefined
 ): boolean {
     if (!serverUpdatedAt) return false;
-    const localTimestamp = localAction.timestamp;
+    const localTimestamp = (localAction as unknown as { timestamp?: number })
+        .timestamp;
+    if (localTimestamp == null) return false;
     const serverTimestamp =
         typeof serverUpdatedAt === 'string'
             ? Date.parse(serverUpdatedAt)
@@ -99,7 +126,9 @@ export function isCardActionStale(
         typeof card.updatedAt === 'string'
             ? Date.parse(card.updatedAt)
             : card.updatedAt;
-    return serverUpdatedAt > action.timestamp;
+    const ts = (action as unknown as { timestamp?: number }).timestamp;
+    if (ts == null) return false;
+    return serverUpdatedAt > ts;
 }
 
 // Returns true if the action for a board is stale compared to the store's board updatedAt
@@ -125,7 +154,9 @@ export function isBoardActionStale(
     } else {
         return false;
     }
-    return serverUpdatedAt > action.timestamp;
+    const ts = (action as unknown as { timestamp?: number }).timestamp;
+    if (ts == null) return false;
+    return serverUpdatedAt > ts;
 }
 
 // Returns true if the action for a list is stale compared to the store's list updatedAt
@@ -151,7 +182,9 @@ export function isListActionStale(
     } else {
         return false;
     }
-    return serverUpdatedAt > action.timestamp;
+    const ts = (action as unknown as { timestamp?: number }).timestamp;
+    if (ts == null) return false;
+    return serverUpdatedAt > ts;
 }
 
 export function createAppStore(

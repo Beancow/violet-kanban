@@ -6,7 +6,7 @@ export function ListStoreProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         try {
             initializeListStore();
-        } catch (_) {
+        } catch {
             // ignore in non-browser environments
         }
         return () => {};

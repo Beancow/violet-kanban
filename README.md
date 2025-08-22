@@ -74,3 +74,51 @@ Recommended patterns:
     ```
 
 This keeps update code concise and avoids repeated `Object.entries` boilerplate.
+
+## Migration notes — stores moved into context providers
+
+We recently changed how Zustand stores are created and consumed across the app:
+
+-   Previously: stores were created as app-wide singletons in `src/store/*` and often imported directly by components.
+-   Now: stores are created by factory functions and instantiated inside React context providers (see `src/providers/*`).
+
+Why this change?
+
+-   It makes store instances local to a provider, improving testability and allowing multiple isolated store instances (useful for testing or embedded widgets).
+-   It centralizes lifecycle and persistence logic inside provider components and avoids accidental global state coupling.
+
+Migration checklist
+
+-   Wrap top-level app (or specific subtree) with the new providers instead of relying on global singletons. For example, add the appropriate providers in your app layout (already done in the project): use the provider components exported from `src/providers`.
+-   Replace direct imports of store singletons with the provider-backed hooks. For example, instead of importing a singleton store from `src/store/boardStore`, import the hook provided by the provider (or use the exported selector hook from `src/store/useVioletKanbanHooks`) so the component reads the store instance from context.
+-   Tests: create store instances via the factory and mount components with the corresponding provider wrappers (the providers accept a store factory in tests in order to inject a fresh instance per test).
+
+Quick migration examples
+
+-   Before (singleton import):
+
+    // old: directly importing a module-level store
+    import { useBoardStore } from '@/store/boardStore';
+
+-   After (provider-backed):
+
+    // new: consume the store that the provider created for this subtree
+    import { useBoardStore } from '@/store/useVioletKanbanHooks';
+    // ensure the component tree is wrapped by the provider from `src/providers`
+
+Notes on related API changes
+
+-   Enqueue / queue helpers: the queue APIs were simplified to accept domain objects. Use the new helpers exported from `src/store/useVioletKanbanHooks` (for example `useVioletKanbanEnqueueCardCreateOrUpdate`, `useVioletKanbanEnqueueListCreateOrUpdate`, `useVioletKanbanEnqueueBoardCreateOrUpdate`). These helpers will generate temporary ids automatically for creates (when the passed object's `id` is empty or a temp id) and will enqueue the proper create vs update action.
+-   Forms: form wrappers now own `useForm` and act as smart containers; the presentational form components accept a `form` prop (a `UseFormReturn<>`) and an `onSubmit` handler. This keeps presentation components pure and moves validation/defaults into the wrapper. Example pattern:
+
+    // wrapper (owns useForm and submit logic)
+    const form = useForm({ resolver: zodResolver(Schema), defaultValues: {...} });
+    const handleSubmit = (data) => { enqueueCreateOrUpdate(data); closeUi(); };
+    return <MyForm form={form} onSubmit={handleSubmit} />;
+
+    // presentation component (pure)
+    export function MyForm({ form, onSubmit }) { const { register, handleSubmit } = form; return <form onSubmit={handleSubmit(onSubmit)}>...</form> }
+
+Temp-id policy
+
+-   Presentation-level code (forms/components) should not attempt to construct globally-unique temp ids. Use `data.id ?? 'temp-thing'` as a placeholder. The queue builder will create and persist proper temp ids and swap them when server sync returns the real id.

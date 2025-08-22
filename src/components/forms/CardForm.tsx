@@ -8,51 +8,33 @@ import {
     TextField,
     TextArea,
 } from '@radix-ui/themes';
-import { BoardCard } from '@/types/appState.type';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import type { UseFormReturn } from 'react-hook-form';
 import { boardCardSchema } from '@/schema/boardCardSchema';
-import type { z } from 'zod';
-type BoardCardFormValues = z.infer<typeof boardCardSchema>;
-import styles from 'src/components/menus/LooseCardsMenu.module.css';
+type BoardCardFormValues = import('zod').z.infer<typeof boardCardSchema>;
+import styles from '@/components/menus/LooseCardsMenu.module.css';
+import { BoardCard } from '@/types/appState.type';
 
 export function CardForm({
     card,
+    form,
     onSubmit,
-    onClose,
-    hideTitle = false,
-    small = false,
 }: {
     card?: BoardCard;
+    form: UseFormReturn<BoardCardFormValues>;
     onSubmit: (data: BoardCardFormValues) => void;
-    onClose: () => void;
-    hideTitle?: boolean;
-    small?: boolean;
 }) {
     const {
         register,
-        handleSubmit,
         formState: { errors },
-    } = useForm({
-        resolver: zodResolver(boardCardSchema),
-        defaultValues: {
-            title: card?.title || '',
-            description: card?.description || '',
-            priority: card?.priority ?? 0,
-            listId: card?.listId ?? null,
-            boardId: card?.boardId ?? '',
-            organizationId: card?.organizationId ?? '',
-        },
-    });
+        handleSubmit,
+    } = form;
 
     return (
-        <Card size={small ? '2' : '4'} className={styles.card}>
-            {/* Only show title and close if not hidden */}
-            {!hideTitle && (
-                <Heading as='h1' size='6' align='center' mb='5'>
-                    {card?.id ? 'Update' : 'Create'} Card
-                </Heading>
-            )}
+        <Card className={styles.card}>
+            <Heading as='h1' size='6' align='center' mb='5'>
+                {card?.id ? 'Update' : 'Create'} Card
+            </Heading>
+
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Flex direction='column' gap='3'>
                     <label>

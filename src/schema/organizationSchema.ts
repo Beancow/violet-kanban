@@ -11,3 +11,5 @@ export const OrganizationSchema = z.object({
         .union([z.url('Logo URL must be a valid URL'), z.literal('')])
         .optional(),
 });
+
+export type OrganizationFormValues = z.infer<typeof OrganizationSchema>;

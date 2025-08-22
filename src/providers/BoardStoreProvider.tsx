@@ -12,7 +12,7 @@ export function BoardStoreProvider({
         // initialization related to boards can live here.
         try {
             initializeBoardStore();
-        } catch (_) {
+        } catch {
             // Swallow errors during SSR detection or in environments without window
         }
         return () => {

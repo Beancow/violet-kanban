@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthAndOrgContext } from '@/lib/serverUtils';
-import { getBoardsForOrganizationServerAction } from '@/lib/firebase/boardServerActions';
+import {
+    getBoardsForOrganizationServerAction,
+    createBoardServerAction,
+} from '@/lib/firebase/boardServerActions';
 
 export async function GET(_request: NextRequest) {
     try {
         const { orgId } = await getAuthAndOrgContext(_request);
-    const result = await getBoardsForOrganizationServerAction(orgId);
+        const result = await getBoardsForOrganizationServerAction(orgId);
         if (!result.success) {
             return NextResponse.json(
                 { success: false, error: result.error?.message },
@@ -22,10 +25,38 @@ export async function GET(_request: NextRequest) {
 }
 
 // Example POST handler for /api/boards
-export async function POST(request: NextRequest) {
-    // TODO: Replace with real board creation logic
-    return NextResponse.json({
-        success: true,
-        message: 'Board created.',
-    });
+export async function POST(_request: NextRequest) {
+    try {
+        const { user, orgId } = await getAuthAndOrgContext(_request);
+
+        // Expect the client to send { data: Omit<Board, 'id'> }
+        const body = await _request.json();
+        const data = body?.data;
+
+        if (!data) {
+            return NextResponse.json(
+                { success: false, error: 'Request body must include data' },
+                { status: 400 }
+            );
+        }
+
+        const result = await createBoardServerAction({ data, user, orgId });
+
+        if (!result.success) {
+            return NextResponse.json(
+                { success: false, error: result.error?.message },
+                { status: 400 }
+            );
+        }
+
+        return NextResponse.json(
+            { success: true, board: result.data?.board },
+            { status: 201 }
+        );
+    } catch (error) {
+        return NextResponse.json(
+            { success: false, error: (error as Error).message },
+            { status: 500 }
+        );
+    }
 }

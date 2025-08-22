@@ -6,7 +6,7 @@ export function CardStoreProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         try {
             initializeCardStore();
-        } catch (_) {
+        } catch {
             // ignore in SSR
         }
         return () => {};

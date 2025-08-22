@@ -15,20 +15,18 @@ export const createCardServerAction = async ({
     orgId,
     listId,
     boardId,
-    tempId,
 }: {
     data: Omit<BoardCard, 'id'>;
     user: User;
     orgId: string;
     listId: string;
     boardId: string;
-    tempId: string;
 }): Promise<CreateCardResult> => {
     try {
         const adminFirestore = await getAdminFirestore();
 
-        // Only require orgId, boardId, user.id, and tempId
-        if (!orgId || !boardId || !user?.id || !tempId) {
+        // Only require orgId, boardId, and user.id
+        if (!orgId || !boardId || !user?.id) {
             const error = new Error('Missing required IDs for card creation.');
             return { success: false, error };
         }
@@ -59,7 +57,6 @@ export const createCardServerAction = async ({
         return {
             success: true,
             data: {
-                tempId: tempId,
                 card: newCard,
             },
         };

@@ -21,6 +21,7 @@ export const BoardCardSchema = z.object({
 export const BoardSchema = z.object({
     title: z.string().min(2, 'Board title must be at least 2 characters'),
     description: z.string().min(5, 'Description must be at least 5 characters'),
+    organizationId: z.string(),
     createdBy: z
         .object({
             userId: z.string(),
