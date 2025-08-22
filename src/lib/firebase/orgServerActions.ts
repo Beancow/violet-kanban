@@ -9,7 +9,7 @@ import {
 } from '@/types/appState.type';
 
 import { adminDataConverter } from './adminDataConverter';
-import * as sentry from '@sentry/nextjs';
+import * as sentry from '@/lib/sentryWrapper';
 
 // Dynamic import for firebase-admin-init
 const getAdminFirestore = async () => {
