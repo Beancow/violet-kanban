@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
-import { registerBoardAdapter } from './adapter';
 import { reducer as boardReducer } from './reducers/boardReducer';
 import type { ReactNode } from 'react';
 import type { Board } from '../types/appState.type';
@@ -56,15 +55,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'REMOVE_BOARD', boardId }),
     };
 
-    // Register runtime adapter for non-React code that may call getOrCreateBoardStore()
-    React.useEffect(() => {
-        registerBoardAdapter({
-            addBoard: api.addBoard,
-            updateBoard: api.updateBoard,
-            removeBoard: api.removeBoard,
-        });
-        return () => registerBoardAdapter(null as any);
-    }, []);
+    // No runtime adapter registered; providers are self-contained.
 
     return (
         <BoardContext.Provider value={api}>{children}</BoardContext.Provider>

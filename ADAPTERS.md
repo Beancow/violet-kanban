@@ -1,9 +1,6 @@
 Runtime adapters (migration bridge)
 
-Purpose
-
--   Provide a tiny, strictly-typed compatibility layer so existing non-React code (or code that expects a Zustand StoreApi) can continue to work while providers and reducers are introduced incrementally.
--   Keep the adapter surface minimal: expose only the functions callers need (for example: addBoard, updateBoard, removeBoard). This avoids leaking broad store internals and makes removal straightforward.
+NOTE: Adapters have been removed from the codebase in this refactor. If you need to reintroduce a migration bridge, consult the previous commits for the original design documented below.
 
 Design and types (recommended)
 
