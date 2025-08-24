@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import type { UiApi } from '@/types/provider-apis';
 
-type OpenModal = {
-    name: string | null;
-    props?: Record<string, unknown> | null;
-};
-
-type UiApi = {
-    openModal: OpenModal;
-    open: (name: string, props?: Record<string, unknown>) => void;
-    close: () => void;
-    toggle: (name: string, props?: Record<string, unknown>) => void;
-};
+type OpenModal = UiApi['openModal'];
 
 const UiContext = createContext<UiApi | null>(null);
 

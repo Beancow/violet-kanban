@@ -1,19 +1,7 @@
 'use client';
 import React, { createContext, useContext, useReducer } from 'react';
 import type { ReactNode } from 'react';
-
-type SyncError = {
-    timestamp: number;
-    message: string;
-    actionType?: string;
-    payload?: unknown;
-};
-
-type SyncErrorApi = {
-    errors: SyncError[];
-    addError: (err: SyncError) => void;
-    clearErrors: () => void;
-};
+import type { SyncErrorApi, SyncError } from '@/types/provider-apis';
 
 type State = { errors: SyncError[] };
 

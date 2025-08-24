@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { Draft } from 'immer';
+import * as Sentry from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import type { BoardCard } from '../types/appState.type';
 import { reducer as cardReducer } from './reducers/cardReducer';
@@ -11,7 +11,7 @@ type State = {
     orphanedCards?: BoardCard[];
 };
 
-type Action =
+type _Action =
     | { type: 'ADD_CARD'; card: BoardCard }
     | { type: 'UPDATE_CARD'; card: Partial<BoardCard> & { id: string } }
     | { type: 'REMOVE_CARD'; cardId: string }
@@ -36,16 +36,29 @@ export function CardProvider({ children }: { children: ReactNode }) {
             if (raw) initial = JSON.parse(raw) as State;
         }
     } catch (e) {
+        // Log parse/read errors when hydrating cards from localStorage.
+        console.error('[card] failed to read from localStorage', e);
+        try {
+            Sentry.captureException(e);
+        } catch {
+            /* ignore */
+        }
         initial = { cards: [], orphanedCards: [] };
     }
 
-    const [state, dispatch] = useReducer(cardReducer as any, initial);
+    const [state, dispatch] = useReducer(cardReducer, initial);
 
     useEffect(() => {
         try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {
-            // ignore
+            // Log write errors for diagnostics (e.g., storage quota exceeded)
+            console.error('[card] failed to write to localStorage', e);
+            try {
+                Sentry.captureException(e);
+            } catch {
+                /* ignore */
+            }
         }
     }, [state]);
 

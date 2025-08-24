@@ -1,13 +1,11 @@
 import { Draft, produce } from 'immer';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
+import type { QueueStateShape } from '@/types/state-shapes';
+import { getActionItemId, squashQueueActions } from '@/providers/helpers';
 
-export type QueueState = {
-    boardActionQueue: VioletKanbanAction[];
-    listActionQueue: VioletKanbanAction[];
-    cardActionQueue: VioletKanbanAction[];
-};
+export type QueueState = QueueStateShape;
 
-type Action =
+export type QueueAction =
     | { type: 'ENQUEUE_BOARD'; action: VioletKanbanAction }
     | { type: 'ENQUEUE_LIST'; action: VioletKanbanAction }
     | { type: 'ENQUEUE_CARD'; action: VioletKanbanAction }
@@ -16,38 +14,7 @@ type Action =
     | { type: 'REMOVE_CARD_BY_ID'; itemId: string }
     | { type: 'SET_STATE'; state: QueueState };
 
-function getActionItemId(action: VioletKanbanAction): string | undefined {
-    try {
-        const payload = (action as any).payload as any;
-        if (payload) {
-            if (payload.data && typeof payload.data === 'object') {
-                if (typeof payload.data.id === 'string') return payload.data.id;
-                if (typeof payload.data.tempId === 'string')
-                    return payload.data.tempId;
-            }
-            if (typeof payload.id === 'string') return payload.id;
-            if (typeof payload.tempId === 'string') return payload.tempId;
-        }
-    } catch (e) {
-        // ignore
-    }
-    return undefined;
-}
-
-function squashQueueActions(
-    queue: VioletKanbanAction[],
-    newAction: VioletKanbanAction
-) {
-    const newId = getActionItemId(newAction);
-    const newType = newAction.type;
-    const filteredQueue = queue.filter((action) => {
-        const id = getActionItemId(action);
-        return !(id && newId && id === newId && action.type === newType);
-    });
-    return [...filteredQueue, newAction];
-}
-
-export function reducer(state: QueueState, action: Action): QueueState {
+export function reducer(state: QueueState, action: QueueAction): QueueState {
     return produce(state, (draft: Draft<QueueState>) => {
         switch (action.type) {
             case 'ENQUEUE_BOARD':

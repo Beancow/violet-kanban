@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { Draft } from 'immer';
+import * as Sentry from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import { reducer as listReducer } from './reducers/listReducer';
 import { registerListAdapter } from './adapter';
@@ -10,7 +10,7 @@ type State = {
     lists: BoardList[];
 };
 
-type Action =
+type _Action =
     | { type: 'ADD_LIST'; list: BoardList }
     | { type: 'UPDATE_LIST'; list: Partial<BoardList> & { id: string } }
     | { type: 'REMOVE_LIST'; listId: string }
@@ -33,16 +33,29 @@ export function ListProvider({ children }: { children: ReactNode }) {
             if (raw) initial = JSON.parse(raw) as State;
         }
     } catch (e) {
+        // Log parse/read errors when hydrating lists from localStorage.
+        console.error('[list] failed to read from localStorage', e);
+        try {
+            Sentry.captureException(e);
+        } catch {
+            /* ignore */
+        }
         initial = { lists: [] };
     }
 
-    const [state, dispatch] = useReducer(listReducer as any, initial);
+    const [state, dispatch] = useReducer(listReducer, initial);
 
     useEffect(() => {
         try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {
-            // ignore
+            // Log write errors for diagnostics (e.g., storage quota exceeded)
+            console.error('[list] failed to write to localStorage', e);
+            try {
+                Sentry.captureException(e);
+            } catch {
+                /* ignore */
+            }
         }
     }, [state]);
 

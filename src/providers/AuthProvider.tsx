@@ -2,15 +2,7 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthUser } from '@/types/appState.type';
-
-type AuthApi = {
-    authUser: AuthUser | null;
-    idToken: string | null;
-    loading: boolean;
-    loginWithPopup: () => Promise<void> | void;
-    logout: () => Promise<void> | void;
-    refreshIdToken: () => Promise<void>;
-};
+import type { AuthApi } from '@/types/provider-apis';
 
 type AuthState = AuthApi;
 

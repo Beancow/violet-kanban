@@ -1,15 +1,13 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { Draft } from 'immer';
+import * as Sentry from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
-import { reducer as tempIdMapReducer } from './reducers/tempIdMapReducer';
+import {
+    reducer as tempIdMapReducer,
+    TempIdMapAction as _TempIdMapAction,
+} from './reducers/tempIdMapReducer';
 
 export type TempIdMapState = Record<string, string>;
-
-type Action =
-    | { type: 'SET_MAPPING'; tempId: string; realId: string }
-    | { type: 'CLEAR_MAPPING'; tempId: string }
-    | { type: 'CLEAR_ALL' };
 
 const STORAGE_KEY = 'violet-kanban-tempidmap-storage';
 
@@ -31,15 +29,28 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
             if (raw) initial = JSON.parse(raw);
         }
     } catch (e) {
+        // Log parse errors when reading localStorage for debugging.
+        console.error('[tempIdMap] failed to read from localStorage', e);
+        try {
+            Sentry.captureException(e);
+        } catch {
+            /* ignore */
+        }
         initial = {};
     }
-    const [state, dispatch] = useReducer(tempIdMapReducer as any, initial);
+    const [state, dispatch] = useReducer(tempIdMapReducer, initial);
 
     useEffect(() => {
         try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {
-            // ignore
+            // Log write errors for diagnostics (e.g., storage quota exceeded)
+            console.error('[tempIdMap] failed to write to localStorage', e);
+            try {
+                Sentry.captureException(e);
+            } catch {
+                /* ignore */
+            }
         }
     }, [state]);
 

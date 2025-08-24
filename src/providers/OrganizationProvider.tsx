@@ -2,17 +2,7 @@
 import React, { createContext, useContext, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import type { Organization } from '@/types/appState.type';
-
-type OrganizationApi = {
-    organizations: Organization[];
-    loading: boolean;
-    currentOrganizationId: string | null;
-    currentOrganization: Organization | null;
-    setCurrentOrganizationId: (id: string | null) => void;
-    setOrganizations: (orgs: Organization[]) => void;
-    setLoading: (loading: boolean) => void;
-    refetchOrganizations: () => Promise<void>;
-};
+import type { OrganizationApi } from '@/types/provider-apis';
 
 type State = {
     organizations: Organization[];

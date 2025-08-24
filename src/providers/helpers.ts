@@ -19,7 +19,7 @@ export function detectActionConflicts(
     actionQueue.forEach((action) => {
         // helper to safely pull payload.data when present
         const payload = hasPayload(action) ? action.payload : undefined;
-        const data =
+        const _data =
             payload &&
             isObject(payload) &&
             'data' in payload &&
@@ -136,9 +136,16 @@ function hasTempIdField(x: unknown): x is { tempId: string } {
     );
 }
 
+function hasTimestampField(x: unknown): x is { timestamp: number } {
+    return (
+        isObject(x) &&
+        typeof (x as Record<string, unknown>).timestamp === 'number'
+    );
+}
+
 function isSyncActionWithData(
     action: VioletKanbanAction
-): action is SyncAction & { payload: { data: unknown } } {
+): action is SyncAction & { payload: { data: Record<string, unknown> } } {
     // SyncAction types that have payload.data are the update/create actions for board/list/card
     if (!hasPayload(action)) return false;
     const payload = action.payload;
@@ -202,14 +209,35 @@ export function isActionStale(
     return (action.timestamp ?? 0) < serverMs;
 }
 
+function getActionTimestamp(action: unknown): number | undefined {
+    if (hasTimestampField(action)) return action.timestamp;
+    // also check nested payload (some actions put timestamp on the payload)
+    if (
+        isObject(action) &&
+        'payload' in action &&
+        isObject((action as Record<string, unknown>).payload)
+    ) {
+        const p = (action as Record<string, unknown>).payload as Record<
+            string,
+            unknown
+        >;
+        const t = p.timestamp as unknown;
+        return typeof t === 'number' ? (t as number) : undefined;
+    }
+    return undefined;
+}
+
 // Specific helper to check card update actions against server card list
-export function isCardActionStale(action: any, cards: BoardCard[] = []) {
-    if (!action || !action.payload) return false;
-    const payload = action.payload as any;
-    const id = payload?.data?.id ?? payload?.id;
+export function isCardActionStale(
+    action: VioletKanbanAction | undefined,
+    cards: BoardCard[] = []
+) {
+    if (!action) return false;
+    const id = getActionItemId(action);
     if (!id) return false;
     const serverCard = cards.find((c) => c.id === id);
     if (!serverCard) return false;
     const serverUpdatedAt = extractUpdatedAt(serverCard.updatedAt);
-    return isActionStale(action, serverUpdatedAt);
+    const ts = getActionTimestamp(action);
+    return isActionStale(ts ? { timestamp: ts } : undefined, serverUpdatedAt);
 }

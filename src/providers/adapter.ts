@@ -1,11 +1,16 @@
-// Runtime adapters for non-React code to interact with provider surfaces.
-//
-// Providers should register a minimal API surface on mount using the
-// `register*Adapter` helpers below. Non-React consumers (workers, background
-// scripts, or other integration points) may call the corresponding
-// `get*Adapter()` to obtain the registered callbacks. Adapters are thin
-// shims only — slice reducers remain pure and the data sync worker is the
-// single place performing network I/O.
+/*
+ * Runtime adapters for non-React code to interact with provider surfaces.
+ *
+ * Purpose and maintenance note:
+ * - This module is intentionally a small "test seam" and a non-React bridge.
+ * - Providers register their runtime callbacks with `register*Adapter` when
+ *   they mount on the client. Non-React consumers (web workers, background
+ *   scripts, or test harnesses) use `get*Adapter()` to obtain those callbacks.
+ * - Keep this file in place unless you have migrated all tests to render the
+ *   provider in a test DOM and converted any non-React consumers to call the
+ *   provider hook API. Removing this file prematurely will break tests and
+ *   any integrations that rely on the adapter pattern.
+ */
 
 type BoardAdapter = {
     addBoard?: (b: import('../types/appState.type').Board) => void;

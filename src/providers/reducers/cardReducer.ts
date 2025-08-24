@@ -1,19 +1,16 @@
 import { Draft, produce } from 'immer';
 import type { BoardCard } from '../../types/appState.type';
+import type { CardStateShape } from '@/types/state-shapes';
 
-export type CardState = {
-    cards: BoardCard[];
-    orphanedCards?: BoardCard[];
-};
+export type CardState = CardStateShape;
 
-type Action =
+export type CardAction =
     | { type: 'ADD_CARD'; card: BoardCard }
     | { type: 'UPDATE_CARD'; card: Partial<BoardCard> & { id: string } }
     | { type: 'REMOVE_CARD'; cardId: string }
     | { type: 'MARK_ORPHANED'; cardId: string }
     | { type: 'SET_CARDS'; cards: BoardCard[] };
-
-export function reducer(state: CardState, action: Action): CardState {
+export function reducer(state: CardState, action: CardAction): CardState {
     return produce(state, (draft: Draft<CardState>) => {
         switch (action.type) {
             case 'ADD_CARD':

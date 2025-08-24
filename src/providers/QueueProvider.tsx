@@ -1,14 +1,19 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { Draft } from 'immer';
+import * as Sentry from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
-import { useTempIdMap } from './TempIdMapProvider';
-import { useBoards } from './BoardProvider';
-import { useLists } from './ListProvider';
-import { useCards } from './CardProvider';
+// Provider hooks imported but not directly used in this file
+// import { useTempIdMap } from './TempIdMapProvider';
+// import { useBoards } from './BoardProvider';
+// import { useLists } from './ListProvider';
+// import { useCards } from './CardProvider';
 import { reducer as queueReducer } from './reducers/queueReducer';
 import { registerQueueAdapter } from './adapter';
+import {
+    getActionItemId as _getActionItemId,
+    squashQueueActions as _squashQueueActions,
+} from './helpers';
 
 // Minimal queue reducer using same concepts: queues for board/list/card actions
 
@@ -18,7 +23,7 @@ type State = {
     cardActionQueue: VioletKanbanAction[];
 };
 
-type Action =
+type _Action =
     | { type: 'ENQUEUE_BOARD'; action: VioletKanbanAction }
     | { type: 'ENQUEUE_LIST'; action: VioletKanbanAction }
     | { type: 'ENQUEUE_CARD'; action: VioletKanbanAction }
@@ -28,38 +33,6 @@ type Action =
     | { type: 'SET_STATE'; state: State };
 
 const STORAGE_KEY = 'violet-kanban-queue-storage';
-
-function getActionItemId(action: VioletKanbanAction): string | undefined {
-    // ported simple helper: check payload.data.id or payload.id or payload.tempId
-    try {
-        const payload = (action as any).payload as any;
-        if (payload) {
-            if (payload.data && typeof payload.data === 'object') {
-                if (typeof payload.data.id === 'string') return payload.data.id;
-                if (typeof payload.data.tempId === 'string')
-                    return payload.data.tempId;
-            }
-            if (typeof payload.id === 'string') return payload.id;
-            if (typeof payload.tempId === 'string') return payload.tempId;
-        }
-    } catch (e) {
-        // ignore
-    }
-    return undefined;
-}
-
-function squashQueueActions(
-    queue: VioletKanbanAction[],
-    newAction: VioletKanbanAction
-) {
-    const newId = getActionItemId(newAction);
-    const newType = newAction.type;
-    const filteredQueue = queue.filter((action) => {
-        const id = getActionItemId(action);
-        return !(id && newId && id === newId && action.type === newType);
-    });
-    return [...filteredQueue, newAction];
-}
 
 // reducer lives in src/providers/reducers/queueReducer.ts
 
@@ -85,6 +58,13 @@ export function QueueProvider({ children }: { children: ReactNode }) {
             if (raw) initial = JSON.parse(raw) as State;
         }
     } catch (e) {
+        // Log parse/read errors when hydrating queue from localStorage.
+        console.error('[queue] failed to read from localStorage', e);
+        try {
+            Sentry.captureException(e);
+        } catch {
+            /* ignore */
+        }
         initial = {
             boardActionQueue: [],
             listActionQueue: [],
@@ -92,13 +72,19 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         };
     }
 
-    const [state, dispatch] = useReducer(queueReducer as any, initial);
+    const [state, dispatch] = useReducer(queueReducer, initial);
 
     useEffect(() => {
         try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {
-            // ignore
+            // Log write errors for diagnostics (e.g., storage quota exceeded)
+            console.error('[queue] failed to write to localStorage', e);
+            try {
+                Sentry.captureException(e);
+            } catch {
+                /* ignore */
+            }
         }
     }, [state]);
 

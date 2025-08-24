@@ -1,17 +1,15 @@
 import { Draft, produce } from 'immer';
 import type { Board } from '../../types/appState.type';
+import type { BoardStateShape } from '@/types/state-shapes';
 
-export type BoardState = {
-    boards: Board[];
-};
+export type BoardState = BoardStateShape;
 
-type Action =
+export type BoardAction =
     | { type: 'ADD_BOARD'; board: Board }
     | { type: 'UPDATE_BOARD'; board: Partial<Board> & { id: string } }
     | { type: 'REMOVE_BOARD'; boardId: string }
     | { type: 'SET_BOARDS'; boards: Board[] };
-
-export function reducer(state: BoardState, action: Action): BoardState {
+export function reducer(state: BoardState, action: BoardAction): BoardState {
     return produce(state, (draft: Draft<BoardState>) => {
         switch (action.type) {
             case 'ADD_BOARD':

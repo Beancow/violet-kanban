@@ -1,13 +1,16 @@
 import { Draft, produce } from 'immer';
+import type { TempIdMapStateShape } from '@/types/state-shapes';
 
-export type TempIdMapState = Record<string, string>;
+export type TempIdMapState = TempIdMapStateShape;
 
-type Action =
+export type TempIdMapAction =
     | { type: 'SET_MAPPING'; tempId: string; realId: string }
     | { type: 'CLEAR_MAPPING'; tempId: string }
     | { type: 'CLEAR_ALL' };
-
-export function reducer(state: TempIdMapState, action: Action): TempIdMapState {
+export function reducer(
+    state: TempIdMapState,
+    action: TempIdMapAction
+): TempIdMapState {
     return produce(state, (draft: Draft<TempIdMapState>) => {
         switch (action.type) {
             case 'SET_MAPPING':
