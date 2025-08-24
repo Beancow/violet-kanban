@@ -1,7 +1,6 @@
 import React from 'react';
-import renderer, { act } from 'react-test-renderer';
+import { act } from 'react';
 import AppProvider from '../../src/providers/AppProvider';
-import TestConsumer from '../helpers/TestConsumer';
 
 describe('Providers integration', () => {
     beforeEach(() => {

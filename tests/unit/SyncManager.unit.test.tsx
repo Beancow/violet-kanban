@@ -1,5 +1,11 @@
+/* @jest-environment jsdom */
 import React from 'react';
-import renderer, { act } from 'react-test-renderer';
+import { act } from 'react';
+import { renderWithProviders } from '../utils/renderWithProviders';
+import {
+    mockAuthProvider,
+    mockOrganizationProvider,
+} from '../utils/providerMocks';
 import { installFakeWorker, uninstallFakeWorker } from '../helpers/fakeWorker';
 
 // createAction used in mocked queue
@@ -15,6 +21,8 @@ const createAction = {
 } as any;
 
 // Mock QueueProvider hook to return a stable queue containing the createAction
+const enqueueCardActionMock = jest.fn();
+
 jest.mock('../../src/providers/QueueProvider', () => ({
     useQueues: () => ({
         state: {
@@ -22,21 +30,24 @@ jest.mock('../../src/providers/QueueProvider', () => ({
             listActionQueue: [],
             cardActionQueue: [createAction],
         },
+        // provide enqueue helpers so SyncManager can call them
+        enqueueCardAction: enqueueCardActionMock,
+        enqueueListAction: jest.fn(),
+        enqueueBoardAction: jest.fn(),
     }),
 }));
 
-// Mock auth provider
-jest.mock('../../src/providers/AuthProvider', () => ({
-    useAuthProvider: () => ({
+// For Auth and Organization we use the test provider mocks via renderWithProviders
+jest.mock('../../src/providers/AuthProvider', () =>
+    mockAuthProvider({
         idToken: 'idtok',
         refreshIdToken: jest.fn().mockResolvedValue(undefined),
-    }),
-}));
+    })
+);
 
-// Mock organization provider
-jest.mock('../../src/providers/OrganizationProvider', () => ({
-    useOrganizationProvider: () => ({ currentOrganizationId: 'org-1' }),
-}));
+jest.mock('../../src/providers/OrganizationProvider', () =>
+    mockOrganizationProvider({ currentOrganizationId: 'org-1' })
+);
 
 // Mock SyncErrorProvider
 jest.mock('../../src/providers/SyncErrorProvider', () => ({
@@ -47,23 +58,12 @@ jest.mock('../../src/providers/SyncErrorProvider', () => ({
     }),
 }));
 
-// Provide a mock adapter that we can inspect
-const adapterMock = {
-    enqueueCardAction: jest.fn(),
-    enqueueListAction: jest.fn(),
-    enqueueBoardAction: jest.fn(),
-};
-
-jest.mock('@/providers/adapter', () => ({
-    getQueueAdapter: () => adapterMock,
-}));
-
 // Import under test after mocks
 import { SyncManager } from '../../src/components/SyncManager';
 
 describe('SyncManager (unit)', () => {
     beforeEach(() => {
-        adapterMock.enqueueCardAction.mockClear();
+        enqueueCardActionMock.mockClear();
         const mockFetch = jest.fn(async (url: string) => {
             if (url === '/api/cards/create') {
                 return {
@@ -97,7 +97,7 @@ describe('SyncManager (unit)', () => {
     test('worker ACTION_SUCCESS causes enqueue RECONCILE_CARD via adapter', async () => {
         let tree: any;
         act(() => {
-            tree = renderer.create(<SyncManager />);
+            tree = renderWithProviders(<SyncManager />);
         });
 
         // retrieve the last fake worker instance and simulate ACTION_SUCCESS
@@ -119,9 +119,9 @@ describe('SyncManager (unit)', () => {
             }
         });
 
-        // The SyncManager should have enqueued a reconcile via the adapter
-        expect(adapterMock.enqueueCardAction).toHaveBeenCalled();
-        const calledWith = adapterMock.enqueueCardAction.mock.calls[0][0];
+        // The SyncManager should have enqueued a reconcile via the queue provider
+        expect(enqueueCardActionMock).toHaveBeenCalled();
+        const calledWith = enqueueCardActionMock.mock.calls[0][0];
         expect(calledWith.type).toMatch(/RECONCILE_CARD|RECONCILE/i);
 
         act(() => {

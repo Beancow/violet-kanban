@@ -1,18 +1,12 @@
-import boardReducer, {
-    BoardState,
-} from '../../src/providers/reducers/boardReducer';
-import listReducer, {
-    ListState,
-} from '../../src/providers/reducers/listReducer';
-import cardReducer, {
-    CardState,
-} from '../../src/providers/reducers/cardReducer';
-import queueReducer, {
-    QueueState,
-} from '../../src/providers/reducers/queueReducer';
+import boardReducer, { BoardState } from '@/providers/reducers/boardReducer';
+import listReducer, { ListState } from '@/providers/reducers/listReducer';
+import cardReducer, { CardState } from '@/providers/reducers/cardReducer';
+import queueReducer, { QueueState } from '@/providers/reducers/queueReducer';
 import tempIdMapReducer, {
     TempIdMapState,
-} from '../../src/providers/reducers/tempIdMapReducer';
+} from '@/providers/reducers/tempIdMapReducer';
+import type { Board, BoardList, BoardCard } from '@/types/appState.type';
+import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 
 export type ReducerHarness = {
     boardState: BoardState;
@@ -21,19 +15,19 @@ export type ReducerHarness = {
     queueState: QueueState;
     tempMapState: TempIdMapState;
 
-    addBoard: (b: any) => void;
-    getBoards: () => any[];
-    addList: (l: any) => void;
-    getLists: () => any[];
-    addCard: (c: any) => void;
-    getCards: () => any[];
-    enqueueBoardAction: (a: any) => void;
-    enqueueListAction: (a: any) => void;
-    enqueueCardAction: (a: any) => void;
+    addBoard: (b: Board) => void;
+    getBoards: () => Board[];
+    addList: (l: BoardList) => void;
+    getLists: () => BoardList[];
+    addCard: (c: BoardCard) => void;
+    getCards: () => BoardCard[];
+    enqueueBoardAction: (a: VioletKanbanAction) => void;
+    enqueueListAction: (a: VioletKanbanAction) => void;
+    enqueueCardAction: (a: VioletKanbanAction) => void;
     removeBoardAction: (id: string) => void;
     removeListAction: (id: string) => void;
     removeCardAction: (id: string) => void;
-    getQueue: () => any[];
+    getQueue: () => VioletKanbanAction[];
     setMapping: (tempId: string, realId: string) => void;
     getRealId: (tempId: string) => string | undefined;
     getTempMap: () => Record<string, string>;
@@ -72,17 +66,17 @@ export function createReducerHarness(): ReducerHarness {
         cardState,
         queueState,
         tempMapState,
-        addBoard: (b: any) => dispatchBoard({ type: 'ADD_BOARD', board: b }),
+        addBoard: (b: Board) => dispatchBoard({ type: 'ADD_BOARD', board: b }),
         getBoards: () => boardState.boards,
-        addList: (l: any) => dispatchList({ type: 'ADD_LIST', list: l }),
+        addList: (l: BoardList) => dispatchList({ type: 'ADD_LIST', list: l }),
         getLists: () => listState.lists,
-        addCard: (c: any) => dispatchCard({ type: 'ADD_CARD', card: c }),
+        addCard: (c: BoardCard) => dispatchCard({ type: 'ADD_CARD', card: c }),
         getCards: () => cardState.cards,
-        enqueueBoardAction: (a: any) =>
+        enqueueBoardAction: (a: VioletKanbanAction) =>
             dispatchQueue({ type: 'ENQUEUE_BOARD', action: a }),
-        enqueueListAction: (a: any) =>
+        enqueueListAction: (a: VioletKanbanAction) =>
             dispatchQueue({ type: 'ENQUEUE_LIST', action: a }),
-        enqueueCardAction: (a: any) =>
+        enqueueCardAction: (a: VioletKanbanAction) =>
             dispatchQueue({ type: 'ENQUEUE_CARD', action: a }),
         removeBoardAction: (id: string) => {
             // reconcile create actions: add board if mapped and not present
@@ -98,13 +92,13 @@ export function createReducerHarness(): ReducerHarness {
             const action =
                 idx >= 0 ? queueState.boardActionQueue[idx] : undefined;
             if (action && /create/i.test(action.type)) {
-                const tempId = (action.payload &&
-                    (action.payload.tempId || action.payload.data?.tempId)) as
+                const payload = (action.payload as any) || {};
+                const tempId = (payload.tempId || payload.data?.tempId) as
                     | string
                     | undefined;
                 const realId = tempId ? tempMapState[tempId] : undefined;
                 const newBoard = {
-                    ...(action.payload?.data || {}),
+                    ...(payload.data || {}),
                     id: realId,
                 } as any;
                 if (realId) {
@@ -130,13 +124,13 @@ export function createReducerHarness(): ReducerHarness {
             const action =
                 idx >= 0 ? queueState.listActionQueue[idx] : undefined;
             if (action && /create/i.test(action.type)) {
-                const tempId = (action.payload &&
-                    (action.payload.tempId || action.payload.data?.tempId)) as
+                const payload = (action.payload as any) || {};
+                const tempId = (payload.tempId || payload.data?.tempId) as
                     | string
                     | undefined;
                 const realId = tempId ? tempMapState[tempId] : undefined;
                 const newList = {
-                    ...(action.payload?.data || {}),
+                    ...(payload.data || {}),
                     id: realId,
                 } as any;
                 if (realId) {
@@ -160,13 +154,13 @@ export function createReducerHarness(): ReducerHarness {
             const action =
                 idx >= 0 ? queueState.cardActionQueue[idx] : undefined;
             if (action && /create/i.test(action.type)) {
-                const tempId = (action.payload &&
-                    (action.payload.tempId || action.payload.data?.tempId)) as
+                const payload = (action.payload as any) || {};
+                const tempId = (payload.tempId || payload.data?.tempId) as
                     | string
                     | undefined;
                 const realId = tempId ? tempMapState[tempId] : undefined;
                 const newCard = {
-                    ...(action.payload?.data || {}),
+                    ...(payload.data || {}),
                     id: realId,
                 } as any;
                 if (realId) {
@@ -186,7 +180,7 @@ export function createReducerHarness(): ReducerHarness {
             dispatchTempMap({ type: 'SET_MAPPING', tempId, realId }),
         getRealId: (tempId: string) => tempMapState[tempId],
         getTempMap: () => tempMapState,
-    } as any;
+    };
 
     return api;
 }

@@ -1,9 +1,9 @@
-import { act } from 'react-test-renderer';
-import { mountAppWithTestApi } from '../helpers/TestConsumer';
+import { act } from 'react';
+import { createReducerHarness } from '../helpers/reducerHarness';
 
 describe('AppProvider integration', () => {
     it('mounts providers and updates state via hooks', () => {
-        const { api, unmount } = mountAppWithTestApi();
+        const api = createReducerHarness();
 
         act(() => {
             api.addBoard({ id: 'b-int-1', name: 'Integration Board' } as any);
@@ -27,6 +27,6 @@ describe('AppProvider integration', () => {
             queueState.find((a: any) => a.payload?.data?.id === 'c-int-1')
         ).toBeTruthy();
 
-        unmount();
+        // no unmount step needed for reducer harness
     });
 });
