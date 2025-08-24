@@ -36,6 +36,11 @@ Run only the smoke tests:
 npm run test:smoke
 ```
 
+Recommended local test workflow
+
+-   Use `jest` for fast feedback while developing UI and component behavior locally. It runs quickly and is ideal for single-file or component-focused runs (for example, `npx jest tests/components/modals/CreateBoardModal.test.tsx`).
+-   Keep type-checking strict in CI: run `npx tsc --noEmit` in CI to enforce full TypeScript checks (this should be part of your CI pipeline). Combining quick Jest runs locally with an authoritative `tsc --noEmit` step in CI gives both fast dev feedback and strict type safety in PRs.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
@@ -81,6 +86,10 @@ Recommended patterns:
     ```
 
 This keeps update code concise and avoids repeated `Object.entries` boilerplate.
+
+See the developer checklist for common commands and recommended workflows:
+
+-   `DEVELOPER.md`
 
 ## Local Sentry controls for development
 

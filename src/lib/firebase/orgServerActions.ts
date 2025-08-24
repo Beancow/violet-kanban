@@ -17,7 +17,7 @@ const getAdminFirestore = async () => {
     return getAdminFirestore();
 };
 
-export async function getOrganizationServerAction(orgId: string, uid: string) {
+export async function getOrganizationServerAction(orgId: string, _uid: string) {
     console.log(`Attempting to fetch organization: ${orgId}`);
     try {
         const adminFirestore = await getAdminFirestore();

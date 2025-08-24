@@ -2,7 +2,7 @@
 import { User } from '@/types/appState.type';
 import { adminDataConverter } from './adminDataConverter';
 import { getAdminAuth, getAdminFirestore } from './firebase-admin-init';
-import { FieldPath, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function getUserServerAction(
     userId: string

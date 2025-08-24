@@ -18,7 +18,7 @@
             "@/components/*": ["./src/components/*"],
             "@/hooks/*": ["./src/hooks/*"],
             "@/types/*": ["./src/types/*"],
-            "@/schemas/*": ["./src/schemas/*"],
+            "@/schema/*": ["./src/schema/*"],
             "@/utils/*": ["./src/utils/*"],
             "@/lib/*": ["./src/lib/*"],
             "@/tests/*": ["./src/tests/*"]
@@ -49,7 +49,8 @@
         "src/**/*.tsx",
         ".next/types/**/*.ts",
         "src/types/**/*.d.ts",
-        "src/schema/organization.schema"
+        "src/schema/organization.schema",
+        "tests/types/**/*.d.ts"
     ],
     "exclude": ["node_modules", "public/**/*", ".next"]
 }
