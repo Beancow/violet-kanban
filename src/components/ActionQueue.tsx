@@ -7,7 +7,8 @@ import { useQueues } from '@/providers/QueueProvider';
 import { getActionItemId, detectActionConflicts } from '@/providers/helpers';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
-import { SyncAction } from '@/types/worker.type';
+// SyncAction type was imported but not used here; leave commented for future use
+// import { SyncAction } from '@/types/worker.type';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 

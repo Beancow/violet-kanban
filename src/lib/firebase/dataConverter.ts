@@ -3,7 +3,9 @@ import {
     DocumentData,
     QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import * as sentry from '@/lib/sentryWrapper';
+// Avoid importing server-side Sentry wrapper into client-side hot paths.
+// Use console.debug here instead of Sentry.captureMessage to prevent any
+// accidental bundling or no-op overhead in client bundles.
 
 export const dataConverter = <T>(): FirestoreDataConverter<T> => ({
     toFirestore(data: T): DocumentData {
@@ -22,9 +24,10 @@ export const dataConverter = <T>(): FirestoreDataConverter<T> => ({
     },
     fromFirestore(snapshot: QueryDocumentSnapshot<DocumentData>): T {
         const data = snapshot.data();
-        sentry.captureMessage('Snapshot Data:' + JSON.stringify(data), {
-            level: 'info',
-        });
+        // Use console.debug for snapshot logging in client-side converters.
+        // Sentry is intentionally not imported here (server-only reporting
+        // should be done from server-side code paths).
+        console.debug('Snapshot Data:', data);
         return data as T;
     },
 });

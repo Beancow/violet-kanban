@@ -12,7 +12,7 @@ import { TrashIcon, PlusIcon } from '@radix-ui/react-icons';
 import Link from 'next/link';
 import LoadingPage from '@/components/LoadingPage';
 import OrganizationGate from '@/components/guards/OrganizationGate';
-import CreateBoardModal from '@/components/modals/CreateBoardModal';
+import CreateBoardModal from '@/components/modals/shared/CreateBoardModal';
 import type { BoardFormValues } from '@/schema/boardSchema';
 
 export default function UserBoardsPage() {

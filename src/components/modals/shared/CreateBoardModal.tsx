@@ -1,9 +1,10 @@
 'use client';
 
 import { Dialog } from '@radix-ui/themes';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Board } from '@/types/appState.type';
 import type { BoardFormValues } from '@/schema/boardSchema';
-import { BoardFormWrapper } from '../forms/BoardFormWrapper';
+import { BoardFormWrapper } from '../../forms/BoardFormWrapper';
 import { useUi } from '@/providers/UiProvider';
 
 interface CreateBoardModalProps {
@@ -14,6 +15,9 @@ interface CreateBoardModalProps {
     // optional explicit overrides (from tests/stories or callers)
     board?: Board;
     onSubmit?: (data: BoardFormValues) => Promise<void> | void;
+    // When true, the Dialog title will be visually hidden but remain available to
+    // screen readers (useful when a design uses a custom header elsewhere).
+    hideTitle?: boolean;
 }
 
 /**
@@ -38,6 +42,7 @@ export default function CreateBoardModal({
     isSubmitting: _isSubmitting,
     board: boardProp,
     onSubmit: onSubmitProp,
+    hideTitle = false,
 }: CreateBoardModalProps) {
     const ui = useUi();
 
@@ -62,7 +67,15 @@ export default function CreateBoardModal({
                     This is a modal that allows you to create or edit a boards.
                 </Dialog.Description>
                 <Dialog.Title>
-                    {board?.title ? 'Edit Board' : 'Create Board'}
+                    {hideTitle ? (
+                        <VisuallyHidden>
+                            {board?.title ? 'Edit Board' : 'Create Board'}
+                        </VisuallyHidden>
+                    ) : board?.title ? (
+                        'Edit Board'
+                    ) : (
+                        'Create Board'
+                    )}
                 </Dialog.Title>
                 <BoardFormWrapper board={board} onSubmit={onSubmit} />
             </Dialog.Content>

@@ -6,7 +6,7 @@ const DISABLED =
 export async function register() {
     if (DISABLED) {
         // No-op register when disabled
-        // eslint-disable-next-line no-console
+         
         console.log('[sentry] register skipped because DISABLE_SENTRY is set');
         return;
     }

@@ -32,12 +32,17 @@ export const adminDataConverter = <T>(): AdminFirestoreDataConverter<T> => ({
                 const v = val as { toDate?: unknown };
                 if (typeof v.toDate === 'function') {
                     try {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                         
                         convertedData[key] = (
                             v.toDate as () => Date
                         )().toISOString();
-                    } catch (_) {
-                        // leave original value
+                    } catch (err) {
+                        // leave original value; log in debug
+                         
+                        console.debug(
+                            'adminDataConverter timestamp conversion failed',
+                            err
+                        );
                     }
                 }
             }

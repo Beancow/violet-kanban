@@ -139,6 +139,13 @@ export type SyncAction =
           timestamp: number;
       };
 
+// Utility: add optional organizationId into payloads for messages posted to the worker
+type AddOrgToPayload<T> = T extends { payload: infer P }
+    ? Omit<T, 'payload'> & { payload: P & { organizationId?: string | null } }
+    : never;
+
+export type SyncActionWithAuth = AddOrgToPayload<SyncAction>;
+
 export type WorkerMessage =
     | { type: 'WORKER_READY'; timestamp: string; payload?: null }
     | { type: 'SYNC_ERROR'; payload: string; timestamp: string; error: Error }

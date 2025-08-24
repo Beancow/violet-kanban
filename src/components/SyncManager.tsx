@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { getQueueAdapter } from '@/providers/adapter';
 import { useQueues } from '@/providers/QueueProvider';
 import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
 import { useAuthProvider } from '@/providers/AuthProvider';
 import { useOrganizationProvider } from '@/providers/OrganizationProvider';
+import { isObject } from '@/types/typeGuards';
+import type { VioletKanbanAction } from '@/types/violet-kanban-action';
+import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 
 export function SyncManager() {
     const queueApi = useQueues();
@@ -50,33 +52,73 @@ export function SyncManager() {
             worker = new Worker('dataSyncWorker.js');
 
             worker.onmessage = (event) => {
-                const { type, payload, error } = event.data;
-                const queueAdapter = getQueueAdapter();
+                const { type, payload, error } = event.data as Record<
+                    string,
+                    unknown
+                >;
+                // Prefer provider API from hooks (queueApi) instead of module getter
                 if (type === 'ACTION_SUCCESS') {
-                    const tempId = payload?.tempId;
-                    if (payload?.board) {
-                        queueAdapter?.enqueueBoardAction?.({
-                            type: 'RECONCILE_BOARD',
-                            payload: { tempId, board: payload.board },
-                        } as any);
-                    } else if (payload?.list) {
-                        queueAdapter?.enqueueListAction?.({
-                            type: 'RECONCILE_LIST',
-                            payload: { tempId, list: payload.list },
-                        } as any);
-                    } else if (payload?.card) {
-                        queueAdapter?.enqueueCardAction?.({
-                            type: 'RECONCILE_CARD',
-                            payload: { tempId, card: payload.card },
-                        } as any);
+                    const tempId =
+                        isObject(payload) &&
+                        typeof (payload as Record<string, unknown>).tempId ===
+                            'string'
+                            ? ((payload as Record<string, unknown>)
+                                  .tempId as string)
+                            : undefined;
+                    if (isObject(payload) && 'board' in payload) {
+                        const board = (payload as Record<string, unknown>)
+                            .board as Board;
+                        if (tempId) {
+                            const action: VioletKanbanAction = {
+                                type: 'reconcile-board',
+                                payload: { tempId, board },
+                            } as VioletKanbanAction;
+                            queueApi.enqueueBoardAction(action);
+                        }
+                    } else if (isObject(payload) && 'list' in payload) {
+                        const list = (payload as Record<string, unknown>)
+                            .list as BoardList;
+                        if (tempId) {
+                            const action: VioletKanbanAction = {
+                                type: 'reconcile-list',
+                                payload: { tempId, list },
+                            } as VioletKanbanAction;
+                            queueApi.enqueueListAction(action);
+                        }
+                    } else if (isObject(payload) && 'card' in payload) {
+                        const card = (payload as Record<string, unknown>)
+                            .card as BoardCard;
+                        if (tempId) {
+                            const action: VioletKanbanAction = {
+                                type: 'reconcile-card',
+                                payload: { tempId, card },
+                            } as VioletKanbanAction;
+                            queueApi.enqueueCardAction(action);
+                        }
                     }
                 } else if (type === 'ERROR' || type === 'ACTION_ERROR') {
                     if (syncError.addError) {
                         syncError.addError({
-                            timestamp: payload?.timestamp || Date.now(),
-                            message: error?.message || 'Unknown sync error',
-                            actionType: payload?.type,
-                            payload,
+                            timestamp:
+                                isObject(payload) &&
+                                typeof (payload as Record<string, unknown>)
+                                    .timestamp === 'number'
+                                    ? ((payload as Record<string, unknown>)
+                                          .timestamp as number)
+                                    : Date.now(),
+                            message:
+                                (error as Error | undefined)?.message ||
+                                'Unknown sync error',
+                            actionType:
+                                isObject(payload) &&
+                                typeof (payload as Record<string, unknown>)
+                                    .type === 'string'
+                                    ? ((payload as Record<string, unknown>)
+                                          .type as string)
+                                    : undefined,
+                            payload: isObject(payload)
+                                ? (payload as Record<string, unknown>)
+                                : undefined,
                         });
                     }
                     console.error(
@@ -101,7 +143,7 @@ export function SyncManager() {
         }
 
         function processQueuedActions() {
-            const queueAdapter = getQueueAdapter();
+            // use queueApi provider methods to enqueue actions
             const syncWorker = initWorker();
 
             // ensure token is fresh
@@ -142,13 +184,23 @@ export function SyncManager() {
                     } else {
                         orgId = org.currentOrganizationId;
                     }
+                    // Build a safe payload for the worker: add idToken and organizationId
+                    const base: Record<string, unknown> = {};
+                    if (action && typeof action === 'object') {
+                        // shallow copy action fields
+                        Object.assign(base, action);
+                    }
+                    const payloadAugmented = isObject(action.payload)
+                        ? { ...(action.payload as Record<string, unknown>) }
+                        : {};
+                    // attach auth and org
+                    payloadAugmented.idToken = freshToken ?? undefined;
+                    payloadAugmented.organizationId = orgId ?? undefined;
+
+                    // Post a SyncActionWithAuth-like message to the worker
                     syncWorker.postMessage({
-                        ...action,
-                        payload: {
-                            ...action.payload,
-                            idToken: freshToken,
-                            organizationId: orgId,
-                        },
+                        ...(base as Record<string, unknown>),
+                        payload: payloadAugmented,
                     });
                 });
             });
@@ -158,8 +210,12 @@ export function SyncManager() {
         try {
             initWorker();
             processQueuedActions();
-        } catch {
-            // ignore during SSR / no-window scenarios
+        } catch (e) {
+            // Log init errors (e.g., Worker not available during SSR) for diagnostics.
+            console.error(
+                '[SyncManager] failed to start worker or process queue',
+                e
+            );
         }
 
         return () => {
@@ -167,8 +223,12 @@ export function SyncManager() {
             if (worker) {
                 try {
                     worker.terminate();
-                } catch {
-                    /* ignore */
+                } catch (err) {
+                    // Log termination errors for diagnostics
+                    console.error(
+                        '[SyncManager] failed to terminate worker',
+                        err
+                    );
                 }
                 worker = null;
             }

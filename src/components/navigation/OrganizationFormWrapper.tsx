@@ -42,7 +42,9 @@ export default function OrganizationFormWrapper({
                 // TODO: Show error to user
             }
         } catch (err) {
-            // TODO: Show error to user
+            // Log network/submit errors for diagnostics; do not swallow silently
+             
+            console.error('OrganizationFormWrapper submit error', err);
         }
         if (onClose) onClose();
     };

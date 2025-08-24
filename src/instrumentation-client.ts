@@ -1,8 +1,6 @@
-// This file configures the initialization of Sentry on the client.
-// The added config here will be used whenever a users loads a page in their browser.
-// https://docs.sentry.io/platforms/javascript/guides/nextjs/
-
-import * as Sentry from '@/lib/sentryWrapper';
+// This file configures lazy initialization of Sentry on the client.
+// We avoid a static import to keep client bundles free from server-only
+// Sentry transitive deps when possible.
 
 // Allow disabling Sentry on client with NEXT_PUBLIC_DISABLE_SENTRY.
 const CLIENT_DISABLED =
@@ -10,39 +8,51 @@ const CLIENT_DISABLED =
     (process.env.NEXT_PUBLIC_DISABLE_SENTRY === '1' ||
         process.env.NEXT_PUBLIC_DISABLE_SENTRY === 'true');
 
-if (!CLIENT_DISABLED) {
-    Sentry.init({
-        dsn: 'https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800',
-
-        // Add optional integrations for additional features
-        integrations: [Sentry.replayIntegration && Sentry.replayIntegration()],
-
-        // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-        tracesSampleRate: 1,
-        // Enable logs to be sent to Sentry
-        enableLogs: true,
-
-        // Define how likely Replay events are sampled.
-        // This sets the sample rate to be 10%. You may want this to be 100% while
-        // in development and sample at a lower rate in production
-        replaysSessionSampleRate: 0.1,
-
-        // Define how likely Replay events are sampled when an error occurs.
-        replaysOnErrorSampleRate: 1.0,
-
-        // Setting this option to true will print useful information to the console while you're setting up Sentry.
-        debug: false,
-    });
-} else {
-    // eslint-disable-next-line no-console
-    console.log(
-        '[sentry] client disabled via NEXT_PUBLIC_DISABLE_SENTRY env var'
-    );
+async function initClientSentryIfNeeded() {
+    if (CLIENT_DISABLED) return;
+    try {
+        const Sentry = await import('@/lib/sentryWrapper');
+        Sentry.init({
+            dsn: 'https://3efb49fd9eb7999b53d059e27def7f16@o4509742391427072.ingest.de.sentry.io/4509742392606800',
+            integrations: [
+                Sentry.replayIntegration && Sentry.replayIntegration(),
+            ],
+            tracesSampleRate: 1,
+            enableLogs: true,
+            replaysSessionSampleRate: 0.1,
+            replaysOnErrorSampleRate: 1.0,
+            debug: false,
+        });
+    } catch (e) {
+        // Log import/init errors for diagnostics; don't throw from client code.
+        console.error('[sentry] failed to initialize client Sentry', e);
+        try {
+            // If the wrapper is available, attempt to report the initialization error
+            const Sentry = await import('@/lib/sentryWrapper');
+            Sentry.captureException(e);
+        } catch {
+            /* ignore */
+        }
+    }
 }
 
-// Export a handler (may be used by other modules); when Sentry is disabled use a safe no-op.
-export const onRouterTransitionStart = (Sentry &&
-    (Sentry.captureRouterTransitionStart ?? (() => {}))) as unknown as (
+// Initialize lazily (do not block module evaluation)
+void initClientSentryIfNeeded();
+
+// Export a router transition handler that will call into the lazy-loaded
+// Sentry instance if available. Consumers should call this as a function.
+export const onRouterTransitionStart = async (
     href: string,
     navigationType: string
-) => void;
+) => {
+    try {
+        const Sentry = await import('@/lib/sentryWrapper');
+        return Sentry.captureRouterTransitionStart?.(href, navigationType);
+    } catch (e) {
+        console.error(
+            '[sentry] failed to call captureRouterTransitionStart',
+            e
+        );
+        return undefined;
+    }
+};

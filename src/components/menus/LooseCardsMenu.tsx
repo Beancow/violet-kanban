@@ -23,7 +23,10 @@ interface LooseCardsMenuProps {
     boardId: string;
 }
 
-export function LooseCardsMenu({ cards, boardId }: LooseCardsMenuProps) {
+export function LooseCardsMenu({
+    cards,
+    boardId: _boardId,
+}: LooseCardsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
     const removeCardAction = useVioletKanbanRemoveCardAction();

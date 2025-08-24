@@ -32,7 +32,6 @@ import {
 } from '@dnd-kit/sortable';
 // CardForm removed; list and card creation use wrappers and enqueue actions
 import {
-    useVioletKanbanEnqueueCardCreateOrUpdate,
     useVioletKanbanEnqueueListCreateOrUpdate,
     useVioletKanbanEnqueueCardMove,
     useVioletKanbanEnqueueListDelete,
@@ -53,7 +52,6 @@ export default function BoardListColumn({
     onSelectCard,
     onEditList,
 }: BoardListColumnProps) {
-    const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
     const enqueueListAction = useVioletKanbanEnqueueListCreateOrUpdate();
     const enqueueCardMove = useVioletKanbanEnqueueCardMove();
     const enqueueListDelete = useVioletKanbanEnqueueListDelete();
@@ -199,7 +197,6 @@ export default function BoardListColumn({
                             <BoardCardItem
                                 key={card.id}
                                 card={card}
-                                boardId={list.boardId}
                                 handleEditCard={onSelectCard}
                             />
                         ))}

@@ -40,7 +40,9 @@ export default function OrganizationSelector() {
                 // TODO: Show error to user
             }
         } catch (err) {
-            // TODO: Show error to user
+            // Log create errors for diagnostics
+             
+            console.error('OrganizationSelector create error', err);
         }
         setModalOpen(false);
         router.push('/boards');

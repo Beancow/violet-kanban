@@ -1,5 +1,5 @@
 'use client';
-import { BoardCard } from '@/types/appState.type';
+import type { BoardCard } from '@/types/appState.type';
 import { Card, Flex, Text } from '@radix-ui/themes';
 import {
     DotsHorizontalIcon,
@@ -9,27 +9,24 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DropdownMenu, IconButton } from '@radix-ui/themes';
-import {
-    useVioletKanbanEnqueueCardCreateOrUpdate,
-    useVioletKanbanEnqueueCardDelete,
-} from '@/providers/useVioletKanbanHooks';
+import { useVioletKanbanEnqueueCardDelete } from '@/providers/useVioletKanbanHooks';
 import { useCallback } from 'react';
 
 interface BoardCardItemProps {
     card: BoardCard;
-    boardId: string; // kept for API compatibility
+    // boardId previously used for compatibility; no longer required
     handleEditCard: (card: BoardCard) => void;
 }
 
 export function BoardCardItem({ card, handleEditCard }: BoardCardItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition } =
         useSortable({ id: card.id });
-    const enqueueCardAction = useVioletKanbanEnqueueCardCreateOrUpdate();
-    const enqueueCardDelete = useVioletKanbanEnqueueCardDelete();
+    const _enqueueCardDelete = useVioletKanbanEnqueueCardDelete();
 
     const handleDelete = useCallback(() => {
-        enqueueCardDelete(card.id);
-    }, [enqueueCardDelete, card.id]);
+        // use provider's remove API via enqueue hook when enabled
+        _enqueueCardDelete(card.id);
+    }, [_enqueueCardDelete, card.id]);
 
     const style = {
         transform: CSS.Transform.toString(transform),

@@ -12,9 +12,10 @@ import { useCreatedBy } from '@/hooks/useCreatedBy';
 
 interface BoardFormWrapperProps {
     board?: Board;
+    onSubmit?: (data: BoardFormValues) => void | Promise<void>;
 }
 
-export function BoardFormWrapper({ board }: BoardFormWrapperProps) {
+export function BoardFormWrapper({ board, onSubmit }: BoardFormWrapperProps) {
     const ui = useUi();
     const enqueueBoardAction = useVioletKanbanEnqueueBoardCreateOrUpdate();
     const currentOrganizationId =
@@ -43,9 +44,10 @@ export function BoardFormWrapper({ board }: BoardFormWrapperProps) {
                     data?.organizationId ?? currentOrganizationId ?? '',
             } as Board;
             enqueueBoardAction(boardPayload);
+            if (onSubmit) onSubmit(data);
             ui.close();
         },
-        [board, enqueueBoardAction, close, currentOrganizationId]
+        [board, enqueueBoardAction, onSubmit, currentOrganizationId, ui]
     );
 
     return <BoardForm board={board} form={form} onSubmit={handleSubmit} />;

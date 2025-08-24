@@ -48,6 +48,22 @@ export type EnqueuePayload =
               | 'restore-card';
           payload: { id: string };
           timestamp: number;
+      }
+    // Reconcile actions produced by the worker to reconcile tempIds with real IDs
+    | {
+          type: 'reconcile-board';
+          payload: { tempId: string; board: Board };
+          timestamp?: number;
+      }
+    | {
+          type: 'reconcile-list';
+          payload: { tempId: string; list: BoardList };
+          timestamp?: number;
+      }
+    | {
+          type: 'reconcile-card';
+          payload: { tempId: string; card: BoardCard };
+          timestamp?: number;
       };
 
 export type VioletKanbanAction = SyncAction | EnqueuePayload;

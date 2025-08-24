@@ -2,7 +2,8 @@
 import { Box, Card, Flex, Button } from '@radix-ui/themes';
 import { BoardCard } from '@/types/appState.type';
 import { TrashIcon } from '@radix-ui/react-icons';
-import { CardForm } from '../forms/CardForm';
+// CardForm currently unused in CardDetails; keep import available for future edits
+// import { CardForm } from '../forms/CardForm';
 
 export function CardDetails({
     card,

@@ -1,6 +1,5 @@
 'use client';
 
-import * as Sentry from '@/lib/sentryWrapper';
 import NextError from 'next/error';
 import { useEffect } from 'react';
 
@@ -10,7 +9,22 @@ export default function GlobalError({
     error: Error & { digest?: string };
 }) {
     useEffect(() => {
-        Sentry.captureException(error);
+        // Lazy-load the Sentry wrapper only when an error actually occurs in
+        // the client. This prevents bundlers from including the wrapper at
+        // module-eval time and keeps client bundles smaller.
+        (async () => {
+            try {
+                const Sentry = await import('@/lib/sentryWrapper');
+                Sentry.captureException?.(error);
+            } catch (err) {
+                // If the dynamic import or Sentry init fails, log it for debugging.
+                // We don't want the error handling itself to crash the app.
+                console.error(
+                    '[sentry] failed to lazy-load client Sentry',
+                    err
+                );
+            }
+        })();
     }, [error]);
 
     return (

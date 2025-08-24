@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Sentry from '@/lib/sentryWrapper';
 import { type WorkerMessage } from '@/types/worker.type';
 export function useWebWorker() {
     const workerRef = useRef<Worker | null>(null);
@@ -54,7 +55,9 @@ export function useWebWorker() {
                             }
                         }
                     };
-                    newWorker.onerror = (error) => {
+                    newWorker.onerror = (err) => {
+                        // Log worker error for diagnostics
+                        console.error('useWebWorker worker error', err);
                         setWorkerError('Web Worker encountered an error');
                         setIsWorkerReady(false);
                     };
@@ -64,6 +67,13 @@ export function useWebWorker() {
                 };
                 workerRef.current = createWorker();
             } catch (err) {
+                // Log worker creation errors including the caught error value
+                console.error('useWebWorker failed to create worker', err);
+                try {
+                    Sentry.captureException(err);
+                } catch {
+                    /* ignore */
+                }
                 setWorkerError('Failed to create web worker');
             }
         } else {

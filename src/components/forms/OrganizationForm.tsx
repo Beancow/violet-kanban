@@ -3,7 +3,8 @@ import { Flex, Text, Select, TextField, Button, Grid } from '@radix-ui/themes';
 import type { UseFormReturn } from 'react-hook-form';
 import type { Organization } from '@/types/appState.type';
 import type { z } from 'zod';
-import type { OrganizationSchema as OrgSchemaType } from '@/schema/organizationSchema';
+// OrganizationSchema type not needed directly in this file
+// import type { OrganizationSchema as OrgSchemaType } from '@/schema/organizationSchema';
 import { Pencil1Icon } from '@radix-ui/react-icons';
 
 const ORG_TYPES = [
