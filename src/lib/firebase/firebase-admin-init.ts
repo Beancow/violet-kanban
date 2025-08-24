@@ -3,56 +3,148 @@
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fetchServiceAccountFromSecretManager } from './secretManager';
 
 declare global {
     var firebaseAdminApp: admin.app.App | undefined;
 }
 
-console.log('firebase-admin-init.ts: Top level admin object:', admin);
-
 let adminApp: admin.app.App | undefined;
 
-function initializeAdminApp() {
-    console.log('firebase-admin-init.ts: Inside initializeAdminApp. Admin object:', admin);
-    console.log('firebase-admin-init.ts: admin.apps.length:', admin.apps.length);
-
-    if (!global.firebaseAdminApp) {
-        if (!admin.apps.length) {
-            try {
-                console.log('firebase-admin-init.ts: Attempting to initialize Firebase Admin SDK.');
-                const serviceAccountPath = path.resolve(process.cwd(), 'src/lib/firebase/serviceAccountKey.json');
-                console.log('firebase-admin-init.ts: serviceAccountPath:', serviceAccountPath);
-                console.log('firebase-admin-init.ts: serviceAccountKey.json exists:', fs.existsSync(serviceAccountPath));
-
-                const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-
-                global.firebaseAdminApp = admin.initializeApp({
-                    credential: admin.credential.cert(serviceAccount),
-                });
-                console.log('firebase-admin-init.ts: Firebase Admin SDK initialized successfully.');
-            } catch (error) {
-                console.error('firebase-admin-init.ts: Error initializing Firebase Admin SDK:', error);
-                throw error; // Re-throw to indicate initialization failure
-            }
-        } else {
-            global.firebaseAdminApp = admin.app(); // If already initialized
-            console.log('firebase-admin-init.ts: Firebase Admin SDK already initialized.');
-        }
+/**
+ * Initialize the Firebase Admin app.
+ * Preference order:
+ * 1. secret manager abstraction (async)
+ * 2. FIREBASE_SERVICE_ACCOUNT env var (JSON)
+ * 3. FIREBASE_SERVICE_ACCOUNT_BASE64 env var (base64-encoded JSON)
+ * 4. Local file (only for local development)
+ */
+export async function initializeAdminApp() {
+    if (global.firebaseAdminApp) {
+        adminApp = global.firebaseAdminApp;
+        return adminApp;
     }
-    adminApp = global.firebaseAdminApp;
-    return adminApp;
+
+    if (admin.apps.length) {
+        global.firebaseAdminApp = admin.app();
+        adminApp = global.firebaseAdminApp;
+        return adminApp;
+    }
+
+    try {
+        // 1) Try secret manager abstraction
+        const secret = await fetchServiceAccountFromSecretManager();
+        let serviceAccount: admin.ServiceAccount | null = null;
+
+        if (secret) {
+            try {
+                serviceAccount = JSON.parse(secret) as admin.ServiceAccount;
+            } catch (_err) {
+                // Surface minimal message and reference error message only (no stack)
+                console.error(
+                    'firebase-admin-init: failed to parse service account from secret manager'
+                );
+                try {
+                    console.debug(
+                        'firebase-admin-init: parse error:',
+                        (_err as Error)?.message
+                    );
+                } catch {
+                    /* ignore */
+                }
+            }
+        }
+
+        // 2) Try env vars
+        if (!serviceAccount) {
+            const envJson = process.env.FIREBASE_SERVICE_ACCOUNT || null;
+            const envBase64 =
+                process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || null;
+
+            if (envJson) {
+                try {
+                    serviceAccount = JSON.parse(
+                        envJson
+                    ) as admin.ServiceAccount;
+                } catch (_err) {
+                    console.error(
+                        'firebase-admin-init: failed to parse FIREBASE_SERVICE_ACCOUNT env var'
+                    );
+                    try {
+                        console.debug(
+                            'firebase-admin-init: parse error:',
+                            (_err as Error)?.message
+                        );
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            } else if (envBase64) {
+                try {
+                    const decoded = Buffer.from(envBase64, 'base64').toString(
+                        'utf8'
+                    );
+                    serviceAccount = JSON.parse(
+                        decoded
+                    ) as admin.ServiceAccount;
+                } catch (_err) {
+                    console.error(
+                        'firebase-admin-init: failed to decode/parse FIREBASE_SERVICE_ACCOUNT_BASE64 env var'
+                    );
+                    try {
+                        console.debug(
+                            'firebase-admin-init: decode/parse error:',
+                            (_err as Error)?.message
+                        );
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            }
+        }
+
+        // 3) Fallback to local file only for local development
+        if (!serviceAccount) {
+            const serviceAccountPath = path.resolve(
+                process.cwd(),
+                'src/lib/firebase/serviceAccountKey.json'
+            );
+            if (!fs.existsSync(serviceAccountPath)) {
+                throw new Error(
+                    'serviceAccountKey.json not found and no service account present in env/secret manager'
+                );
+            }
+            serviceAccount = JSON.parse(
+                fs.readFileSync(serviceAccountPath, 'utf8')
+            ) as admin.ServiceAccount;
+        }
+
+        global.firebaseAdminApp = admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+        adminApp = global.firebaseAdminApp;
+        return adminApp;
+    } catch (error) {
+        const msg =
+            error && (error as Error).message
+                ? (error as Error).message
+                : String(error);
+        console.error(
+            'firebase-admin-init: Error initializing Firebase Admin SDK:',
+            msg
+        );
+        throw error;
+    }
 }
 
 export async function getAdminFirestore() {
-    if (!adminApp) {
-        initializeAdminApp();
-    }
+    if (!adminApp) await initializeAdminApp();
     return adminApp!.firestore();
 }
 
 export async function getAdminAuth() {
-    if (!adminApp) {
-        initializeAdminApp();
-    }
+    if (!adminApp) await initializeAdminApp();
     return adminApp!.auth();
 }
+
+export default { initializeAdminApp, getAdminFirestore, getAdminAuth };
