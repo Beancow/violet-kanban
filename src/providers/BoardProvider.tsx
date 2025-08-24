@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import { reducer as boardReducer } from './reducers/boardReducer';
@@ -68,9 +69,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export function useBoardStore() {
+export function useBoards() {
     const ctx = useContext(BoardContext);
-    if (!ctx)
-        throw new Error('useBoardStore must be used within BoardProvider');
+    if (!ctx) throw new Error('useBoards must be used within BoardProvider');
     return ctx;
 }

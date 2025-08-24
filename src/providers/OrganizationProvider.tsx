@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import type { Organization } from '@/types/appState.type';
@@ -89,7 +90,7 @@ export function useOrganizationProvider() {
     return ctx;
 }
 
-export function getOrCreateOrganizationProviderStore() {
+export function getOrCreateOrganizationProvider() {
     if (!_adapter) {
         // Return a minimal shim until provider mounts
         return {

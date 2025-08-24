@@ -189,3 +189,27 @@ export function squashQueueActions(
     });
     return [...filteredQueue, newAction];
 }
+
+// Determines if an action is stale compared to a server updatedAt ISO string
+export function isActionStale(
+    action: { timestamp?: number } | undefined,
+    serverUpdatedAt?: string | undefined
+) {
+    if (!action || !action.timestamp) return false;
+    if (!serverUpdatedAt) return false;
+    const serverMs = Date.parse(serverUpdatedAt);
+    if (isNaN(serverMs)) return false;
+    return (action.timestamp ?? 0) < serverMs;
+}
+
+// Specific helper to check card update actions against server card list
+export function isCardActionStale(action: any, cards: BoardCard[] = []) {
+    if (!action || !action.payload) return false;
+    const payload = action.payload as any;
+    const id = payload?.data?.id ?? payload?.id;
+    if (!id) return false;
+    const serverCard = cards.find((c) => c.id === id);
+    if (!serverCard) return false;
+    const serverUpdatedAt = extractUpdatedAt(serverCard.updatedAt);
+    return isActionStale(action, serverUpdatedAt);
+}

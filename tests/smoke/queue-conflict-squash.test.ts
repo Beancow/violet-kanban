@@ -2,8 +2,7 @@ import {
     squashQueueActions,
     isActionStale,
     isCardActionStale,
-} from '../../src/store/helpers';
-import { createTestStores } from '../helpers/createTestStores';
+} from '../../src/providers/helpers';
 
 describe('helpers: squash and stale detection', () => {
     test('squashQueueActions removes previous actions for same id+type', () => {
@@ -28,21 +27,18 @@ describe('helpers: squash and stale detection', () => {
         const serverUpdatedAt = new Date(now).toISOString();
         expect(isActionStale(action, serverUpdatedAt)).toBe(true);
 
-        const { queue, cardStore } = createTestStores();
-        // simulate a card in server store
-        cardStore
-            .getState()
-            .addCard({
+        // simulate a card in server store as a plain array (provider helpers accept arrays)
+        const cards = [
+            {
                 id: 'c1',
                 updatedAt: new Date(now).toISOString(),
-            } as any);
+            } as any,
+        ];
         const cardAction = {
             type: 'update-card',
             payload: { data: { id: 'c1' } },
             timestamp: now - 5000,
         } as any;
-        expect(isCardActionStale(cardAction, cardStore.getState().cards)).toBe(
-            true
-        );
+        expect(isCardActionStale(cardAction, cards)).toBe(true);
     });
 });

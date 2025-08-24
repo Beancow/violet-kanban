@@ -29,7 +29,7 @@ export function BoardListComponent({
                     const newIndex = items.indexOf(String(over.id));
                     const newOrder = arrayMove(items, oldIndex, newIndex);
                     setItems(newOrder);
-                    onCardOrderChange?.(newOrder); // Call store action to persist if needed
+                    onCardOrderChange?.(newOrder); // Call persistence action to persist if needed
                 }}
             >
                 <SortableContext items={items}>

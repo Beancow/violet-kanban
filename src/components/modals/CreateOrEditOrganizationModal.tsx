@@ -3,6 +3,8 @@ import type { Organization } from '@/types/appState.type';
 import OrganizationForm from '../forms/OrganizationForm';
 import { z } from 'zod';
 import { OrganizationSchema } from '@/schema/organizationSchema';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 type OrganizationFormValues = z.infer<typeof OrganizationSchema>;
 
 interface CreateOrganizationModalProps {
@@ -18,6 +20,12 @@ export default function CreateOrganizationModal({
     onCreate,
     organization,
 }: CreateOrganizationModalProps) {
+    const form = useForm<OrganizationFormValues>({
+        resolver: zodResolver(OrganizationSchema),
+        defaultValues: organization
+            ? (organization as unknown as OrganizationFormValues)
+            : { name: '', orgType: 'personal' },
+    });
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Content>
@@ -28,6 +36,7 @@ export default function CreateOrganizationModal({
                 </Dialog.Title>
                 <OrganizationForm
                     organization={organization}
+                    form={form}
                     onSubmit={(orgData) => {
                         onCreate(orgData);
                     }}

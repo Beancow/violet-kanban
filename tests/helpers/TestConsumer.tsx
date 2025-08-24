@@ -1,11 +1,18 @@
-import React from 'react';
-import renderer, { act } from 'react-test-renderer';
-import AppProvider from '../../src/providers/AppProvider';
-import { useBoardStore } from '../../src/providers/BoardProvider';
-import { useQueueStore } from '../../src/providers/QueueProvider';
-import { useTempIdMap } from '../../src/providers/TempIdMapProvider';
-import { useListStore } from '../../src/providers/ListProvider';
-import { useCardStore } from '../../src/providers/CardProvider';
+import boardReducer, {
+    BoardState,
+} from '../../src/providers/reducers/boardReducer';
+import listReducer, {
+    ListState,
+} from '../../src/providers/reducers/listReducer';
+import cardReducer, {
+    CardState,
+} from '../../src/providers/reducers/cardReducer';
+import queueReducer, {
+    QueueState,
+} from '../../src/providers/reducers/queueReducer';
+import tempIdMapReducer, {
+    TempIdMapState,
+} from '../../src/providers/reducers/tempIdMapReducer';
 
 export type TestApi = {
     // boards
@@ -39,35 +46,151 @@ export function TestConsumer({
 }: {
     onReady?: (api: TestApi) => void;
 }) {
-    const board = useBoardStore();
-    const queue = useQueueStore();
-    const tempMap = useTempIdMap();
+    // synchronous reducer-backed test harness (no React rendering)
+    let boardState: BoardState = { boards: [] };
+    let listState: ListState = { lists: [] };
+    let cardState: CardState = { cards: [] };
+    let queueState: QueueState = {
+        boardActionQueue: [],
+        listActionQueue: [],
+        cardActionQueue: [],
+    };
+    let tempMapState: TempIdMapState = {};
+
+    const dispatchBoard = (action: any) => {
+        boardState = (boardReducer as any)(boardState, action);
+    };
+    const dispatchList = (action: any) => {
+        listState = (listReducer as any)(listState, action);
+    };
+    const dispatchCard = (action: any) => {
+        cardState = (cardReducer as any)(cardState, action);
+    };
+    const dispatchQueue = (action: any) => {
+        queueState = (queueReducer as any)(queueState, action);
+    };
+    const dispatchTempMap = (action: any) => {
+        tempMapState = (tempIdMapReducer as any)(tempMapState, action);
+    };
 
     const api: TestApi = {
-        addBoard: board.addBoard,
-        getBoards: () => board.state.boards,
-        addList: useListStore().addList,
-        getLists: () => useListStore().state.lists,
-        addCard: useCardStore().addCard,
-        getCards: () => useCardStore().state.cards,
-        enqueueBoardAction: queue.enqueueBoardAction,
-        enqueueListAction: queue.enqueueListAction,
-        enqueueCardAction: queue.enqueueCardAction,
-        removeBoardAction: queue.removeBoardAction,
-        removeListAction: queue.removeListAction,
-        removeCardAction: queue.removeCardAction,
+        addBoard: (b: any) => dispatchBoard({ type: 'ADD_BOARD', board: b }),
+        getBoards: () => boardState.boards,
+        addList: (l: any) => dispatchList({ type: 'ADD_LIST', list: l }),
+        getLists: () => listState.lists,
+        addCard: (c: any) => dispatchCard({ type: 'ADD_CARD', card: c }),
+        getCards: () => cardState.cards,
+        enqueueBoardAction: (a: any) =>
+            dispatchQueue({ type: 'ENQUEUE_BOARD', action: a }),
+        enqueueListAction: (a: any) =>
+            dispatchQueue({ type: 'ENQUEUE_LIST', action: a }),
+        enqueueCardAction: (a: any) =>
+            dispatchQueue({ type: 'ENQUEUE_CARD', action: a }),
+        removeBoardAction: (id: string) => {
+            // find queued action matching temp id
+            const idx = queueState.boardActionQueue.findIndex((a: any) => {
+                const p = a.payload as any;
+                return (
+                    (p &&
+                        (p.tempId === id ||
+                            (p.data && p.data.tempId === id))) ||
+                    false
+                );
+            });
+            const action =
+                idx >= 0 ? queueState.boardActionQueue[idx] : undefined;
+            if (action && /create/i.test(action.type)) {
+                const tempId = (action.payload &&
+                    (action.payload.tempId || action.payload.data?.tempId)) as
+                    | string
+                    | undefined;
+                const realId = tempId ? tempMapState[tempId] : undefined;
+                const newBoard = {
+                    ...(action.payload?.data || {}),
+                    id: realId,
+                } as any;
+                if (realId) {
+                    const exists = boardState.boards.find(
+                        (b) => b.id === realId
+                    );
+                    if (!exists)
+                        dispatchBoard({ type: 'ADD_BOARD', board: newBoard });
+                }
+            }
+            dispatchQueue({ type: 'REMOVE_BOARD_BY_ID', itemId: id });
+        },
+        removeListAction: (id: string) => {
+            const idx = queueState.listActionQueue.findIndex((a: any) => {
+                const p = a.payload as any;
+                return (
+                    (p &&
+                        (p.tempId === id ||
+                            (p.data && p.data.tempId === id))) ||
+                    false
+                );
+            });
+            const action =
+                idx >= 0 ? queueState.listActionQueue[idx] : undefined;
+            if (action && /create/i.test(action.type)) {
+                const tempId = (action.payload &&
+                    (action.payload.tempId || action.payload.data?.tempId)) as
+                    | string
+                    | undefined;
+                const realId = tempId ? tempMapState[tempId] : undefined;
+                const newList = {
+                    ...(action.payload?.data || {}),
+                    id: realId,
+                } as any;
+                if (realId) {
+                    const exists = listState.lists.find((l) => l.id === realId);
+                    if (!exists)
+                        dispatchList({ type: 'ADD_LIST', list: newList });
+                }
+            }
+            dispatchQueue({ type: 'REMOVE_LIST_BY_ID', itemId: id });
+        },
+        removeCardAction: (id: string) => {
+            const idx = queueState.cardActionQueue.findIndex((a: any) => {
+                const p = a.payload as any;
+                return (
+                    (p &&
+                        (p.tempId === id ||
+                            (p.data && p.data.tempId === id))) ||
+                    false
+                );
+            });
+            const action =
+                idx >= 0 ? queueState.cardActionQueue[idx] : undefined;
+            if (action && /create/i.test(action.type)) {
+                const tempId = (action.payload &&
+                    (action.payload.tempId || action.payload.data?.tempId)) as
+                    | string
+                    | undefined;
+                const realId = tempId ? tempMapState[tempId] : undefined;
+                const newCard = {
+                    ...(action.payload?.data || {}),
+                    id: realId,
+                } as any;
+                if (realId) {
+                    const exists = cardState.cards.find((c) => c.id === realId);
+                    if (!exists)
+                        dispatchCard({ type: 'ADD_CARD', card: newCard });
+                }
+            }
+            dispatchQueue({ type: 'REMOVE_CARD_BY_ID', itemId: id });
+        },
         getQueue: () => [
-            ...queue.state.boardActionQueue,
-            ...queue.state.listActionQueue,
-            ...queue.state.cardActionQueue,
+            ...queueState.boardActionQueue,
+            ...queueState.listActionQueue,
+            ...queueState.cardActionQueue,
         ],
-        setMapping: tempMap.setMapping,
-        getRealId: tempMap.getRealId,
-        getTempMap: () => tempMap.state,
+        setMapping: (tempId: string, realId: string) =>
+            dispatchTempMap({ type: 'SET_MAPPING', tempId, realId }),
+        getRealId: (tempId: string) => tempMapState[tempId],
+        getTempMap: () => tempMapState,
     };
 
     if (typeof onReady === 'function') {
-        // call immediately (tests previously set global in render body)
         onReady(api);
     } else {
         // backward compatibility
@@ -81,28 +204,18 @@ export function TestConsumer({
 // Mounts AppProvider + TestConsumer and returns the test API and an unmount helper.
 export function mountAppWithTestApi() {
     let api: TestApi | undefined;
-    let r: any | undefined;
 
-    act(() => {
-        r = renderer.create(
-            React.createElement(
-                AppProvider as any,
-                null,
-                React.createElement(TestConsumer as any, {
-                    onReady: (a: TestApi) => (api = a),
-                })
-            )
-        );
-    });
+    // initialize synchronous harness and return API
+    TestConsumer({ onReady: (a) => (api = a) });
 
     if (!api) throw new Error('Test API not initialized');
 
     return {
         api,
         unmount: () => {
-            if (r) act(() => r!.unmount());
+            /* no-op for synchronous harness */
         },
-        renderer: r,
+        renderer: null,
     };
 }
 

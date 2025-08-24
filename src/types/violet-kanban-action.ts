@@ -52,6 +52,6 @@ export type EnqueuePayload =
 
 export type VioletKanbanAction = SyncAction | EnqueuePayload;
 
-// Note: keep the store's original definition in `src/store/appStore.ts` for now
-// but prefer importing this type from '@/types/violet-kanban-action' so we can
-// remove `src/store` later without losing shared types.
+// Note: original runtime definitions were in legacy files; prefer importing
+// this type from '@/types/violet-kanban-action' so the legacy implementation
+// can be removed once consumers are migrated.

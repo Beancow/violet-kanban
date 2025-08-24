@@ -1,8 +1,8 @@
 import { act } from 'react-test-renderer';
 import { mountAppWithTestApi } from '../helpers/TestConsumer';
 
-describe.skip('AppProvider integration', () => {
-    it.skip('mounts providers and updates state via hooks', () => {
+describe('AppProvider integration', () => {
+    it('mounts providers and updates state via hooks', () => {
         const { api, unmount } = mountAppWithTestApi();
 
         act(() => {

@@ -5,10 +5,10 @@
     "description": "A Kanban board application built with Next.js and Radix UI.",
     "author": "Avery",
     "scripts": {
-        "dev": "DISABLE_SENTRY=1 NEXT_PUBLIC_DISABLE_SENTRY=1 next dev --turbopack",
+        "dev": "DISABLE_SENTRY=1 NEXT_PUBLIC_DISABLE_SENTRY=1 next dev",
         "build": "next build",
         "start": "next start",
-        "dev:with-sentry": "next dev --turbopack",
+        "dev:with-sentry": "next dev",
         "lint": "next lint",
         "test": "jest --watchAll=false --passWithNoTests",
         "test:e2e": "playwright test",

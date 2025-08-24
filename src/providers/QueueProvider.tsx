@@ -1,11 +1,12 @@
+'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import type { ReactNode } from 'react';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 import { useTempIdMap } from './TempIdMapProvider';
-import { useBoardStore } from './BoardProvider';
-import { useListStore } from './ListProvider';
-import { useCardStore } from './CardProvider';
+import { useBoards } from './BoardProvider';
+import { useLists } from './ListProvider';
+import { useCards } from './CardProvider';
 import { reducer as queueReducer } from './reducers/queueReducer';
 import { registerQueueAdapter } from './adapter';
 
@@ -131,10 +132,9 @@ export function QueueProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export function useQueueStore() {
+export function useQueues() {
     const ctx = useContext(QueueContext);
-    if (!ctx)
-        throw new Error('useQueueStore must be used within QueueProvider');
+    if (!ctx) throw new Error('useQueues must be used within QueueProvider');
     return ctx;
 }
 

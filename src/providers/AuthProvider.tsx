@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthUser } from '@/types/appState.type';

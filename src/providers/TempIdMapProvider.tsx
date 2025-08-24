@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import type { ReactNode } from 'react';

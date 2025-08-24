@@ -13,11 +13,6 @@ const meta: Meta<typeof ToastRoot> = {
     title: 'Components/Toast',
     component: ToastRoot,
     tags: ['autodocs'],
-    argTypes: {
-        title: { control: 'text' },
-        description: { control: 'text' },
-        actionLabel: { control: 'text' },
-    },
 };
 
 export default meta;
@@ -36,7 +31,7 @@ export const Default: Story = {
         description: 'Your changes were saved.',
         actionLabel: 'Undo',
     } as Partial<ToastArgs>,
-    render: (args: ToastArgs) =>
+    render: (args: any) =>
         React.createElement(
             ToastProvider,
             null,

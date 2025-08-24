@@ -2,8 +2,9 @@ Migration plan: Replace Zustand stores with vanilla React Providers using reduce
 
 Goal
 
--   Replace Zustand-based stores in `src/store` with React Context Providers that use reducers and immer to manage state.
--   Preserve existing store APIs for components as much as possible (prefer hooks like `useAppStore`, `useBoardStore`, etc.), but implement them with context + useReducer.
+-- Replace Zustand-based singletons in `src/store` with React Context Providers that use reducers and immer to manage state.
+-- Preserve existing hook-like APIs for components where practical, but implement them with provider-backed hooks and reducers.
+
 -   Persist state to localStorage or indexedDB (offline-first). Queue offline actions and reconcile temp IDs after server responses.
 -   Remove reliance on Zustand singletons to avoid server/client initialization mismatch and integration/loading race conditions.
 

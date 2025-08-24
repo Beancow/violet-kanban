@@ -3,7 +3,7 @@ import {
     useVioletKanbanQueues,
     useVioletKanbanData,
 } from '@/providers/useVioletKanbanHooks';
-import { useQueueStore } from '@/providers/QueueProvider';
+import { useQueues } from '@/providers/QueueProvider';
 import { getActionItemId, detectActionConflicts } from '@/providers/helpers';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
@@ -20,7 +20,7 @@ export function ActionQueue() {
         [boardActionQueue, listActionQueue, cardActionQueue]
     );
     const { removeBoardAction, removeListAction, removeCardAction } =
-        useQueueStore();
+        useQueues();
     const [conflicts, setConflicts] = useState<
         {
             id: string;
@@ -31,7 +31,7 @@ export function ActionQueue() {
         }[]
     >([]);
 
-    // Use store/helpers for conflict detection
+    // Use helper functions for conflict detection
     useEffect(() => {
         setConflicts(detectActionConflicts(actionQueue, boards, lists, cards));
     }, [actionQueue, boards, lists, cards]);

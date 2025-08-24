@@ -8,8 +8,6 @@ module.exports = {
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@/providers/(.*)$': '<rootDir>/src/providers/$1',
-        // Redirect legacy store imports to a test shim that delegates to providers
-        '^@/store/(.*)$': '<rootDir>/tests/__mocks__/storeShim.ts',
     },
     globals: {
         'ts-jest': {

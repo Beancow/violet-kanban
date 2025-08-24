@@ -1,14 +1,14 @@
-import { useBoardStore } from './BoardProvider';
-import { useListStore } from './ListProvider';
-import { useCardStore } from './CardProvider';
-import { useQueueStore } from './QueueProvider';
+import { useBoards } from './BoardProvider';
+import { useLists } from './ListProvider';
+import { useCards } from './CardProvider';
+import { useQueues } from './QueueProvider';
 import { useTempIdMap } from './TempIdMapProvider';
 
 // Adapters: providers expose API objects; wrap them into convenient hooks
 export function useVioletKanbanData() {
-    const boardApi = useBoardStore();
-    const listApi = useListStore();
-    const cardApi = useCardStore();
+    const boardApi = useBoards();
+    const listApi = useLists();
+    const cardApi = useCards();
     const boards = boardApi.state.boards as any[];
     const lists = listApi.state.lists as any[];
     const cards = cardApi.state.cards as any[];
@@ -16,12 +16,12 @@ export function useVioletKanbanData() {
 }
 
 export function useVioletKanbanOrphanedCards() {
-    const cardApi = useCardStore();
+    const cardApi = useCards();
     return (cardApi.state.orphanedCards as any[]) ?? [];
 }
 
 export function useVioletKanbanQueues() {
-    const q = useQueueStore();
+    const q = useQueues();
     return {
         boardActionQueue: q.state.boardActionQueue,
         listActionQueue: q.state.listActionQueue,
@@ -30,22 +30,22 @@ export function useVioletKanbanQueues() {
 }
 
 export function useVioletKanbanAddBoard() {
-    const b = useBoardStore();
+    const b = useBoards();
     return b.addBoard;
 }
 
 export function useVioletKanbanAddList() {
-    const l = useListStore();
+    const l = useLists();
     return l.addList;
 }
 
 export function useVioletKanbanAddCard() {
-    const c = useCardStore();
+    const c = useCards();
     return c.addCard;
 }
 
 export function useVioletKanbanEnqueueBoardCreateOrUpdate() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (data: any) => {
         const idCandidate = data?.id;
         if (
@@ -76,7 +76,7 @@ export function useVioletKanbanEnqueueBoardCreateOrUpdate() {
 }
 
 export function useVioletKanbanEnqueueListCreateOrUpdate() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (data: any) => {
         const idCandidate = data?.id;
         if (
@@ -109,7 +109,7 @@ export function useVioletKanbanEnqueueListCreateOrUpdate() {
 }
 
 export function useVioletKanbanEnqueueCardCreateOrUpdate() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (data: any) => {
         const idCandidate = data?.id;
         if (
@@ -144,7 +144,7 @@ export function useVioletKanbanEnqueueCardCreateOrUpdate() {
 }
 
 export function useVioletKanbanEnqueueCardMove() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (payload: {
         id: string;
         newIndex: number;
@@ -165,7 +165,7 @@ export function useVioletKanbanEnqueueCardMove() {
 }
 
 export function useVioletKanbanEnqueueCardDelete() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (id: string) =>
         q.enqueueCardAction({
             type: 'delete-card',
@@ -175,7 +175,7 @@ export function useVioletKanbanEnqueueCardDelete() {
 }
 
 export function useVioletKanbanEnqueueListDelete() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (id: string) =>
         q.enqueueListAction({
             type: 'delete-list',
@@ -185,7 +185,7 @@ export function useVioletKanbanEnqueueListDelete() {
 }
 
 export function useVioletKanbanEnqueueBoardDelete() {
-    const q = useQueueStore();
+    const q = useQueues();
     return (id: string) =>
         q.enqueueBoardAction({
             type: 'delete-board',
@@ -195,24 +195,24 @@ export function useVioletKanbanEnqueueBoardDelete() {
 }
 
 export function useVioletKanbanRemoveBoardAction() {
-    const q = useQueueStore();
+    const q = useQueues();
     return q.removeBoardAction;
 }
 
 export function useVioletKanbanRemoveListAction() {
-    const q = useQueueStore();
+    const q = useQueues();
     return q.removeListAction;
 }
 
 export function useVioletKanbanRemoveCardAction() {
-    const q = useQueueStore();
+    const q = useQueues();
     return q.removeCardAction;
 }
 
 export function useVioletKanbanHandleBoardActionSuccess() {
-    const q = useQueueStore();
+    const q = useQueues();
     const tempMap = useTempIdMap();
-    const boardApi = useBoardStore();
+    const boardApi = useBoards();
     return (tempId: string | undefined, newBoard: any) => {
         if (!tempId) return;
         const realId = newBoard.id;
@@ -224,9 +224,9 @@ export function useVioletKanbanHandleBoardActionSuccess() {
 }
 
 export function useVioletKanbanHandleListActionSuccess() {
-    const q = useQueueStore();
+    const q = useQueues();
     const tempMap = useTempIdMap();
-    const listApi = useListStore();
+    const listApi = useLists();
     return (tempId: string | undefined, newList: any) => {
         if (!tempId) return;
         const realId = newList.id;
@@ -238,9 +238,9 @@ export function useVioletKanbanHandleListActionSuccess() {
 }
 
 export function useVioletKanbanHandleCardActionSuccess() {
-    const q = useQueueStore();
+    const q = useQueues();
     const tempMap = useTempIdMap();
-    const cardApi = useCardStore();
+    const cardApi = useCards();
     return (tempId: string | undefined, newCard: any) => {
         if (!tempId) return;
         const realId = newCard.id;

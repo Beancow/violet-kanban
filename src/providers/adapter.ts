@@ -1,5 +1,11 @@
-// Runtime adapters for non-React code that expects StoreApi access.
-// Providers should register their minimal API surface here on mount.
+// Runtime adapters for non-React code to interact with provider surfaces.
+//
+// Providers should register a minimal API surface on mount using the
+// `register*Adapter` helpers below. Non-React consumers (workers, background
+// scripts, or other integration points) may call the corresponding
+// `get*Adapter()` to obtain the registered callbacks. Adapters are thin
+// shims only — slice reducers remain pure and the data sync worker is the
+// single place performing network I/O.
 
 type BoardAdapter = {
     addBoard?: (b: import('../types/appState.type').Board) => void;

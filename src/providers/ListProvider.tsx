@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import type { ReactNode } from 'react';
@@ -66,9 +67,9 @@ export function ListProvider({ children }: { children: ReactNode }) {
     return <ListContext.Provider value={api}>{children}</ListContext.Provider>;
 }
 
-export function useListStore() {
+export function useLists() {
     const ctx = useContext(ListContext);
-    if (!ctx) throw new Error('useListStore must be used within ListProvider');
+    if (!ctx) throw new Error('useLists must be used within ListProvider');
     return ctx;
 }
 

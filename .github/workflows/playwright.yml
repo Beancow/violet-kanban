@@ -19,9 +19,7 @@ jobs:
               run: npm ci
             - name: Build
               run: npm run build
-            - name: Start server
-              run: npm run start &
             - name: Install Playwright browsers
               run: npx playwright install --with-deps
-            - name: Run Playwright tests
+            - name: Run Playwright tests (uses playwright.config.ts webServer)
               run: npx playwright test --reporter=github

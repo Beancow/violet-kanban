@@ -9,8 +9,9 @@ import { NextRequest } from 'next/server';
  * @returns The user's UID.
  */
 export async function getUserFromAuthHeader(
-    request: NextRequest
+    request: Request | NextRequest
 ): Promise<User> {
+    // both Request and NextRequest support headers.get
     const authHeader =
         request.headers.get('authorization') ||
         request.headers.get('Authorization');
@@ -41,8 +42,8 @@ export async function getUserFromAuthHeader(
  * @param request The NextRequest object.
  * @returns An object containing the uid and orgId.
  */
-export async function getAuthAndOrgContext(request: NextRequest) {
-    const user = await getUserFromAuthHeader(request);
+export async function getAuthAndOrgContext(request: Request | NextRequest) {
+    const user = await getUserFromAuthHeader(request as Request | NextRequest);
     const orgId = request.headers.get('x-organization-id');
 
     if (!orgId) {

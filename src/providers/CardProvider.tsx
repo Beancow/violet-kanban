@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { Draft } from 'immer';
 import type { ReactNode } from 'react';
@@ -72,9 +73,9 @@ export function CardProvider({ children }: { children: ReactNode }) {
     return <CardContext.Provider value={api}>{children}</CardContext.Provider>;
 }
 
-export function useCardStore() {
+export function useCards() {
     const ctx = useContext(CardContext);
-    if (!ctx) throw new Error('useCardStore must be used within CardProvider');
+    if (!ctx) throw new Error('useCards must be used within CardProvider');
     return ctx;
 }
 

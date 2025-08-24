@@ -29,7 +29,7 @@ Design and types (recommended)
         -   enqueueCardAction(a: VioletKanbanAction): void
         -   removeCardAction(tempOrId: string): void
 
-    -   TempIdMapAdapter
+    -   (legacy) TempIdMapAdapter — types moved; use `src/providers/adapter.ts` and the runtime registration helpers instead
         -   setMapping(tempId: string, realId: string): void
         -   getRealId(tempId: string): string | undefined
         -   clearMapping(tempId: string): void

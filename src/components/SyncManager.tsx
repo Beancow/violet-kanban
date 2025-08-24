@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from 'react';
 import { getQueueAdapter } from '@/providers/adapter';
-import { useQueueStore } from '@/providers/QueueProvider';
+import { useQueues } from '@/providers/QueueProvider';
 import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
 import { useAuthProvider } from '@/providers/AuthProvider';
 import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 
 export function SyncManager() {
-    const queueApi = useQueueStore();
+    const queueApi = useQueues();
     const { boardActionQueue, listActionQueue, cardActionQueue } =
         queueApi.state;
     const syncError = useSyncErrorProvider();

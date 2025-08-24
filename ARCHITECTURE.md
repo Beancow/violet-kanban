@@ -6,68 +6,28 @@ This document describes the architecture and requirements for the Violet Kanban 
 
 ---
 
-# State Management with Zustand
+## State management & providers
 
-Zustand is used for global state management in Violet Kanban due to its simplicity, performance, and compatibility with React and Next.js.
-
-## Rationale
-
--   Minimal API and boilerplate compared to Redux or Context.
--   Efficient updates via selective subscriptions.
--   No need for a Provider wrapper; stores are accessed via hooks.
+This project migrated from using Zustand singletons to provider-backed state (React context + reducers + immer). Providers live in `src/providers` and expose hooks for component consumption.
 
 ## Persistence
 
--   Zustand's `persist` middleware automatically syncs store state to localStorage, ensuring LocalStorage remains the single source of truth for boards, lists, cards, and action queues.
--   On app load, Zustand hydrates state from localStorage.
--   Split action queues (board, list, card) are managed in the store and can be persisted separately if needed.
+-   Providers centralize persistence and lifecycle logic; localStorage is used where appropriate by the provider reducers.
+-   Action queues (board/list/card) are persisted and managed by the queue reducer.
 
 ## Integration
 
--   Define Zustand stores in separate files (e.g., `store/kanbanStore.ts`).
--   Use the store in client components and hooks throughout the app.
--   Hydrate state from localStorage automatically; no manual persistence logic needed.
--   Implement custom middleware for queue squashing, stale action management, and tempId reconciliation as needed.
+-   Define local state via reducers in `src/providers/reducers` and consume them through provider hooks exported from `src/providers`.
+-   Use the convenience hooks in `src/providers/useVioletKanbanHooks` for common patterns and enqueue helpers.
 
-## Next.js Compatibility
+## Best practices
 
--   Zustand works seamlessly with Next.js App Router and client components.
--   For SSR/SSG, hydrate Zustand state in client-side effects if needed.
--   Only access Zustand stores in client components (not server components).
-
-## Example Store Setup
-
-```typescript
-import create from 'zustand';
-import { persist } from 'zustand/middleware';
-
-export const useKanbanStore = create(
-    persist(
-        (set) => ({
-            boards: [],
-            lists: [],
-            cards: [],
-            boardActionQueue: [],
-            listActionQueue: [],
-            cardActionQueue: [],
-            // ...actions and queue logic
-        }),
-        { name: 'kanban-storage' }
-    )
-);
-```
-
-## Best Practices
-
--   Use TypeScript for store typing and safety.
--   Implement custom middleware for advanced queue logic and persistence needs.
--   Document store actions and middleware for maintainability.
+-   Use TypeScript for typings and export reducers for unit testing.
+-   Keep queue squashing and reconciliation logic in the queue reducer and orchestrator layers.
 
 ## Summary
 
--   Zustand provides global state management with automatic persistence to localStorage.
--   All queue and sync logic, including squashing and reconciliation, is implemented in store actions and middleware.
--   Providers and context logic are replaced or supplemented by Zustand stores and hooks.
+-   State is now managed via providers and reducers; previously-centralized singletons were removed in favor of provider-local instances.
 
 ## Store Structure & Maintainability
 
