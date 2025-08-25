@@ -53,6 +53,3 @@ next-env.d.ts
 
 # service account key
 serviceAccountKey.json
-
-# Storybook static build output
-/storybook-static

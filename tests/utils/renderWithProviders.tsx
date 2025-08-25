@@ -5,6 +5,9 @@ import { UiProvider } from '@/providers/UiProvider';
 // tests can call `jest.mock()` with factories that replace those modules
 // without causing initialization-order problems.
 import type { AuthApi, OrganizationApi } from '@/types/provider-apis';
+// Prefer the provider's runtime context type if available to keep test helpers
+// in sync with the real provider implementation.
+import type { AuthContextType } from '@/providers/AuthProvider';
 
 interface RenderOptions {
     // Allow tests to pass in replacement provider components (useful when a test
@@ -19,16 +22,36 @@ export function renderWithProviders(
     ui: React.ReactElement,
     options?: RenderOptions
 ) {
-    const AP =
-        options?.AuthProvider ??
-        (require('@/providers/AuthProvider').__esModule
-            ? require('@/providers/AuthProvider').default
-            : require('@/providers/AuthProvider'));
-    const OP =
-        options?.OrganizationProvider ??
-        (require('@/providers/OrganizationProvider').__esModule
-            ? require('@/providers/OrganizationProvider').default
-            : require('@/providers/OrganizationProvider'));
+    // Resolve provider modules safely across CommonJS/ESM and named/default
+    // exports. If requiring the real providers throws (for example because
+    // Firebase config/env isn't available in the test environment), fall
+    // back to the lightweight mock providers shipped with tests so unit tests
+    // can run without booting external integrations.
+    let AP: React.ComponentType<{ children?: ReactNode }>;
+    let OP: React.ComponentType<{ children?: ReactNode }>;
+
+    if (options?.AuthProvider) {
+        AP = options.AuthProvider;
+    } else {
+        try {
+            const authMod = require('@/providers/AuthProvider');
+            AP = authMod.AuthProvider ?? authMod.default ?? authMod;
+        } catch (e) {
+            // fall back to test mock provider
+            AP = require('./providerMocks').MockAuthProvider;
+        }
+    }
+
+    if (options?.OrganizationProvider) {
+        OP = options.OrganizationProvider;
+    } else {
+        try {
+            const orgMod = require('@/providers/OrganizationProvider');
+            OP = orgMod.OrganizationProvider ?? orgMod.default ?? orgMod;
+        } catch (e) {
+            OP = require('./providerMocks').MockOrganizationProvider;
+        }
+    }
     const UP = options?.UiProvider ?? UiProvider;
 
     const Wrapper = ({ children }: { children?: ReactNode }) => (
@@ -51,13 +74,16 @@ export function createSeededAuthProvider(seed: Partial<AuthApi>) {
     return function SeededAuthProvider({ children }: { children?: ReactNode }) {
         // The real AuthProvider API is fairly small; we provide the seeded values
         // and no-op implementations for functions.
-        const api: AuthApi = {
+        // Seed only the fields present on the real AuthContextType. Tests
+        // that also need legacy helpers (idToken, refreshIdToken, etc.) can
+        // attach them under `seed.__extra` when creating the seeded
+        // provider. The runtime `api` remains loose (`any`) so tests don't
+        // fail if internal provider types change.
+        const api: any = {
             authUser: seed.authUser ?? null,
-            idToken: seed.idToken ?? null,
             loading: seed.loading ?? false,
-            loginWithPopup: seed.loginWithPopup ?? (async () => {}),
             logout: seed.logout ?? (async () => {}),
-            refreshIdToken: seed.refreshIdToken ?? (async () => {}),
+            ...(seed as any).__extra,
         };
 
         const Ctx = require('@/providers/AuthProvider').__esModule

@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+'use client';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     useVioletKanbanQueues,
     useVioletKanbanData,

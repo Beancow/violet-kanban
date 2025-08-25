@@ -1,10 +1,10 @@
 'use client';
-import { useAuthProvider } from '@/providers/AuthProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, Button, Avatar, Flex, Text } from '@radix-ui/themes';
 
 export default function UserMenu() {
-    const auth = useAuthProvider();
+    const auth = useAuth();
     const authUser = auth.authUser;
     const logout = auth.logout;
     const router = useRouter();

@@ -6,6 +6,7 @@ import { Theme } from '@radix-ui/themes';
 import { FloatingSyncButton } from '@/components/FloatingSyncButton';
 import Header from '@/components/navigation/Header';
 import AppProvider from '@/providers/AppProvider';
+import { AuthProvider } from '@/providers/AuthProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -23,11 +24,13 @@ export default function RootLayout({
         <html lang='en'>
             <body className={inter.className}>
                 <Theme>
-                    <AppProvider>
-                        <Header />
-                        <FloatingSyncButton />
-                        {children}
-                    </AppProvider>
+                    <AuthProvider>
+                        <AppProvider>
+                            <Header />
+                            <FloatingSyncButton />
+                            {children}
+                        </AppProvider>
+                    </AuthProvider>
                 </Theme>
             </body>
         </html>

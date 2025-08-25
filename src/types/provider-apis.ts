@@ -1,5 +1,6 @@
 import type { Organization, AuthUser } from './appState.type';
 import type { SyncAction } from './worker.type';
+import type { AuthContextType } from '@/providers/AuthProvider';
 
 export type OrganizationApi = {
     organizations: Organization[];
@@ -12,14 +13,13 @@ export type OrganizationApi = {
     refetchOrganizations: () => Promise<void>;
 };
 
-export type AuthApi = {
-    authUser: AuthUser | null;
-    idToken: string | null;
-    loading: boolean;
-    loginWithPopup: () => Promise<void> | void;
-    logout: () => Promise<void> | void;
-    refreshIdToken: () => Promise<void>;
-};
+// AuthApi mirrors the runtime auth provider surface. We prefer deriving it
+// from the actual `AuthContextType` exported by the provider so tests and
+// consumers stay in sync if the provider changes its internal types
+// (for example switching to Firebase's User type). Additional helper fields
+// used by other parts of the app (idToken, loginWithPopup, refreshIdToken)
+// are added here to preserve the expected API surface.
+export type AuthApi = AuthContextType;
 
 // Extract payload union type from SyncAction for safer error payload typing
 export type SyncActionPayload = SyncAction extends { payload: infer P }

@@ -146,5 +146,3 @@ export async function getAdminAuth() {
     if (!adminApp) await initializeAdminApp();
     return adminApp!.auth();
 }
-
-export default { initializeAdminApp, getAdminFirestore, getAdminAuth };

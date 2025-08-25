@@ -27,7 +27,7 @@ interface CreateBoardModalProps {
  * - Preferred pattern: open this modal via the central `useUi()` hook by calling
  *   `ui.openModal({ name: 'create-board', props: { board, onSubmit } })`. This keeps
  *   the modal payloads colocated with UI state and makes the component easy to
- *   reuse from multiple places (pages, storybook, tests).
+ *   reuse from multiple places (pages, tests).
  * - The component also accepts explicit controlled props (`open`, `onOpenChange`,
  *   `isSubmitting`) and optional `board` / `onSubmit` overrides for tests or when
  *   a caller wants to control the dialog directly.

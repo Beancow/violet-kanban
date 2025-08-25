@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueues } from '@/providers/QueueProvider';
 import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
-import { useAuthProvider } from '@/providers/AuthProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { isObject } from '@/types/typeGuards';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
@@ -14,7 +14,7 @@ export function SyncManager() {
     const { boardActionQueue, listActionQueue, cardActionQueue } =
         queueApi.state;
     const syncError = useSyncErrorProvider();
-    const auth = useAuthProvider();
+    const auth = useAuth();
     const org = useOrganizationProvider();
     const lastQueueLength = useRef(
         boardActionQueue.length +

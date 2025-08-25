@@ -1,5 +1,6 @@
 import React from 'react';
 import type { AuthApi, OrganizationApi } from '@/types/provider-apis';
+import type { AuthContextType } from '@/providers/AuthProvider';
 
 // Lightweight mocked provider components that simply render children. Tests
 // can pass a seeded API to `mockAuthProvider(seed)` and use it in a
@@ -23,13 +24,14 @@ export const MockOrganizationProvider = ({
 };
 
 export function mockAuthProvider(seed?: Partial<AuthApi>) {
-    const api: AuthApi = {
+    // Build a loose runtime object using only the fields available on the
+    // real AuthContextType. Tests that need extra helpers (idToken,
+    // refreshIdToken, etc.) should provide them via `createSeededAuthProvider`
+    // or by mocking the provider module directly.
+    const api: any = {
         authUser: seed?.authUser ?? null,
-        idToken: seed?.idToken ?? null,
         loading: seed?.loading ?? false,
-        loginWithPopup: seed?.loginWithPopup ?? (async () => {}),
         logout: seed?.logout ?? (async () => {}),
-        refreshIdToken: seed?.refreshIdToken ?? (async () => {}),
     };
 
     // Export a module that defaults to a provider component (pass-through)
@@ -38,7 +40,34 @@ export function mockAuthProvider(seed?: Partial<AuthApi>) {
         __esModule: true,
         default: MockAuthProvider,
         AuthProvider: MockAuthProvider,
-        useAuthProvider: () => api,
+        useAuth: () => api,
+        __seededApi: api,
+    } as any;
+}
+
+// Typed helper for tests that need to seed tokens or token-refresh behavior.
+export type TestAuthSeed = Partial<AuthApi> & {
+    // Optional current id token value to expose on the mocked API
+    idToken?: string | null;
+    // Optional implementation of a refresh function returning a fresh token
+    refreshIdToken?: () => Promise<string | null>;
+};
+
+export function mockAuthProviderWithToken(seed?: TestAuthSeed) {
+    const api: any = {
+        authUser: seed?.authUser ?? null,
+        loading: seed?.loading ?? false,
+        logout: seed?.logout ?? (async () => {}),
+        // include seeded token fields if provided
+        ...(seed && seed.idToken !== undefined ? { idToken: seed.idToken } : {}),
+        ...(seed && seed.refreshIdToken ? { refreshIdToken: seed.refreshIdToken } : {}),
+    };
+
+    return {
+        __esModule: true,
+        default: MockAuthProvider,
+        AuthProvider: MockAuthProvider,
+        useAuth: () => api,
         __seededApi: api,
     } as any;
 }

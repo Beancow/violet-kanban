@@ -46,20 +46,6 @@ npx tsc --noEmit
 
 > Recommended workflow: run Jest while developing for fast feedback, and rely on `npx tsc --noEmit` in CI to enforce strict typing before merges.
 
-## Storybook
-
--   Run Storybook locally:
-
-```bash
-npm run storybook
-```
-
--   Build Storybook:
-
-```bash
-npm run build-storybook
-```
-
 ## Notes
 
 -   The repo uses `ts-jest` for TypeScript Jest support. Tests run faster if you limit to specific test files during development.

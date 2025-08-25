@@ -5,6 +5,20 @@ import { useUi } from '@/providers/UiProvider';
 import CreateBoardModal from '@/components/modals/shared/CreateBoardModal';
 import { renderWithProviders } from '../../utils/renderWithProviders';
 
+// Mock global fetch for tests
+beforeAll(() => {
+    global.fetch = jest.fn(() =>
+        Promise.resolve({
+            json: () => Promise.resolve({}),
+        })
+    ) as jest.Mock;
+});
+
+afterAll(() => {
+    // @ts-ignore
+    delete global.fetch;
+});
+
 // Mock the heavy BoardFormWrapper to keep the test focused on modal wiring.
 jest.mock('@/components/forms/BoardFormWrapper', () => ({
     BoardFormWrapper: ({ board, onSubmit }: any) => {

@@ -26,4 +26,55 @@ if (typeof (global as any).window === 'undefined') {
 // Expose Jest helpers to the TypeScript environment via triple-slash types in tests/tsconfig
 // (the types are already included in tests/tsconfig.json)
 
+// Minimal Fetch API polyfills used by some libraries (firebase/auth) when
+// running in the Jest/jsdom environment. We only implement the small surface
+// area required for tests.
+if (typeof (global as any).Response === 'undefined') {
+    (global as any).Response = class {
+        body: any;
+        status: number;
+        ok: boolean;
+        headers: any;
+        constructor(body?: any, init?: any) {
+            this.body = body;
+            this.status = init?.status ?? 200;
+            this.ok = this.status >= 200 && this.status < 300;
+            this.headers = init?.headers ?? {};
+        }
+        json() {
+            try {
+                return Promise.resolve(
+                    typeof this.body === 'string'
+                        ? JSON.parse(this.body)
+                        : this.body
+                );
+            } catch {
+                return Promise.resolve(this.body);
+            }
+        }
+        text() {
+            return Promise.resolve(
+                typeof this.body === 'string'
+                    ? this.body
+                    : JSON.stringify(this.body)
+            );
+        }
+    };
+}
+
+if (typeof (global as any).Headers === 'undefined') {
+    (global as any).Headers = class {
+        private _map: Record<string, string> = {};
+        constructor(init?: Record<string, string>) {
+            if (init) Object.assign(this._map, init);
+        }
+        append(key: string, value: string) {
+            this._map[key] = value;
+        }
+        get(key: string) {
+            return this._map[key];
+        }
+    };
+}
+
 export {};
