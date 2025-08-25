@@ -18,6 +18,6 @@ Please include the following where possible:
 - Affected versions or commit hash
 - Proof-of-concept (PoC) or reproduction steps (do not include real credentials)
 
-If you prefer to encrypt your report, reply to the automatic acknowledgment email and request the PGP key, or check `SECURITY_PUBLIC_KEY.asc` in this repo for the project's public key (may be a placeholder).
+If the report contains sensitive data, please send it by email to v@aviolet.dev instead of posting it publicly.
 
 We will acknowledge receipt within 3 business days. Thank you for helping keep this project secure.

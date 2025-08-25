@@ -20,8 +20,7 @@ Handling and timeline
 Safe harbor
 - We ask reporters to avoid privacy-infringing actions (for example, accessing or exfiltrating real user data). If proof requires data access, describe the steps we can run instead or work with us to reproduce safely.
 
-Optional: encrypted reports
-- If you prefer to send a report encrypted, include a note in the initial email and we'll provide a public key or secure channel.
+If you are sending sensitive details, prefer email (v@aviolet.dev) rather than filing a public issue.
 
 No bounty implied
 - This repository does not imply any bounty program; if a bounty program is later introduced we'll document it here.
