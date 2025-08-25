@@ -1,21 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Meta, StoryObj } from '@storybook/react';
 import { FloatingSyncButton } from './FloatingSyncButton';
 import { useMockQueue } from '@/storybook/mocks';
 
-const meta: Meta<typeof FloatingSyncButton> = {
-    title: 'Components/FloatingSyncButton',
-    component: FloatingSyncButton,
-};
-
-export default meta;
-
-type Story = StoryObj<typeof FloatingSyncButton>;
-
-export const Default: Story = {
-    render: () => {
-        // populate mock queue for the story idempotently
-        const q = useMockQueue();
+function SeededFloatingSyncButton() {
+    const q = useMockQueue();
+    useEffect(() => {
         const existing = q.state.boardActionQueue.concat(
             q.state.listActionQueue,
             q.state.cardActionQueue
@@ -43,6 +33,21 @@ export const Default: Story = {
                 },
             } as any);
         }
-        return <FloatingSyncButton />;
-    },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return <FloatingSyncButton />;
+}
+
+const meta: Meta<typeof FloatingSyncButton> = {
+    title: 'Components/FloatingSyncButton',
+    component: FloatingSyncButton,
+};
+
+export default meta;
+
+type Story = StoryObj<typeof FloatingSyncButton>;
+
+export const Default: Story = {
+    render: () => <SeededFloatingSyncButton />,
 };
