@@ -6,8 +6,8 @@ on:
     workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 permissions:
     contents: read
@@ -45,7 +45,7 @@ jobs:
             - name: Show deployed Storybook URL
               if: success()
               run: |
-                REPO=${{ github.repository }}
-                OWNER=${{ github.repository_owner }}
-                NAME=${REPO#*/}
-                echo "Storybook deployed: https://${OWNER}.github.io/${NAME}"
+                  REPO=${{ github.repository }}
+                  OWNER=${{ github.repository_owner }}
+                  NAME=${REPO#*/}
+                  echo "Storybook deployed: https://${OWNER}.github.io/${NAME}"

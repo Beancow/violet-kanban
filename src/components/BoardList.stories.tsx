@@ -1,4 +1,4 @@
-// React import not required in story file with modern JSX runtime
+import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
 import { BoardListComponent } from './BoardList';
 

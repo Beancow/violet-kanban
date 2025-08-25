@@ -15,6 +15,12 @@ type Story = StoryObj<typeof OrganizationSelect>;
 export const Default: Story = {
     render: () => {
         const org = useMockOrganization();
-        return <OrganizationSelect showCreate onSelect={(id) => console.log('selected', id)} value={org.currentOrganizationId ?? undefined} />;
+        return (
+            <OrganizationSelect
+                showCreate
+                onSelect={(id) => console.log('selected', id)}
+                value={org.currentOrganizationId ?? undefined}
+            />
+        );
     },
 };

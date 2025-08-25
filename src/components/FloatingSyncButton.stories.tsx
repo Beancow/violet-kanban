@@ -16,12 +16,32 @@ export const Default: Story = {
     render: () => {
         // populate mock queue for the story idempotently
         const q = useMockQueue();
-        const existing = q.state.boardActionQueue.concat(q.state.listActionQueue, q.state.cardActionQueue);
+        const existing = q.state.boardActionQueue.concat(
+            q.state.listActionQueue,
+            q.state.cardActionQueue
+        );
         if (!existing.find((a: any) => a.payload?.tempId === 'temp-1')) {
-            q.enqueueBoardAction({ type: 'create-board', payload: { tempId: 'temp-1', data: { title: 'Board 1', organizationId: 'org-1' } as any } } as any);
+            q.enqueueBoardAction({
+                type: 'create-board',
+                payload: {
+                    tempId: 'temp-1',
+                    data: { title: 'Board 1', organizationId: 'org-1' } as any,
+                },
+            } as any);
         }
         if (!existing.find((a: any) => a.payload?.tempId === 'temp-2')) {
-            q.enqueueListAction({ type: 'create-list', payload: { tempId: 'temp-2', data: { title: 'List 1', position: 0, boardId: '', organizationId: 'org-1' } as any } } as any);
+            q.enqueueListAction({
+                type: 'create-list',
+                payload: {
+                    tempId: 'temp-2',
+                    data: {
+                        title: 'List 1',
+                        position: 0,
+                        boardId: '',
+                        organizationId: 'org-1',
+                    } as any,
+                },
+            } as any);
         }
         return <FloatingSyncButton />;
     },

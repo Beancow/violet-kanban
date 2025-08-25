@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import OrganizationProvider, { useOrganizationProvider } from '@/providers/OrganizationProvider';
+import OrganizationProvider, {
+    useOrganizationProvider,
+} from '@/providers/OrganizationProvider';
 import { QueueProvider, useQueues } from '@/providers/QueueProvider';
 
 function Seed({ children }: { children: React.ReactNode }) {
