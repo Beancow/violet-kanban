@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as Sentry from '@/lib/sentryWrapper';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 
 export function useHydrateFromStorage<T>(key: string, initial: T) {
     // returns hydrated initial state synchronously (from localStorage) and
@@ -16,11 +17,7 @@ export function useHydrateFromStorage<T>(key: string, initial: T) {
         // Log parse/read errors when hydrating from localStorage.
         console.error('[persist] failed to read from localStorage', e);
         // Report to Sentry when available for server-side diagnostics.
-        try {
-            Sentry.captureException(e);
-        } catch {
-            /* swallow Sentry errors */
-        }
+        safeCaptureException(e);
     }
     const last = useRef<T>(hydrated);
     useEffect(() => {
@@ -29,11 +26,7 @@ export function useHydrateFromStorage<T>(key: string, initial: T) {
         } catch (e) {
             // Log write errors for diagnostics (e.g., storage quota exceeded)
             console.error('[persist] failed to write to localStorage', e);
-            try {
-                Sentry.captureException(e);
-            } catch {
-                /* swallow Sentry errors */
-            }
+            safeCaptureException(e);
         }
     }, [key]);
     return {

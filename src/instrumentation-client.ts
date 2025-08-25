@@ -30,8 +30,8 @@ async function initClientSentryIfNeeded() {
             // If the wrapper is available, attempt to report the initialization error
             const Sentry = await import('@/lib/sentryWrapper');
             Sentry.captureException(e);
-        } catch {
-            /* ignore */
+        } catch (sentryErr) {
+            console.error('[sentry] captureException failed', sentryErr);
         }
     }
 }

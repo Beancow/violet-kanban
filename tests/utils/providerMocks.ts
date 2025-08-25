@@ -59,8 +59,12 @@ export function mockAuthProviderWithToken(seed?: TestAuthSeed) {
         loading: seed?.loading ?? false,
         logout: seed?.logout ?? (async () => {}),
         // include seeded token fields if provided
-        ...(seed && seed.idToken !== undefined ? { idToken: seed.idToken } : {}),
-        ...(seed && seed.refreshIdToken ? { refreshIdToken: seed.refreshIdToken } : {}),
+        ...(seed && seed.idToken !== undefined
+            ? { idToken: seed.idToken }
+            : {}),
+        ...(seed && seed.refreshIdToken
+            ? { refreshIdToken: seed.refreshIdToken }
+            : {}),
     };
 
     return {

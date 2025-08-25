@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import * as Sentry from '@/lib/sentryWrapper';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import { reducer as listReducer } from './reducers/listReducer';
 import { registerListAdapter } from './adapter';
@@ -9,12 +9,6 @@ import type { BoardList } from '../types/appState.type';
 type State = {
     lists: BoardList[];
 };
-
-type _Action =
-    | { type: 'ADD_LIST'; list: BoardList }
-    | { type: 'UPDATE_LIST'; list: Partial<BoardList> & { id: string } }
-    | { type: 'REMOVE_LIST'; listId: string }
-    | { type: 'SET_LISTS'; lists: BoardList[] };
 
 const STORAGE_KEY = 'violet-kanban-list-storage';
 
@@ -35,11 +29,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
     } catch (e) {
         // Log parse/read errors when hydrating lists from localStorage.
         console.error('[list] failed to read from localStorage', e);
-        try {
-            Sentry.captureException(e);
-        } catch {
-            /* ignore */
-        }
+        safeCaptureException(e);
         initial = { lists: [] };
     }
 
@@ -51,11 +41,7 @@ export function ListProvider({ children }: { children: ReactNode }) {
         } catch (e) {
             // Log write errors for diagnostics (e.g., storage quota exceeded)
             console.error('[list] failed to write to localStorage', e);
-            try {
-                Sentry.captureException(e);
-            } catch {
-                /* ignore */
-            }
+            safeCaptureException(e);
         }
     }, [state]);
 

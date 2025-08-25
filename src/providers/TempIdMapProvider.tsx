@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import * as Sentry from '@/lib/sentryWrapper';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import {
     reducer as tempIdMapReducer,
@@ -31,11 +32,7 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
     } catch (e) {
         // Log parse errors when reading localStorage for debugging.
         console.error('[tempIdMap] failed to read from localStorage', e);
-        try {
-            Sentry.captureException(e);
-        } catch {
-            /* ignore */
-        }
+        safeCaptureException(e);
         initial = {};
     }
     const [state, dispatch] = useReducer(tempIdMapReducer, initial);
@@ -46,11 +43,7 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
         } catch (e) {
             // Log write errors for diagnostics (e.g., storage quota exceeded)
             console.error('[tempIdMap] failed to write to localStorage', e);
-            try {
-                Sentry.captureException(e);
-            } catch {
-                /* ignore */
-            }
+            safeCaptureException(e);
         }
     }, [state]);
 

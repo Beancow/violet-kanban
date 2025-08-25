@@ -1,146 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Violet Kanban — developer notes
 
-<!-- Playwright manual cross-browser status badge -->
+This repo contains the Violet Kanban application. The following notes focus on non-standard scripts, developer workflows, local emulators, persistence keys, and important implementation details you should know when working on the codebase.
 
-[![Playwright E2E](https://github.com/Beancow/violet-kanban/actions/workflows/playwright-schedule.yml/badge.svg?branch=main)](https://github.com/Beancow/violet-kanban/actions/workflows/playwright-schedule.yml)
+## Quick scripts you should know
 
-## Getting Started
+-   `npm run dev` — runs Next.js in development with Sentry disabled by default (see Sentry section). This is the standard local dev entrypoint.
+-   `npm run dev:with-sentry` — run local dev with Sentry enabled (do not use unless you want events reported to your Sentry project).
+-   `npm run dev:firebase-debug` — runs dev with extra Firebase admin debug env enabled.
+-   `npm run test` — run Jest tests (fast unit/integration runs).
+-   `npm run test:smoke` — run smoke tests only.
+-   `npm run test:e2e` — run Playwright E2E tests locally.
 
-First, run the development server (npm is preferred):
+All scripts are defined in `package.json`.
 
-```bash
-npm run dev
-```
+## Local emulator & debug tips
 
-If you use yarn, pnpm, or bun, their commands will work too but this README prefers npm.
+-   Firebase emulators data and config are present under `firebase-emulator-data/` and `firebase.json`. If you run the local Firebase emulators, the app is configured to work with them in many places.
+-   For Firebase admin debug behavior, use `DEBUG_FIREBASE_ADMIN=1` (there are helper scripts that set this env for build/dev scripts in `package.json`).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Sentry controls and safe reporting
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+-   The project includes a lightweight Sentry wrapper at `src/lib/sentryWrapper.ts`. It lazily loads `@sentry/nextjs` on the server and provides no-op fallbacks when Sentry is disabled.
+-   Local toggles:
+    -   `DISABLE_SENTRY=1` prevents server Sentry initialization.
+    -   `NEXT_PUBLIC_DISABLE_SENTRY=1` prevents client Sentry initialization.
+-   The default `npm run dev` script sets both of the above to `1`, preventing accidental local events.
+-   Important: errors are sent through a `safeCaptureException` helper which sanitizes payloads to redact tokens and other sensitive fields before sending to Sentry or logging fallbacks. If you need more redaction rules, update `src/lib/sentryWrapper.ts`.
 
-## Running tests
+## Auth & Token handling
 
-Run all tests with Jest:
+-   ID tokens are intentionally not persisted to disk/localStorage. Persistent auth state is limited to a small non-sensitive payload: `hasAuth`, `storedUser`, `lastAuthAt`.
+-   The storage key used for auth metadata is `violet-kanban-auth-v1` (see `src/providers/AuthProvider.tsx`). Do not store tokens to localStorage.
+-   A helper `src/lib/firebase/firebaseHelpers.ts` exists with utilities for token expiry detection (client-only). It will throw if used in a Node/server context.
+-   The app attempts proactive token refreshes (heuristic: refresh around the 50-minute mark of a 1-hour token) based on token expiry or `lastAuthAt` timestamp.
 
-```bash
-npm test
-```
+## Provider-backed state (no Zustand singletons)
 
-Run only the smoke tests:
+-   The app now uses React context providers under `src/providers/*` to host application state. Providers encapsulate lifecycle, persistence, and queueing.
+-   Important providers to look at:
+    -   `AuthProvider` — auth state, token refresh, persisted auth metadata
+    -   `BoardProvider`, `ListProvider`, `CardProvider`, `QueueProvider`, `TempIdMapProvider` — core app state and local persistence
+-   Persistence pattern: providers read synchronously from localStorage on init and write back via useEffect when their state changes. See `src/providers/persist.ts` for helpers and examples.
 
-```bash
-npm run test:smoke
-```
+## LocalStorage keys & conventions
 
-Recommended local test workflow
+-   `violet-kanban-auth-v1` — auth metadata (see above).
+-   Many providers use versioned keys in localStorage; check each provider for the exact key name if you need to inspect stored state.
+-   Providers intentionally avoid storing sensitive tokens — they persist minimal, non-sensitive metadata only.
 
--   Use `jest` for fast feedback while developing UI and component behavior locally. It runs quickly and is ideal for single-file or component-focused runs (for example, `npx jest tests/components/modals/CreateBoardModal.test.tsx`).
--   Keep type-checking strict in CI: run `npx tsc --noEmit` in CI to enforce full TypeScript checks (this should be part of your CI pipeline). Combining quick Jest runs locally with an authoritative `tsc --noEmit` step in CI gives both fast dev feedback and strict type safety in PRs.
+## Developer patterns and utilities
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+-   Use helpers in `src/utils/` and `src/types/` for common behavior (patch builders, type helpers, etc.).
+-   When writing update/patch functions, prefer `buildPatch<T>(...)` and the `PartialWithRequiredId<T>` patterns to avoid accidental overwrites.
+-   Queue and temp-id helpers are available through `src/providers/useVioletKanbanHooks.ts`.
 
-## Learn More
+## Troubleshooting & debugging
 
-To learn more about Next.js, take a look at the following resources:
+-   If Sentry seems to be swallowing failures locally, confirm `DISABLE_SENTRY` and `NEXT_PUBLIC_DISABLE_SENTRY` aren't set (or use `dev:with-sentry`), and inspect console output (the wrapper falls back to console on failures).
+-   If you see tokens in logs or Sentry events, update `src/lib/sentryWrapper.ts` sanitize rules immediately.
+-   If React context providers are missing state, ensure the application layout wraps the relevant subtree with the appropriate provider(s). Providers are instantiated in `src/providers` and wired into `app/layout.tsx`.
 
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tests and CI notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+-   Fast local checks: run `npm test` for Jest tests and `npm exec --silent tsc -- --noEmit` for a full typecheck.
+-   E2E runs use Playwright. CI may run Playwright with a GitHub reporter; check `package.json` for specifics.
 
-## Deploy on Vercel
+## Where to look next
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+-   `src/providers/` — provider implementations and persistence patterns.
+-   `src/lib/sentryWrapper.ts` — Sentry wrapper and sanitization logic.
+-   `src/lib/firebase/` — firebase config and helpers (client-only token helpers live here).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Developer notes
-
-This project includes a couple of small runtime/type helpers to make state patch updates safer and clearer:
-
--   `src/types/utilityTypes.ts`
-
-    -   `PartialWithRequiredId<T>`: a reusable alias for patch/update payloads that require an `id` but only include the fields to change.
-
--   `src/utils/patchHelpers.ts`
-    -   `buildPatch<T>(input: Partial<T>, allowNullFor?: Array<keyof T>)`: builds a sanitized patch object by filtering out `undefined` values and (unless allowed) `null` values. This avoids accidental overwrites.
-
-Recommended patterns:
-
-    -   For update methods which are patch-oriented, use the `PartialWithRequiredId<T>` signature and merge the patch into the existing object. Example:
-    ```ts
-    updateCard: (card: PartialWithRequiredId<BoardCard>) => {
-        const patch = buildPatch<BoardCard>(card);
-        // merge patch into existing card by id
-    };
-    ```
-
--   When you intentionally need to set a field to `null` (for example, clearing `listId` when a list is removed), pass the allowed keys to `buildPatch`:
-
-    ```ts
-    const patch = buildPatch<BoardCard>({ listId: null }, ['listId']);
-    ```
-
-This keeps update code concise and avoids repeated `Object.entries` boilerplate.
-
-See the developer checklist for common commands and recommended workflows:
-
--   `DEVELOPER.md`
-
-## Local Sentry controls for development
-
-When working on large rewrites you may want to avoid sending events to Sentry.
-Create or use the repository root `.env.development` to control Sentry behavior locally.
-
--   `DISABLE_SENTRY=1` prevents server/edge Sentry initialization.
--   `NEXT_PUBLIC_DISABLE_SENTRY=1` prevents client-side Sentry initialization.
-
-The project includes a `.env.development` that sets both flags to `1` by default so `npm run dev` won't initialize Sentry locally. To enable Sentry during local development, unset the flags or run the `dev:with-sentry` script instead.
-
-## Migration notes — zustand stores replaced by context providers
-
-We changed how the previous Zustand stores are created and consumed across the app; the app now uses provider-backed hooks.
-
--   Previously: the app used Zustand singletons (in `src/store/*`) and components imported those singletons directly.
--   Now: state is instantiated inside React context providers — see `src/providers/*`. Components should consume provider hooks (or the convenience hooks in `src/providers/useVioletKanbanHooks`).
-
-Why this change?
-
--   It makes instances local to a provider, improving testability and allowing multiple isolated instances (useful for testing or embedded widgets).
--   It centralizes lifecycle and persistence inside provider components and avoids accidental global state coupling.
-
-Migration checklist
-
--   Wrap the top-level app (or a specific subtree) with the new providers. Provider components are exported from `src/providers` and are already wired in the app layout.
--   Replace direct imports of previous singletons with the provider-backed hooks. Prefer the convenience hooks in `src/providers/useVioletKanbanHooks` where appropriate.
--   Tests: create reducer-backed instances via the exported reducers or use the provider wrappers in integration tests.
-
-Quick migration examples
-
-Before (singleton import):
-
-    // old: directly importing a module-level store
-    import { useBoardStore } from '@/store/boardStore';
-
-After (provider-backed):
-
-    // new: consume the API that the provider created for this subtree
-    import { useBoards } from '@/providers/BoardProvider';
-    // ensure the component tree is wrapped by the provider from `src/providers`
-
-Notes on related API changes
-
--   Enqueue / queue helpers: use the helpers exported from `src/providers/useVioletKanbanHooks` (for example `useVioletKanbanEnqueueCardCreateOrUpdate`, `useVioletKanbanEnqueueListCreateOrUpdate`, `useVioletKanbanEnqueueBoardCreateOrUpdate`). These helpers generate temporary ids for creates and enqueue the proper create vs update action.
--   Forms: form wrappers now own `useForm` and act as smart containers; the presentational form components accept a `form` prop (a `UseFormReturn<>`) and an `onSubmit` handler. This keeps presentation components pure and moves validation/defaults into the wrapper. Example pattern:
-
-    // wrapper (owns useForm and submit logic)
-    const form = useForm({ resolver: zodResolver(Schema), defaultValues: {...} });
-    const handleSubmit = (data) => { enqueueCreateOrUpdate(data); closeUi(); };
-    return <MyForm form={form} onSubmit={handleSubmit} />;
-
-    // presentation component (pure)
-    export function MyForm({ form, onSubmit }) { const { register, handleSubmit } = form; return <form onSubmit={handleSubmit(onSubmit)}>...</form> }
-
-Temp-id policy
-
--   Presentation-level code (forms/components) should not attempt to construct globally-unique temp ids. Use `data.id ?? 'temp-thing'` as a placeholder. The queue builder will create and persist proper temp ids and swap them when server sync returns the real id.
+If you want, I can add a short `README.dev.md` with commands to run the local Firebase emulators and a small checklist for bootstrapping local dev with emulators and test accounts.

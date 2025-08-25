@@ -3,7 +3,6 @@ import React, { createContext, useContext, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import type { Organization } from '@/types/appState.type';
 import type { OrganizationApi } from '@/types/provider-apis';
-import LoadingPage from '@/components/LoadingPage';
 
 type State = {
     organizations: Organization[];

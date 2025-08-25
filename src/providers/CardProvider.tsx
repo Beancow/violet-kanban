@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import * as Sentry from '@/lib/sentryWrapper';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import type { BoardCard } from '../types/appState.type';
 import { reducer as cardReducer } from './reducers/cardReducer';
@@ -10,13 +10,6 @@ type State = {
     cards: BoardCard[];
     orphanedCards?: BoardCard[];
 };
-
-type _Action =
-    | { type: 'ADD_CARD'; card: BoardCard }
-    | { type: 'UPDATE_CARD'; card: Partial<BoardCard> & { id: string } }
-    | { type: 'REMOVE_CARD'; cardId: string }
-    | { type: 'MARK_ORPHANED'; cardId: string }
-    | { type: 'SET_CARDS'; cards: BoardCard[] };
 
 const STORAGE_KEY = 'violet-kanban-card-storage';
 
@@ -38,11 +31,7 @@ export function CardProvider({ children }: { children: ReactNode }) {
     } catch (e) {
         // Log parse/read errors when hydrating cards from localStorage.
         console.error('[card] failed to read from localStorage', e);
-        try {
-            Sentry.captureException(e);
-        } catch {
-            /* ignore */
-        }
+        safeCaptureException(e);
         initial = { cards: [], orphanedCards: [] };
     }
 
@@ -54,11 +43,7 @@ export function CardProvider({ children }: { children: ReactNode }) {
         } catch (e) {
             // Log write errors for diagnostics (e.g., storage quota exceeded)
             console.error('[card] failed to write to localStorage', e);
-            try {
-                Sentry.captureException(e);
-            } catch {
-                /* ignore */
-            }
+            safeCaptureException(e);
         }
     }, [state]);
 

@@ -41,14 +41,13 @@ function loadSentryIfServer() {
             // Use eval('require') to hide the static require from bundlers so
             // server-only dependencies (like opentelemetry inside @sentry/nextjs)
             // are not pulled into client bundles during dev.
-             
-             
+
             const req = eval('require');
-             
+
             realSentry = req('@sentry/nextjs') as SentryLike;
         } catch (err) {
             // Failed to load server Sentry; keep realSentry null and log at debug level
-             
+
             console.debug('[sentry] failed to load @sentry/nextjs', err);
             realSentry = null;
         }
@@ -68,19 +67,127 @@ export const init = (opts?: unknown) => {
 
 export const captureException = (err: unknown) => {
     loadSentryIfServer();
+    const safe = sanitizeForSentry(err);
     if (realSentry && typeof realSentry.captureException === 'function')
-        return realSentry.captureException(err);
-     
-    console.debug('[sentry] captureException (disabled)', err);
+        return realSentry.captureException(safe);
+
+    console.debug('[sentry] captureException (disabled)', safe);
 };
 
 export const captureMessage = (msg: string, ...rest: unknown[]) => {
     loadSentryIfServer();
     if (realSentry && typeof realSentry.captureMessage === 'function')
         return realSentry.captureMessage(msg, ...rest);
-     
+
     console.debug('[sentry] captureMessage (disabled)', msg, ...rest);
 };
+
+// Safe wrapper that attempts to capture an exception and falls back to
+// console.error if the underlying capture throws for any reason.
+export const safeCaptureException = (err: unknown) => {
+    try {
+        captureException(err);
+    } catch (sentryErr) {
+        // sanitize before logging to avoid leaking tokens to console
+        const safeOriginal = sanitizeForSentry(err);
+        const safeSentryErr = sanitizeForSentry(sentryErr);
+        console.error(
+            '[sentry] safeCaptureException failed',
+            safeSentryErr,
+            'original:',
+            safeOriginal
+        );
+    }
+};
+
+// ---- Sanitization utilities -------------------------------------------------
+// Redact common sensitive keys and token-like strings before sending to Sentry
+const SENSITIVE_KEYS = new Set([
+    'token',
+    'idToken',
+    'accessToken',
+    'refreshToken',
+    'authorization',
+    'auth',
+    'password',
+    'secret',
+    'credentials',
+    'ssn',
+]);
+
+function isJwtLike(value: string) {
+    // very small heuristic for JWT-like strings: three dot-separated base64url parts
+    return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value);
+}
+
+function redactTokenInString(s: string) {
+    // redact JWTs
+    if (isJwtLike(s)) return '[REDACTED_TOKEN]';
+
+    // redact common query param tokens like ?token=... or &access_token=...
+    return s
+        .replace(
+            /([?&](?:token|access_token|id_token|refresh_token|auth)=)[^&\s]+/gi,
+            '$1[REDACTED]'
+        )
+        .replace(/(authorization:\s*Bearer\s+)[^\s]+/i, '$1[REDACTED]');
+}
+
+function sanitizeForSentry(value: unknown, maxDepth = 5): unknown {
+    const seen = new WeakSet();
+
+    function _sanitize(v: unknown, depth: number): unknown {
+        if (v == null) return v;
+        if (typeof v === 'string') return redactTokenInString(v);
+        if (
+            typeof v === 'number' ||
+            typeof v === 'boolean' ||
+            typeof v === 'function'
+        )
+            return v;
+        if (depth <= 0) return '[REDACTED]';
+
+        if (typeof v === 'object') {
+            // avoid circular traversal
+            try {
+                if (seen.has(v as object)) return '[CIRCULAR]';
+                seen.add(v as object);
+            } catch {
+                // WeakSet can throw for primitives, ignore
+            }
+
+            if (Array.isArray(v)) {
+                return v.map((item) => _sanitize(item, depth - 1));
+            }
+
+            const out: Record<string, unknown> = {};
+            for (const [k, val] of Object.entries(
+                v as Record<string, unknown>
+            )) {
+                try {
+                    if (SENSITIVE_KEYS.has(k)) {
+                        out[k] = '[REDACTED]';
+                        continue;
+                    }
+                    // sanitize key-containing values as well
+                    if (typeof val === 'string') {
+                        out[k] = redactTokenInString(val);
+                    } else {
+                        out[k] = _sanitize(val, depth - 1);
+                    }
+                } catch {
+                    out[k] = '[REDACTED]';
+                }
+            }
+            return out;
+        }
+
+        // fallback
+        return '[REDACTED]';
+    }
+
+    return _sanitize(value, maxDepth);
+}
 
 export const captureRequestError = (...args: unknown[]) => {
     loadSentryIfServer();

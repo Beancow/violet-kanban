@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import * as Sentry from '@/lib/sentryWrapper';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 import { reducer as boardReducer } from './reducers/boardReducer';
 import { registerBoardAdapter } from './adapter';
 import type { ReactNode } from 'react';
@@ -9,12 +9,6 @@ import type { Board } from '../types/appState.type';
 type State = {
     boards: Board[];
 };
-
-type _Action =
-    | { type: 'ADD_BOARD'; board: Board }
-    | { type: 'UPDATE_BOARD'; board: Partial<Board> & { id: string } }
-    | { type: 'REMOVE_BOARD'; boardId: string }
-    | { type: 'SET_BOARDS'; boards: Board[] };
 
 const STORAGE_KEY = 'violet-kanban-board-storage';
 
@@ -37,11 +31,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     } catch (e) {
         // Log parse/read errors when hydrating boards from localStorage.
         console.error('[board] failed to read from localStorage', e);
-        try {
-            Sentry.captureException(e);
-        } catch {
-            /* ignore */
-        }
+        safeCaptureException(e);
         initial = { boards: [] };
     }
 
@@ -53,11 +43,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         } catch (e) {
             // Log write errors for diagnostics (e.g., storage quota exceeded)
             console.error('[board] failed to write to localStorage', e);
-            try {
-                Sentry.captureException(e);
-            } catch {
-                /* ignore */
-            }
+            safeCaptureException(e);
         }
     }, [state]);
 
