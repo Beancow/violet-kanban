@@ -37,20 +37,42 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
             // and then call onmessage with ACTION_SUCCESS or ERROR depending on response.ok
             (async () => {
                 try {
-                    // Build endpoint from action.type (naive mapping used in real worker)
+                    // Support a SYNC_DATA wrapper (used by SyncManager) by
+                    // extracting the inner action when present. Many tests post
+                    // messages in the shape { type: 'SYNC_DATA', payload: <action> }
+                    // while some tests may post actions directly. Normalize to
+                    // `inner` with { type, payload, timestamp } shape.
+                    const inner =
+                        action && action.type === 'SYNC_DATA' && action.payload
+                            ? action.payload
+                            : action;
+
+                    // Build endpoint from inner.type (naive mapping used in real worker)
                     let endpoint: string | null = null;
-                    if (action.type === 'create-card')
+                    const actType = inner?.type;
+                    // Support worker version queries used by useWebWorker
+                    if (actType === 'GET_WORKER_VERSION') {
+                        if (this.onmessage)
+                            this.onmessage({
+                                data: {
+                                    type: 'WORKER_VERSION',
+                                    version: 'test-fake',
+                                },
+                            });
+                        return;
+                    }
+                    if (actType === 'create-card')
                         endpoint = '/api/cards/create';
-                    if (action.type === 'create-list')
+                    if (actType === 'create-list')
                         endpoint = '/api/lists/create';
-                    if (action.type === 'create-board')
+                    if (actType === 'create-board')
                         endpoint = '/api/boards/create';
 
                     if (endpoint && typeof fetchImpl === 'function') {
                         const body = {
-                            data: action.payload?.data,
-                            boardId: action.payload?.boardId,
-                            listId: action.payload?.listId,
+                            data: inner.payload?.data,
+                            boardId: inner.payload?.boardId,
+                            listId: inner.payload?.listId,
                         };
                         const res = await (fetchImpl as any)(endpoint, {
                             method: 'POST',
@@ -59,18 +81,21 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                         if (res && res.ok) {
                             const json = await res.json();
                             const payload: any = {
-                                timestamp: action.timestamp,
+                                timestamp:
+                                    inner.timestamp ||
+                                    action.timestamp ||
+                                    Date.now(),
                             };
-                            if (action.type === 'create-card')
+                            if (actType === 'create-card')
                                 payload.card = json?.data?.card || json?.card;
-                            if (action.type === 'create-list')
+                            if (actType === 'create-list')
                                 payload.list = json?.data?.list || json?.list;
-                            if (action.type === 'create-board')
+                            if (actType === 'create-board')
                                 payload.board =
                                     json?.data?.board || json?.board;
                             // attach tempId if present
-                            if (action.payload?.tempId)
-                                payload.tempId = action.payload.tempId;
+                            if (inner.payload?.tempId)
+                                payload.tempId = inner.payload.tempId;
                             if (this.onmessage)
                                 this.onmessage({
                                     data: { type: 'ACTION_SUCCESS', payload },
@@ -84,8 +109,9 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                                 data: {
                                     type: 'ERROR',
                                     payload: {
-                                        timestamp: action.timestamp,
-                                        type: action.type,
+                                        timestamp:
+                                            inner.timestamp || action.timestamp,
+                                        type: actType,
                                     },
                                     error: { message: err || 'mock error' },
                                 },

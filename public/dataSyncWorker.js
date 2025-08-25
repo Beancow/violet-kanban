@@ -29,13 +29,14 @@ async function handleCreateOrganization(action) {
 }
 async function handleFetchOrgData(action) {
     const { organizationId, idToken } = action.payload;
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-Organization-Id': organizationId,
+    };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch(`/api/orgs/${organizationId}/sync`, {
         method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-            'X-Organization-Id': organizationId,
-        },
+        headers,
     });
     if (response.ok) {
         const { data } = await response.json();
@@ -59,12 +60,11 @@ async function handleFetchOrgData(action) {
 async function handleCreateBoard(action) {
     const { data, tempId, idToken } = action.payload;
     // Do NOT send tempId to the server; keep it local to the worker
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/boards/create', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ data }),
     });
     if (response.ok) {
@@ -91,12 +91,11 @@ async function handleCreateBoard(action) {
 async function handleCreateList(action) {
     const { data, boardId, tempId, idToken } = action.payload;
     // Do NOT send tempId to server
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/lists/create', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ data, boardId }),
     });
     if (response.ok) {
@@ -122,12 +121,11 @@ async function handleCreateList(action) {
 async function handleCreateCard(action) {
     const { data, boardId, listId, tempId, idToken } = action.payload;
     // Do NOT send tempId to the server
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/cards/create', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ data, boardId, listId }),
     });
     if (response.ok) {
@@ -152,12 +150,11 @@ async function handleCreateCard(action) {
 
 async function handleUpdateCard(action) {
     const { data, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/cards/update', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ data }),
     });
     if (response.ok) {
@@ -176,12 +173,11 @@ async function handleUpdateCard(action) {
 
 async function handleDeleteCard(action) {
     const { id, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/cards/delete', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ id }),
     });
     if (response.ok) {
@@ -200,12 +196,11 @@ async function handleDeleteCard(action) {
 
 async function handleSoftDeleteCard(action) {
     const { id, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/cards/soft-delete', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ id }),
     });
     if (response.ok) {
@@ -224,12 +219,11 @@ async function handleSoftDeleteCard(action) {
 
 async function handleRestoreCard(action) {
     const { id, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/cards/restore', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ id }),
     });
     if (response.ok) {
@@ -248,12 +242,11 @@ async function handleRestoreCard(action) {
 
 async function handleDeleteList(action) {
     const { id, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/lists/delete', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ id }),
     });
     if (response.ok) {
@@ -272,12 +265,11 @@ async function handleDeleteList(action) {
 
 async function handleUpdateBoard(action) {
     const { data, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/boards/update', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ data }),
     });
     if (response.ok) {
@@ -296,12 +288,11 @@ async function handleUpdateBoard(action) {
 
 async function handleDeleteBoard(action) {
     const { id, idToken } = action.payload;
+    const headers = { 'Content-Type': 'application/json' };
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch('/api/boards/delete', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-        },
+        headers,
         body: JSON.stringify({ id }),
     });
     if (response.ok) {

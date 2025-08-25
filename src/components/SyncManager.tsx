@@ -31,6 +31,8 @@ export default function SyncManager() {
 
     const { postMessage, lastMessage, isWorkerReady } = useWebWorker();
 
+    const MAX_ORG_FETCH_ATTEMPTS = 5;
+
     const processQueuedActions = useCallback(async () => {
         try {
             // worker lifecycle is managed by useWebWorker; messages are handled
@@ -64,8 +66,9 @@ export default function SyncManager() {
                 const payloadAugmented = isObject(action.payload)
                     ? { ...(action.payload as Record<string, unknown>) }
                     : {};
-                payloadAugmented.idToken = freshToken ?? undefined;
-                payloadAugmented.organizationId = orgId ?? undefined;
+                // Only attach idToken/organizationId when they are present.
+                if (freshToken) payloadAugmented.idToken = freshToken;
+                if (orgId) payloadAugmented.organizationId = orgId;
                 console.debug('[SyncManager] posting action to worker', {
                     type: action.type,
                     id: getActionItemId(action),
@@ -86,6 +89,34 @@ export default function SyncManager() {
             // process org queue
             const orgQueue = queueApi.state.orgActionQueue ?? [];
             for (const item of orgQueue as any[]) {
+                // If the item has explicitly exhausted attempts (nextAttemptAt === null
+                // and attempts >= MAX), treat as dead and remove it to avoid infinite retries.
+                const attempts = item.meta?.attempts ?? 0;
+                if (
+                    item.meta &&
+                    item.meta.nextAttemptAt === null &&
+                    attempts >= MAX_ORG_FETCH_ATTEMPTS
+                ) {
+                    console.debug(
+                        '[SyncManager] org fetch attempts exhausted, removing',
+                        {
+                            id: getActionItemId(item),
+                            attempts,
+                        }
+                    );
+                    try {
+                        const id = getActionItemId(item);
+                        if (id && queueApi.removeOrgAction)
+                            queueApi.removeOrgAction(id);
+                    } catch (e) {
+                        console.error(
+                            '[SyncManager] failed to remove exhausted org action',
+                            e
+                        );
+                    }
+                    continue;
+                }
+
                 if (
                     item.meta?.nextAttemptAt &&
                     item.meta.nextAttemptAt > Date.now()

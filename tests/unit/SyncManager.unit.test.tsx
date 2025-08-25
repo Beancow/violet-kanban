@@ -6,7 +6,13 @@ import {
     mockAuthProvider,
     mockOrganizationProvider,
 } from '../utils/providerMocks';
-import { installFakeWorker, uninstallFakeWorker } from '../helpers/fakeWorker';
+// Use the manual hook mock for deterministic unit tests
+jest.mock('@/hooks/useWebWorker', () => require('../__mocks__/useWebWorker'));
+const {
+    __setLastMessage,
+    __postMessageMock,
+    __resetMock,
+} = require('../__mocks__/useWebWorker');
 
 // createAction used in mocked queue
 const createAction = {
@@ -64,21 +70,8 @@ import SyncManager from '../../src/components/SyncManager';
 describe('SyncManager (unit)', () => {
     beforeEach(() => {
         enqueueCardActionMock.mockClear();
-        const mockFetch = jest.fn(async (url: string) => {
-            if (url === '/api/cards/create') {
-                return {
-                    ok: true,
-                    json: async () => ({
-                        data: {
-                            card: { id: 'real-card-1', title: 'FromServer' },
-                        },
-                    }),
-                };
-            }
-            return { ok: false, json: async () => ({ error: 'not found' }) };
-        });
-        installFakeWorker({ fetchImpl: mockFetch as any });
-
+        __resetMock();
+        __postMessageMock.mockClear();
         // provide minimal window shims for Node test env
         (global as any).window = (global as any).window || {};
         (global as any).window.addEventListener =
@@ -91,7 +84,7 @@ describe('SyncManager (unit)', () => {
             (global as any).window.clearInterval || clearInterval.bind(global);
     });
     afterEach(() => {
-        uninstallFakeWorker();
+        // nothing to uninstall when using hook mock
     });
 
     test('worker ACTION_SUCCESS causes enqueue RECONCILE_CARD via adapter', async () => {
@@ -100,23 +93,12 @@ describe('SyncManager (unit)', () => {
             tree = renderWithProviders(<SyncManager />);
         });
 
-        // retrieve the last fake worker instance and simulate ACTION_SUCCESS
-        const w = (global as any).__lastFakeWorker as any;
-        expect(w).toBeDefined();
-
-        // simulate worker success callback
+        // simulate worker success message via mocked hook
         act(() => {
-            if (w && w.onmessage) {
-                w.onmessage({
-                    data: {
-                        type: 'ACTION_SUCCESS',
-                        payload: {
-                            tempId: 't123',
-                            card: { id: 'real-card-1' },
-                        },
-                    },
-                });
-            }
+            __setLastMessage({
+                type: 'ACTION_SUCCESS',
+                payload: { tempId: 't123', card: { id: 'real-card-1' } },
+            });
         });
 
         // The SyncManager should have enqueued a reconcile via the queue provider
