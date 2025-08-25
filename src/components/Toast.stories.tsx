@@ -31,29 +31,18 @@ export const Default: Story = {
         description: 'Your changes were saved.',
         actionLabel: 'Undo',
     } as Partial<ToastArgs>,
-    render: (args: any) =>
-        React.createElement(
-            ToastProvider,
-            null,
-            React.createElement(
-                React.Fragment,
-                null,
-                React.createElement(
-                    ToastRoot,
-                    null,
-                    React.createElement(ToastTitle, null, args.title),
-                    React.createElement(
-                        ToastDescription,
-                        null,
-                        args.description
-                    ),
-                    React.createElement(
-                        ToastAction,
-                        { asChild: true, altText: args.actionLabel },
-                        React.createElement('button', null, args.actionLabel)
-                    )
-                ),
-                React.createElement(ToastViewport, null)
-            )
-        ),
+    render: (args: any) => (
+        <ToastProvider>
+            <>
+                <ToastRoot>
+                    <ToastTitle>{args.title}</ToastTitle>
+                    <ToastDescription>{args.description}</ToastDescription>
+                    <ToastAction asChild altText={args.actionLabel}>
+                        <button>{args.actionLabel}</button>
+                    </ToastAction>
+                </ToastRoot>
+                <ToastViewport />
+            </>
+        </ToastProvider>
+    ),
 };
