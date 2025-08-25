@@ -1,0 +1,40 @@
+name: Playwright E2E - Manual Cross-browser
+
+on:
+    workflow_dispatch:
+        inputs:
+            ref:
+                description: 'Git ref (branch or commit) to checkout'
+                required: false
+                default: 'main'
+            browsers:
+                description: 'Comma-separated browsers to run (chromium,firefox,webkit)'
+                required: false
+                default: 'chromium,firefox,webkit'
+
+jobs:
+    e2e:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref }}
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+            - name: Install dependencies
+              run: npm ci
+            - name: Build
+              run: npm run build
+            - name: Install Playwright browsers
+              run: npx playwright install --with-deps
+            - name: Run Playwright tests (uses playwright.config.ts webServer)
+              run: |
+                  BROWSERS="${{ inputs.browsers }}"
+                  IFS=',' read -ra B <<< "$BROWSERS"
+                  for b in "${B[@]}"; do
+                    b_trim="$(echo "$b" | xargs)"
+                    echo "Running Playwright for project: $b_trim"
+                    npx playwright test --project="$b_trim" --reporter=github || exit 1
+                  done
