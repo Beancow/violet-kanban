@@ -25,8 +25,5 @@ export const Default: Story = {
             { id: 'c3', title: 'Refactor stores' },
         ],
     },
-    render: (args) => {
-        useMockOrganization();
-        return <BoardListComponent {...(args as any)} />;
-    },
+    render: (args) => <BoardListComponent {...(args as any)} />,
 };

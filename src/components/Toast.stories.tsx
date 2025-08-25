@@ -32,21 +32,18 @@ export const Default: Story = {
         description: 'Your changes were saved.',
         actionLabel: 'Undo',
     } as Partial<ToastArgs>,
-    render: (args: any) => {
-        useMockOrganization();
-        return (
-            <ToastProvider>
-                <>
-                    <ToastRoot>
-                        <ToastTitle>{args.title}</ToastTitle>
-                        <ToastDescription>{args.description}</ToastDescription>
-                        <ToastAction asChild altText={args.actionLabel}>
-                            <button>{args.actionLabel}</button>
-                        </ToastAction>
-                    </ToastRoot>
-                    <ToastViewport />
-                </>
-            </ToastProvider>
-        );
-    },
+    render: (args: any) => (
+        <ToastProvider>
+            <>
+                <ToastRoot>
+                    <ToastTitle>{args.title}</ToastTitle>
+                    <ToastDescription>{args.description}</ToastDescription>
+                    <ToastAction asChild altText={args.actionLabel}>
+                        <button>{args.actionLabel}</button>
+                    </ToastAction>
+                </ToastRoot>
+                <ToastViewport />
+            </>
+        </ToastProvider>
+    ),
 };
