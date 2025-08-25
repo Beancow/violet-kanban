@@ -1,7 +1,7 @@
 ---
 name: Security report
 about: Report a security vulnerability. For sensitive details, prefer email to v@aviolet.dev (see SECURITY.md).
-title: "[SECURITY] "
+title: '[SECURITY] '
 labels: security
 assignees: ''
 ---
@@ -12,11 +12,11 @@ Important: do not include real user credentials, private keys, or other secrets 
 
 Please include the following where possible:
 
-- Short description of the issue and impact
-- Steps to reproduce (minimal repro preferred)
-- Environment (browser, OS, emulator vs production)
-- Affected versions or commit hash
-- Proof-of-concept (PoC) or reproduction steps (do not include real credentials)
+-   Short description of the issue and impact
+-   Steps to reproduce (minimal repro preferred)
+-   Environment (browser, OS, emulator vs production)
+-   Affected versions or commit hash
+-   Proof-of-concept (PoC) or reproduction steps (do not include real credentials)
 
 If the report contains sensitive data, please send it by email to v@aviolet.dev instead of posting it publicly.
 

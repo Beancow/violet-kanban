@@ -70,5 +70,3 @@ All scripts are defined in `package.json`.
 -   `src/providers/` — provider implementations and persistence patterns.
 -   `src/lib/sentryWrapper.ts` — Sentry wrapper and sanitization logic.
 -   `src/lib/firebase/` — firebase config and helpers (client-only token helpers live here).
-
-If you want, I can add a short `README.dev.md` with commands to run the local Firebase emulators and a small checklist for bootstrapping local dev with emulators and test accounts.
