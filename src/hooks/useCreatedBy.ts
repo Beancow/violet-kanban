@@ -10,7 +10,7 @@ export function useCreatedBy<T>(
 ): { userId: string; name: string; email: string } {
     const user = useAuth().authUser;
     return {
-        userId: item?.createdBy?.userId ?? user?.id ?? '',
+        userId: item?.createdBy?.userId ?? user?.uid ?? '',
         name: item?.createdBy?.name ?? user?.displayName ?? '',
         email: item?.createdBy?.email ?? user?.email ?? '',
     };
