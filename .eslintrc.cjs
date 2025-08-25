@@ -27,7 +27,12 @@ module.exports = {
         ecmaFeatures: { jsx: true },
         project: './tsconfig.json',
     },
-    plugins: ['@typescript-eslint'],
+    settings: {
+        react: {
+            version: 'detect',
+        },
+    },
+    plugins: ['@typescript-eslint', 'react-hooks'],
     extends: [
         'eslint:recommended',
         'plugin:@typescript-eslint/recommended',

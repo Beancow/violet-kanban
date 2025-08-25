@@ -8,7 +8,7 @@ import {
     ToastViewport,
     ToastAction,
 } from './Toast';
-import { useMockOrganization } from '@/storybook/mocks';
+// intentionally no seeding here; global seed provides data
 
 const meta: Meta<typeof ToastRoot> = {
     title: 'Components/Toast',

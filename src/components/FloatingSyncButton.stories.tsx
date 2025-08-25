@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
 import { FloatingSyncButton } from './FloatingSyncButton';
 

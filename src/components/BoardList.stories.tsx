@@ -1,7 +1,6 @@
 import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
 import { BoardListComponent } from './BoardList';
-import { useMockOrganization } from '@/storybook/mocks';
 
 const meta: Meta<typeof BoardListComponent> = {
     title: 'Components/BoardList',

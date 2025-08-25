@@ -83,7 +83,7 @@ export function GlobalSeed({
                 position: 1,
                 organizationId: 'org-1',
             } as any);
-        } catch (e) {
+        } catch {
             // swallow if hooks not available yet
         }
 
@@ -96,7 +96,6 @@ export function GlobalSeed({
                 } as any,
             } as any);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return <>{children}</>;
