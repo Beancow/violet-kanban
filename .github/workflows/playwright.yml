@@ -1,20 +1,20 @@
 name: Playwright E2E
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      retry_with_legacy_peer_deps:
-        description: 'If true, install dependencies with --legacy-peer-deps (manual retry)'
-        required: false
-        default: 'false'
-      retry_with_force:
-        description: 'If true, install dependencies with --force (manual retry)'
-        required: false
-        default: 'false'
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            retry_with_legacy_peer_deps:
+                description: 'If true, install dependencies with --legacy-peer-deps (manual retry)'
+                required: false
+                default: 'false'
+            retry_with_force:
+                description: 'If true, install dependencies with --force (manual retry)'
+                required: false
+                default: 'false'
 
 jobs:
     test:

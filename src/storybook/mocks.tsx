@@ -12,6 +12,8 @@ function Seed({ children }: { children: React.ReactNode }) {
             { id: 'org-2', name: 'Example Inc' },
         ]);
         org.setCurrentOrganizationId('org-1');
+        // eslint-disable-next-line no-console
+        console.log('[storybook] Seed mounted: organizations seeded');
     }, []);
     return <>{children}</>;
 }
@@ -38,6 +40,13 @@ export function GlobalSeed({
             { id: 'org-2', name: 'Example Inc' },
         ]);
         org.setCurrentOrganizationId('org-1');
+
+        // lightweight mount log to help debug provider order in Storybook preview
+        // eslint-disable-next-line no-console
+        console.log(
+            '[storybook] GlobalSeed mounted: seeding boards/cards and queue=',
+            seedQueue
+        );
 
         // Seed boards, lists, and cards
         try {
@@ -95,6 +104,8 @@ export function GlobalSeed({
                     data: { title: 'G Board', organizationId: 'org-1' },
                 } as any,
             } as any);
+            // eslint-disable-next-line no-console
+            console.log('[storybook] GlobalSeed: queued a board action');
         }
     }, []);
 
