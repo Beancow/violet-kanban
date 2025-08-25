@@ -1,6 +1,7 @@
 import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
 import { BoardListComponent } from './BoardList';
+import { useMockOrganization } from '@/storybook/mocks';
 
 const meta: Meta<typeof BoardListComponent> = {
     title: 'Components/BoardList',
@@ -23,5 +24,9 @@ export const Default: Story = {
             { id: 'c2', title: 'Implement provider' },
             { id: 'c3', title: 'Refactor stores' },
         ],
+    },
+    render: (args) => {
+        useMockOrganization();
+        return <BoardListComponent {...(args as any)} />;
     },
 };

@@ -3,6 +3,8 @@ import OrganizationProvider, {
     useOrganizationProvider,
 } from '@/providers/OrganizationProvider';
 import { QueueProvider, useQueues } from '@/providers/QueueProvider';
+import '@radix-ui/themes/styles.css';
+import { Theme } from '@radix-ui/themes';
 
 function Seed({ children }: { children: React.ReactNode }) {
     const org = useOrganizationProvider();
@@ -26,10 +28,12 @@ export function useMockQueue() {
 
 export function MockAppProvider({ children }: { children: React.ReactNode }) {
     return (
-        <OrganizationProvider>
-            <QueueProvider>
-                <Seed>{children}</Seed>
-            </QueueProvider>
-        </OrganizationProvider>
+        <Theme>
+            <OrganizationProvider>
+                <QueueProvider>
+                    <Seed>{children}</Seed>
+                </QueueProvider>
+            </OrganizationProvider>
+        </Theme>
     );
 }
