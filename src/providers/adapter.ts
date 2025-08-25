@@ -76,6 +76,7 @@ type QueueAdapter = {
     enqueueBoardAction?: (a: VioletKanbanAction) => void;
     enqueueListAction?: (a: VioletKanbanAction) => void;
     enqueueCardAction?: (a: VioletKanbanAction) => void;
+    enqueueOrgAction?: (a: VioletKanbanAction) => void;
 };
 
 let queueAdapter: QueueAdapter | null = null;

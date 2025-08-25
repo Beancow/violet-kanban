@@ -53,3 +53,6 @@ next-env.d.ts
 
 # service account key
 serviceAccountKey.json
+
+# Test results dont need to be committed
+trace.zip

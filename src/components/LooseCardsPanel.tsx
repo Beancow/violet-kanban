@@ -1,6 +1,6 @@
 'use client';
 import { LooseCardsMenu } from '@/components/menus/LooseCardsMenu';
-import { BoardCard } from '@/types/appState.type';
+import { BoardCard } from '@/types';
 import { useParams } from 'next/navigation';
 
 export default function LooseCardsPanel({ cards }: { cards: BoardCard[] }) {

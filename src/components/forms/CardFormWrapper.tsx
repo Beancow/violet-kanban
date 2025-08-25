@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { BoardCard } from '@/types/appState.type';
+import { BoardCard } from '@/types';
 import { useVioletKanbanEnqueueCardCreateOrUpdate } from '@/providers/useVioletKanbanHooks';
 import { CardForm } from './CardForm';
 import { useForm } from 'react-hook-form';

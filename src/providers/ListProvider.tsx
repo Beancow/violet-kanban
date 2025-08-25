@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
+import type { ListApi } from '@/types/provider-apis';
 import { reducer as listReducer } from './reducers/listReducer';
 import { registerListAdapter } from './adapter';
 import type { BoardList } from '../types/appState.type';
@@ -12,12 +13,7 @@ type State = {
 
 const STORAGE_KEY = 'violet-kanban-list-storage';
 
-const ListContext = createContext<{
-    state: State;
-    addList: (list: BoardList) => void;
-    updateList: (list: Partial<BoardList> & { id: string }) => void;
-    removeList: (listId: string) => void;
-} | null>(null);
+const ListContext = createContext<ListApi | null>(null);
 
 export function ListProvider({ children }: { children: ReactNode }) {
     let initial: State = { lists: [] };

@@ -9,7 +9,7 @@ import {
     TextArea,
 } from '@radix-ui/themes';
 import type { UseFormReturn } from 'react-hook-form';
-import { BoardList, User } from '@/types/appState.type';
+import { BoardList, User } from '@/types';
 import type { BoardListFormValues } from '@/schema/boardListSchema';
 
 export function ListForm({

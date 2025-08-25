@@ -1,5 +1,5 @@
 'use server';
-import { User } from '@/types/appState.type';
+import { User } from '@/types';
 import { adminDataConverter } from './adminDataConverter';
 import { getAdminAuth, getAdminFirestore } from './firebase-admin-init';
 import { FieldValue } from 'firebase-admin/firestore';

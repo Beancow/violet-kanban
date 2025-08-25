@@ -1,245 +1,320 @@
 'use client';
-
-import { useEffect, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useQueues } from '@/providers/QueueProvider';
 import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useOrganizationProvider } from '@/providers/OrganizationProvider';
-import { isObject } from '@/types/typeGuards';
-import type { VioletKanbanAction } from '@/types/violet-kanban-action';
-import type { Board, BoardList, BoardCard } from '@/types/appState.type';
+import { useWebWorker } from '@/hooks/useWebWorker';
+import {
+    isObject,
+    hasTempId,
+    hasBoardProp,
+    hasListProp,
+    hasCardProp,
+    hasTimestampProp,
+    hasTypeProp,
+    hasOrganizationIdInData,
+} from '@/types/typeGuards';
+import { isActionLike } from '@/types/typeGuards';
+import {
+    unwrapQueueAction,
+    getActionItemId,
+    isQueueItem,
+} from '@/providers/helpers';
+import type { VioletKanbanAction, Board, BoardList, BoardCard } from '@/types';
 
-export function SyncManager() {
+export default function SyncManager() {
     const queueApi = useQueues();
-    const { boardActionQueue, listActionQueue, cardActionQueue } =
-        queueApi.state;
     const syncError = useSyncErrorProvider();
     const auth = useAuth();
     const org = useOrganizationProvider();
-    const lastQueueLength = useRef(
-        boardActionQueue.length +
-            listActionQueue.length +
-            cardActionQueue.length
-    );
 
-    // Show toast for sync errors
-    useEffect(() => {
-        // show any errors from the sync error provider
-        // provider exposes errors array and a clear method
-        if (syncError.errors && syncError.errors.length > 0) {
-            syncError.errors.forEach((err) => {
-                console.error('Sync error:', err.message);
-            });
-            if (syncError.clearErrors) syncError.clearErrors();
-        }
-    }, [syncError.errors, syncError.clearErrors]);
+    const { postMessage, lastMessage, isWorkerReady } = useWebWorker();
 
-    // Update last queue length (used to detect transitions)
-    useEffect(() => {
-        lastQueueLength.current =
-            boardActionQueue.length +
-            listActionQueue.length +
-            cardActionQueue.length;
-    }, [boardActionQueue, listActionQueue, cardActionQueue]);
+    const processQueuedActions = useCallback(async () => {
+        try {
+            // worker lifecycle is managed by useWebWorker; messages are handled
+            // via the `lastMessage` effect below. We rely on the hook to
+            // create/ready the worker before posting messages.
 
-    useEffect(() => {
-        // Worker and interval local to this component
-        let worker: Worker | null = null;
-        let syncIntervalId: number | null = null;
+            // refresh token if available
+            if (auth.refreshIdToken) await auth.refreshIdToken();
+            const freshToken = auth.idToken;
 
-        function initWorker() {
-            if (worker) return worker;
-            worker = new Worker('dataSyncWorker.js');
+            // Gather all queued actions (any queue) and forward to the worker.
+            const state = queueApi.state;
+            const allActions = [
+                ...(state.boardActionQueue ?? []),
+                ...(state.listActionQueue ?? []),
+                ...(state.cardActionQueue ?? []),
+            ];
 
-            worker.onmessage = (event) => {
-                const { type, payload, error } = event.data as Record<
-                    string,
-                    unknown
-                >;
-                // Prefer provider API from hooks (queueApi) instead of module getter
-                if (type === 'ACTION_SUCCESS') {
-                    const tempId =
-                        isObject(payload) &&
-                        typeof (payload as Record<string, unknown>).tempId ===
-                            'string'
-                            ? ((payload as Record<string, unknown>)
-                                  .tempId as string)
-                            : undefined;
-                    if (isObject(payload) && 'board' in payload) {
-                        const board = (payload as Record<string, unknown>)
-                            .board as Board;
-                        if (tempId) {
-                            const action: VioletKanbanAction = {
-                                type: 'reconcile-board',
-                                payload: { tempId, board },
-                            } as VioletKanbanAction;
-                            queueApi.enqueueBoardAction(action);
-                        }
-                    } else if (isObject(payload) && 'list' in payload) {
-                        const list = (payload as Record<string, unknown>)
-                            .list as BoardList;
-                        if (tempId) {
-                            const action: VioletKanbanAction = {
-                                type: 'reconcile-list',
-                                payload: { tempId, list },
-                            } as VioletKanbanAction;
-                            queueApi.enqueueListAction(action);
-                        }
-                    } else if (isObject(payload) && 'card' in payload) {
-                        const card = (payload as Record<string, unknown>)
-                            .card as BoardCard;
-                        if (tempId) {
-                            const action: VioletKanbanAction = {
-                                type: 'reconcile-card',
-                                payload: { tempId, card },
-                            } as VioletKanbanAction;
-                            queueApi.enqueueCardAction(action);
-                        }
-                    }
-                } else if (type === 'ERROR' || type === 'ACTION_ERROR') {
-                    if (syncError.addError) {
-                        syncError.addError({
-                            timestamp:
-                                isObject(payload) &&
-                                typeof (payload as Record<string, unknown>)
-                                    .timestamp === 'number'
-                                    ? ((payload as Record<string, unknown>)
-                                          .timestamp as number)
-                                    : Date.now(),
-                            message:
-                                (error as Error | undefined)?.message ||
-                                'Unknown sync error',
-                            actionType:
-                                isObject(payload) &&
-                                typeof (payload as Record<string, unknown>)
-                                    .type === 'string'
-                                    ? ((payload as Record<string, unknown>)
-                                          .type as string)
-                                    : undefined,
-                            payload: isObject(payload)
-                                ? (payload as Record<string, unknown>)
-                                : undefined,
-                        });
-                    }
-                    console.error(
-                        '[SyncManager] Worker error:',
-                        error,
-                        payload
-                    );
+            // post regular actions to worker
+            allActions.forEach((actionOrItem) => {
+                const action = unwrapQueueAction(actionOrItem);
+                let orgId: string | null = null;
+                if (hasOrganizationIdInData(action.payload)) {
+                    orgId = action.payload.data.organizationId;
+                } else {
+                    orgId = org.currentOrganizationId;
                 }
-            };
-
-            // periodic triggers
-            if (!syncIntervalId) {
-                syncIntervalId = window.setInterval(
-                    processQueuedActions,
-                    30000
-                );
-            }
-            window.addEventListener('focus', processQueuedActions);
-            window.addEventListener('online', processQueuedActions);
-
-            return worker;
-        }
-
-        function processQueuedActions() {
-            // use queueApi provider methods to enqueue actions
-            const syncWorker = initWorker();
-
-            // ensure token is fresh
-            const refreshPromise = auth.refreshIdToken
-                ? auth.refreshIdToken()
-                : Promise.resolve();
-
-            refreshPromise.then(() => {
-                const freshToken = auth.idToken;
-                // read current queues from provider state
-                const allActions = [
-                    ...boardActionQueue,
-                    ...listActionQueue,
-                    ...cardActionQueue,
-                ];
-
-                allActions.forEach((action) => {
-                    let orgId: string | null = null;
-                    const payload = action.payload as unknown;
-                    if (
-                        payload &&
-                        typeof payload === 'object' &&
-                        'data' in (payload as Record<string, unknown>) &&
-                        (payload as Record<string, unknown>).data &&
-                        typeof (
-                            (payload as Record<string, unknown>).data as Record<
-                                string,
-                                unknown
-                            >
-                        ).organizationId === 'string'
-                    ) {
-                        orgId = (
-                            (payload as Record<string, unknown>).data as Record<
-                                string,
-                                unknown
-                            >
-                        ).organizationId as string;
-                    } else {
-                        orgId = org.currentOrganizationId;
-                    }
-                    // Build a safe payload for the worker: add idToken and organizationId
-                    const base: Record<string, unknown> = {};
-                    if (action && typeof action === 'object') {
-                        // shallow copy action fields
-                        Object.assign(base, action);
-                    }
-                    const payloadAugmented = isObject(action.payload)
-                        ? { ...(action.payload as Record<string, unknown>) }
-                        : {};
-                    // attach auth and org
-                    payloadAugmented.idToken = freshToken ?? undefined;
-                    payloadAugmented.organizationId = orgId ?? undefined;
-
-                    // Post a SyncActionWithAuth-like message to the worker
-                    syncWorker.postMessage({
+                const base: Record<string, unknown> = {};
+                if (action && typeof action === 'object')
+                    Object.assign(base, action);
+                const payloadAugmented = isObject(action.payload)
+                    ? { ...(action.payload as Record<string, unknown>) }
+                    : {};
+                payloadAugmented.idToken = freshToken ?? undefined;
+                payloadAugmented.organizationId = orgId ?? undefined;
+                console.debug('[SyncManager] posting action to worker', {
+                    type: action.type,
+                    id: getActionItemId(action),
+                    payload: payloadAugmented,
+                    isWorkerReady,
+                });
+                // Worker expects SyncAction/WorkerMessage shapes; wrap as SYNC_DATA
+                postMessage({
+                    type: 'SYNC_DATA',
+                    payload: {
                         ...(base as Record<string, unknown>),
                         payload: payloadAugmented,
-                    });
-                });
+                    },
+                    timestamp: Date.now(),
+                } as any);
             });
-        }
 
-        // start worker and initial pass
-        try {
-            initWorker();
-            processQueuedActions();
+            // process org queue
+            const orgQueue = queueApi.state.orgActionQueue ?? [];
+            for (const item of orgQueue as any[]) {
+                if (
+                    item.meta?.nextAttemptAt &&
+                    item.meta.nextAttemptAt > Date.now()
+                )
+                    continue;
+                const action = unwrapQueueAction(item);
+                try {
+                    if (auth.refreshIdToken) await auth.refreshIdToken();
+                    const token = auth.idToken;
+                    const res = await fetch('/api/orgs', {
+                        method: 'GET',
+                        headers: token
+                            ? { Authorization: `Bearer ${token}` }
+                            : {},
+                    });
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => null);
+                        throw new Error(
+                            body && body.error
+                                ? String(body.error)
+                                : `Failed to fetch organizations: ${res.status}`
+                        );
+                    }
+                    const body = await res.json();
+                    if (
+                        body &&
+                        body.success &&
+                        Array.isArray(body.organizations)
+                    ) {
+                        if (org.setOrganizations)
+                            org.setOrganizations(body.organizations);
+                        if (org.setLoading) org.setLoading(false);
+                        const itemId =
+                            getActionItemId(item) || getActionItemId(action);
+                        if (itemId && queueApi.removeOrgAction)
+                            queueApi.removeOrgAction(itemId);
+                    } else {
+                        throw new Error(
+                            'Unexpected response fetching organizations'
+                        );
+                    }
+                } catch (err) {
+                    if (syncError.addError)
+                        syncError.addError({
+                            timestamp: Date.now(),
+                            message:
+                                (err as Error).message ||
+                                'Failed to fetch organizations',
+                            actionType: action.type,
+                            payload: isObject(action.payload)
+                                ? (action.payload as Record<string, unknown>)
+                                : undefined,
+                        });
+                    console.error(
+                        '[SyncManager] org fetch failed',
+                        err,
+                        action
+                    );
+                    try {
+                        if (queueApi.requeueOrgAction) {
+                            const newMeta = (
+                                await import('@/providers/helpers')
+                            ).scheduleNextAttempt(
+                                item.meta ?? {
+                                    enqueuedAt: Date.now(),
+                                    attempts: 0,
+                                    nextAttemptAt: null,
+                                    ttlMs: null,
+                                    lastError: null,
+                                }
+                            );
+                            queueApi.requeueOrgAction(
+                                getActionItemId(item) ||
+                                    getActionItemId(action) ||
+                                    String(Date.now()),
+                                newMeta
+                            );
+                        }
+                    } catch (e) {
+                        console.error(
+                            '[SyncManager] failed to schedule org fetch retry',
+                            e
+                        );
+                    }
+                }
+            }
         } catch (e) {
-            // Log init errors (e.g., Worker not available during SSR) for diagnostics.
-            console.error(
-                '[SyncManager] failed to start worker or process queue',
-                e
-            );
+            console.error('[SyncManager] processQueuedActions failed', e);
         }
+    }, [queueApi, auth, org, syncError]);
+
+    // Handle messages coming from the worker (mirrors previous onmessage)
+    useEffect(() => {
+        if (!lastMessage) return;
+        const { type, payload, error } = lastMessage as Record<string, unknown>;
+        console.debug('[SyncManager] worker.onmessage', {
+            type,
+            payload,
+            error,
+        });
+        if (type === 'ACTION_SUCCESS') {
+            const tempId = hasTempId(payload)
+                ? (payload as any).tempId
+                : undefined;
+            if (hasBoardProp(payload)) {
+                const board = (payload as any).board as Board;
+                if (tempId)
+                    queueApi.enqueueBoardAction({
+                        type: 'reconcile-board',
+                        payload: { tempId, board },
+                    } as VioletKanbanAction);
+            } else if (hasListProp(payload)) {
+                const list = (payload as any).list as BoardList;
+                if (tempId)
+                    queueApi.enqueueListAction({
+                        type: 'reconcile-list',
+                        payload: { tempId, list },
+                    } as VioletKanbanAction);
+            } else if (hasCardProp(payload)) {
+                const card = (payload as any).card as BoardCard;
+                if (tempId)
+                    queueApi.enqueueCardAction({
+                        type: 'reconcile-card',
+                        payload: { tempId, card },
+                    } as VioletKanbanAction);
+            }
+        } else if (type === 'ERROR' || type === 'ACTION_ERROR') {
+            if (syncError.addError)
+                syncError.addError({
+                    timestamp: hasTimestampProp(payload)
+                        ? (payload as any).timestamp
+                        : Date.now(),
+                    message:
+                        (error as Error | undefined)?.message ||
+                        'Unknown sync error',
+                    actionType: hasTypeProp(payload)
+                        ? (payload as any).type
+                        : undefined,
+                    payload: isObject(payload)
+                        ? (payload as Record<string, unknown>)
+                        : undefined,
+                });
+            console.error('[SyncManager] Worker error:', error, payload);
+        }
+    }, [lastMessage, queueApi, syncError]);
+
+    // expose debug getter & install listeners
+    useEffect(() => {
+        // initial pass
+        void processQueuedActions();
+
+        // rely on user / browser events to trigger ad-hoc processing
+        window.addEventListener('focus', processQueuedActions);
+        window.addEventListener('online', processQueuedActions);
 
         return () => {
-            // cleanup
-            if (worker) {
-                try {
-                    worker.terminate();
-                } catch (err) {
-                    // Log termination errors for diagnostics
-                    console.error(
-                        '[SyncManager] failed to terminate worker',
-                        err
-                    );
-                }
-                worker = null;
-            }
-            if (syncIntervalId) {
-                clearInterval(syncIntervalId);
-                syncIntervalId = null;
-            }
             window.removeEventListener('focus', processQueuedActions);
             window.removeEventListener('online', processQueuedActions);
         };
-    }, []);
+    }, [processQueuedActions, queueApi, auth]);
+
+    // Enqueue fetch-organizations when auth transitions to authenticated
+    useEffect(() => {
+        // run only when auth becomes available
+        if (!auth.hasAuth) return;
+        try {
+            if (queueApi.enqueueOrgAction) {
+                const fetchOrgsAction: VioletKanbanAction = {
+                    type: 'fetch-organizations',
+                    payload: {
+                        userId:
+                            auth.storedUser?.uid ??
+                            auth.authUser?.uid ??
+                            'unknown',
+                        timestamp: Date.now(),
+                    },
+                } as VioletKanbanAction;
+
+                const already = (queueApi.state.orgActionQueue ?? []).some(
+                    (qi) => {
+                        let a: VioletKanbanAction | undefined;
+                        if (isQueueItem(qi)) a = unwrapQueueAction(qi);
+                        else if (isActionLike(qi)) a = qi as VioletKanbanAction;
+                        if (!a) return false;
+                        if (a.type !== 'fetch-organizations') return false;
+                        if (!isObject(a.payload)) return false;
+                        const userId = (a.payload as Record<string, unknown>)
+                            .userId as string | undefined;
+                        return (
+                            userId ===
+                            (fetchOrgsAction.payload as Record<string, unknown>)
+                                .userId
+                        );
+                    }
+                );
+
+                if (!already) {
+                    console.debug(
+                        '[SyncManager] enqueuing fetch-organizations (auth transition)',
+                        {
+                            payload: fetchOrgsAction.payload,
+                        }
+                    );
+                    queueApi.enqueueOrgAction(fetchOrgsAction);
+                    // trigger a processing pass
+                    // read current process function via queueApiRef if available
+                    if (typeof window !== 'undefined') {
+                        // schedule next tick to allow enqueue to persist
+                        setTimeout(() => {
+                            try {
+                                // call processQueuedActions indirectly by dispatching a focus event
+                                window.dispatchEvent(new Event('focus'));
+                            } catch (e) {
+                                console.debug(
+                                    '[SyncManager] failed to trigger process on auth transition',
+                                    e
+                                );
+                            }
+                        }, 50);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error(
+                '[SyncManager] failed to enqueue fetch-organizations on auth transition',
+                e
+            );
+        }
+    }, [auth.hasAuth]);
 
     return null; // manager component doesn't render
 }

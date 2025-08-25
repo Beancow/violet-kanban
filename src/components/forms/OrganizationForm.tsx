@@ -1,7 +1,7 @@
 'use client';
 import { Flex, Text, Select, TextField, Button, Grid } from '@radix-ui/themes';
 import type { UseFormReturn } from 'react-hook-form';
-import type { Organization } from '@/types/appState.type';
+import type { Organization } from '@/types';
 import type { z } from 'zod';
 // OrganizationSchema type not needed directly in this file
 // import type { OrganizationSchema as OrgSchemaType } from '@/schema/organizationSchema';

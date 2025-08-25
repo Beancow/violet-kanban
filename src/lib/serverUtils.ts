@@ -1,4 +1,4 @@
-import { User } from '@/types/appState.type';
+import { User } from '@/types';
 import { getAdminAuth } from './firebase/firebase-admin-init';
 import { NextRequest } from 'next/server';
 

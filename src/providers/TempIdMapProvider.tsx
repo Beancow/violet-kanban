@@ -9,18 +9,13 @@ import {
 } from './reducers/tempIdMapReducer';
 
 export type TempIdMapState = Record<string, string>;
+import type { TempIdMapApi } from '@/types/provider-apis';
 
 const STORAGE_KEY = 'violet-kanban-tempidmap-storage';
 
 // reducer lives in src/providers/reducers/tempIdMapReducer.ts
 
-const TempIdMapContext = createContext<{
-    state: TempIdMapState;
-    setMapping: (tempId: string, realId: string) => void;
-    getRealId: (tempId: string) => string | undefined;
-    clearMapping: (tempId: string) => void;
-    clearAll: () => void;
-} | null>(null);
+const TempIdMapContext = createContext<TempIdMapApi | null>(null);
 
 export function TempIdMapProvider({ children }: { children: ReactNode }) {
     let initial: TempIdMapState = {};

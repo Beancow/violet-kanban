@@ -59,7 +59,7 @@ jest.mock('../../src/providers/SyncErrorProvider', () => ({
 }));
 
 // Import under test after mocks
-import { SyncManager } from '../../src/components/SyncManager';
+import SyncManager from '../../src/components/SyncManager';
 
 describe('SyncManager (unit)', () => {
     beforeEach(() => {

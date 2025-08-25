@@ -5,20 +5,35 @@ import {
     useVioletKanbanData,
 } from '@/providers/useVioletKanbanHooks';
 import { useQueues } from '@/providers/QueueProvider';
-import { getActionItemId, detectActionConflicts } from '@/providers/helpers';
+import {
+    getActionItemId,
+    detectActionConflicts,
+    unwrapQueueAction,
+    isQueueItem,
+} from '@/providers/helpers';
 import { Box, Text } from '@radix-ui/themes';
 import styles from './ActionQueue.module.css';
 // SyncAction type was imported but not used here; leave commented for future use
 // import { SyncAction } from '@/types/worker.type';
-import type { Board, BoardList, BoardCard } from '@/types/appState.type';
-import type { VioletKanbanAction } from '@/types/violet-kanban-action';
+import type { Board, BoardList, BoardCard, VioletKanbanAction } from '@/types';
+import {
+    isObject,
+    hasTimestampProp,
+    hasDataProp,
+    isActionLike,
+} from '@/types/typeGuards';
+import type { QueueItem } from '@/types/violet-kanban-action';
 
 export function ActionQueue() {
     const { boardActionQueue, listActionQueue, cardActionQueue } =
         useVioletKanbanQueues();
     const { boards, lists, cards } = useVioletKanbanData();
     const actionQueue = useMemo(
-        () => [...boardActionQueue, ...listActionQueue, ...cardActionQueue],
+        () =>
+            [...boardActionQueue, ...listActionQueue, ...cardActionQueue] as (
+                | VioletKanbanAction
+                | QueueItem
+            )[],
         [boardActionQueue, listActionQueue, cardActionQueue]
     );
     const { removeBoardAction, removeListAction, removeCardAction } =
@@ -42,8 +57,16 @@ export function ActionQueue() {
         return <Text>No pending actions.</Text>;
     }
 
-    const getItemName = (action: VioletKanbanAction) => {
-        switch (action.type) {
+    const getItemName = (maybeAction: unknown) => {
+        // maybeAction can be a QueueItem wrapper or a raw action
+        let action: VioletKanbanAction | undefined;
+        if (isQueueItem(maybeAction)) action = unwrapQueueAction(maybeAction);
+        else if (isActionLike(maybeAction)) {
+            action = maybeAction as VioletKanbanAction;
+        }
+        if (!action) return 'Unknown Action';
+        const type = action.type;
+        switch (type) {
             case 'create-board':
             case 'update-board':
                 return (
@@ -83,9 +106,17 @@ export function ActionQueue() {
                         ?.title || 'Card'
                 );
             case 'create-organization':
-                return action.payload.name || 'Organization';
+                return isObject(action.payload)
+                    ? ((action.payload as Record<string, unknown>).name as
+                          | string
+                          | undefined) || 'Organization'
+                    : 'Organization';
             case 'update-organization':
-                return action.payload.data.name || 'Organization';
+                return hasDataProp(action.payload) &&
+                    isObject(action.payload.data)
+                    ? ((action.payload.data as Record<string, unknown>)
+                          .name as string) || 'Organization'
+                    : 'Organization';
             case 'delete-organization':
                 return 'Organization';
             case 'fetch-org-data':
@@ -121,7 +152,9 @@ export function ActionQueue() {
                                         <Text size='1'>
                                             <b>Local update:</b>{' '}
                                             {String(local.updatedAt)} (queued at{' '}
-                                            {action.timestamp}
+                                            {hasTimestampProp(action)
+                                                ? action.timestamp
+                                                : 'unknown'}
                                             )<br />
                                             <b>Server update:</b>{' '}
                                             {String(server.updatedAt)}
@@ -173,19 +206,35 @@ export function ActionQueue() {
                 </Box>
             )}
             <ul className={styles.queueList}>
-                {actionQueue.map((action) => (
-                    <li key={action.timestamp} className={styles.queueItem}>
-                        <Box>
-                            <Text weight='bold'>{getItemName(action)}</Text>
-                            <Text size='1' color='gray' as='p'>
-                                {action.type}
+                {actionQueue.map((maybeAction, idx) => {
+                    let action: VioletKanbanAction | undefined;
+                    if (isQueueItem(maybeAction))
+                        action = unwrapQueueAction(maybeAction);
+                    else if (isActionLike(maybeAction))
+                        action = maybeAction as VioletKanbanAction;
+                    const key =
+                        (action && getActionItemId(action)) ||
+                        (action &&
+                            (hasTimestampProp(action)
+                                ? String(action.timestamp)
+                                : undefined)) ||
+                        idx;
+                    return (
+                        <li key={String(key)} className={styles.queueItem}>
+                            <Box>
+                                <Text weight='bold'>{getItemName(action)}</Text>
+                                <Text size='1' color='gray' as='p'>
+                                    {action?.type}
+                                </Text>
+                            </Box>
+                            <Text size='1' color='gray'>
+                                {action && hasTimestampProp(action)
+                                    ? String(action.timestamp)
+                                    : ''}
                             </Text>
-                        </Box>
-                        <Text size='1' color='gray'>
-                            {action.timestamp}
-                        </Text>
-                    </li>
-                ))}
+                        </li>
+                    );
+                })}
             </ul>
         </Box>
     );

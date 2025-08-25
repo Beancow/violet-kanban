@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { Board, CreateBoardResult, User } from '@/types/appState.type';
+import { Board, CreateBoardResult, User } from '@/types';
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@/lib/sentryWrapper';
 import { BoardSchema } from '@/schema/boardSchema';

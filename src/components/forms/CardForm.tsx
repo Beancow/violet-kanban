@@ -12,7 +12,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { boardCardSchema } from '@/schema/boardCardSchema';
 type BoardCardFormValues = import('zod').z.infer<typeof boardCardSchema>;
 import styles from '@/components/menus/LooseCardsMenu.module.css';
-import { BoardCard } from '@/types/appState.type';
+import { BoardCard } from '@/types';
 
 export function CardForm({
     card,

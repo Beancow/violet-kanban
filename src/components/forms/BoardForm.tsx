@@ -1,7 +1,7 @@
 'use client';
 import { Flex, Text, Button, TextField, TextArea } from '@radix-ui/themes';
 import type { UseFormReturn } from 'react-hook-form';
-import { Board } from '@/types/appState.type';
+import { Board } from '@/types';
 import type { BoardFormValues } from '@/schema/boardSchema';
 import { Pencil2Icon } from '@radix-ui/react-icons';
 

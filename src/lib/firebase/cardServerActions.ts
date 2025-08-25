@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { BoardCard, CreateCardResult, User } from '@/types/appState.type';
+import { BoardCard, CreateCardResult, User } from '@/types';
 import { adminDataConverter } from './adminDataConverter';
 import { FieldValue } from 'firebase-admin/firestore';
 

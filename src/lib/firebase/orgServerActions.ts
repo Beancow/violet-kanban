@@ -6,7 +6,7 @@ import {
     CreateOrganizationResult,
     AddMemberToOrganizationResult,
     User,
-} from '@/types/appState.type';
+} from '@/types';
 
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@/lib/sentryWrapper';

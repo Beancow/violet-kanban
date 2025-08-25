@@ -1,10 +1,15 @@
-import type { VioletKanbanAction } from '@/types/violet-kanban-action';
+import type {
+    VioletKanbanAction,
+    QueueItem,
+} from '@/types/violet-kanban-action';
+import type { QueueMeta } from '@/types/violet-kanban-action';
+import { isObject, hasUserId } from '@/types/typeGuards';
 import type { SyncAction } from '@/types/worker.type';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 
 // Detect conflicts for board, list, and card updates in the action queue
 export function detectActionConflicts(
-    actionQueue: VioletKanbanAction[],
+    actionQueue: Array<VioletKanbanAction | QueueItem>,
     boards: Board[],
     lists: BoardList[],
     cards: BoardCard[]
@@ -16,7 +21,8 @@ export function detectActionConflicts(
         action: VioletKanbanAction;
         type: 'board' | 'list' | 'card';
     }> = [];
-    actionQueue.forEach((action) => {
+    actionQueue.forEach((maybeItem) => {
+        const action = unwrapQueueAction(maybeItem);
         // helper to safely pull payload.data when present
         const payload = hasPayload(action) ? action.payload : undefined;
         const _data =
@@ -107,8 +113,77 @@ export function detectActionConflicts(
     return conflicts;
 }
 
-function isObject(x: unknown): x is Record<string, unknown> {
-    return typeof x === 'object' && x !== null;
+export function isQueueItem(x: unknown): x is QueueItem {
+    return (
+        isObject(x) &&
+        typeof (x as Record<string, unknown>).id === 'string' &&
+        'action' in (x as Record<string, unknown>)
+    );
+}
+
+export function unwrapQueueAction(
+    x: VioletKanbanAction | QueueItem
+): VioletKanbanAction {
+    if (isQueueItem(x)) return x.action;
+    return x as VioletKanbanAction;
+}
+
+// simple deterministic string hash for fallback id generation
+function simpleHash(input: string) {
+    let h = 0;
+    for (let i = 0; i < input.length; i++) {
+        h = (h << 5) - h + input.charCodeAt(i);
+        h |= 0; // convert to 32bit int
+    }
+    return Math.abs(h).toString(36);
+}
+
+export function computeQueueItemId(
+    actionOrItem: VioletKanbanAction | QueueItem
+) {
+    const action = unwrapQueueAction(actionOrItem);
+    const key = getActionItemId(action);
+    if (key) return `${action.type}:${key}`;
+    // fallback: deterministic hash of payload
+    const payload = hasPayload(action) ? action.payload : {};
+    try {
+        const s = JSON.stringify(payload);
+        return `${action.type}:${simpleHash(s)}`;
+    } catch (e) {
+        return `${action.type}:${Date.now()}`;
+    }
+}
+
+// Exponential backoff helper for scheduling retries. Returns milliseconds.
+export function computeBackoffMs(attempts = 0) {
+    // base 1s, double each attempt, cap at 60s
+    const base = 1000;
+    const factor = 2;
+    const max = 60 * 1000;
+    const next = Math.min(max, Math.floor(base * Math.pow(factor, attempts)));
+    // add +/-50% jitter
+    const jitter = Math.floor((Math.random() - 0.5) * next);
+    return Math.max(0, next + jitter);
+}
+
+// Return an updated QueueMeta scheduling the next attempt after an error.
+export function scheduleNextAttempt(
+    meta: QueueMeta,
+    err?: Error | null,
+    attemptsLimit = 5
+) {
+    const currentAttempts = meta.attempts ?? 0;
+    const nextAttempts = currentAttempts + 1;
+    const exceeded = nextAttempts >= attemptsLimit;
+    const nextAttemptAt = exceeded
+        ? null
+        : Date.now() + computeBackoffMs(nextAttempts);
+    return {
+        ...meta,
+        attempts: nextAttempts,
+        nextAttemptAt,
+        lastError: err ? String(err.message ?? err) : meta.lastError ?? null,
+    } as QueueMeta;
 }
 
 function hasPayload(
@@ -163,8 +238,11 @@ function extractUpdatedAt(value: unknown): string | undefined {
 }
 
 export function getActionItemId(
-    action: VioletKanbanAction
+    actionOrItem: VioletKanbanAction | QueueItem
 ): string | undefined {
+    // If a QueueItem is provided, prefer its explicit id (canonical dedupe key)
+    if (isQueueItem(actionOrItem)) return actionOrItem.id;
+    const action = unwrapQueueAction(actionOrItem);
     if (!hasPayload(action)) return undefined;
     const payload = action.payload;
     if (!payloadIsRecord(payload)) return undefined;
@@ -179,22 +257,16 @@ export function getActionItemId(
     }
 
     // check payload.id / payload.tempId
+    // New: support org fetch actions which carry payload.userId
+    if (hasUserId(p)) return (p as Record<string, unknown>).userId as string;
     if (hasIdField(p)) return p.id;
     if (hasTempIdField(p)) return p.tempId;
     return undefined;
 }
 
-export function squashQueueActions(
-    queue: VioletKanbanAction[],
-    newAction: VioletKanbanAction
-) {
-    const newId = getActionItemId(newAction);
-    const newType = newAction.type;
-    const filteredQueue = queue.filter((action) => {
-        const id = getActionItemId(action);
-        return !(id && newId && id === newId && action.type === newType);
-    });
-    return [...filteredQueue, newAction];
+export function squashQueueActions(queue: QueueItem[], newItem: QueueItem) {
+    const filteredQueue = queue.filter((item) => item.id !== newItem.id);
+    return [...filteredQueue, newItem];
 }
 
 // Determines if an action is stale compared to a server updatedAt ISO string

@@ -1,4 +1,7 @@
 'use client';
+// debug: module load trace for test triage
+// eslint-disable-next-line no-console
+console.debug && console.debug('[module-load] src/providers/AuthProvider');
 import {
     createContext,
     useContext,
@@ -13,26 +16,9 @@ import { firebaseAuth } from '@/lib/firebase/firebase-config';
 import { getTokenExpiryMs } from '@/lib/firebase/firebaseHelpers';
 import { safeCaptureException } from '@/lib/sentryWrapper';
 import LoadingPage from '@/components/LoadingPage';
+import type { AuthApi } from '@/types/provider-apis';
 
-export interface AuthContextType {
-    authUser: FirebaseUser | null;
-    loading: boolean;
-    logout: () => Promise<void>;
-    // current ID token for the signed-in user, or null
-    idToken: string | null;
-    // force-refresh and return a fresh idToken
-    refreshIdToken: () => Promise<string | null>;
-    // whether the client previously had authentication recorded in storage
-    hasAuth: boolean;
-    // minimal persisted user info (may be null)
-    storedUser: {
-        uid?: string;
-        displayName?: string | null;
-        email?: string | null;
-    } | null;
-}
-
-const AuthContext = createContext<AuthContextType>({
+const AuthContext = createContext<AuthApi>({
     authUser: null,
     loading: true,
     logout: async () => {},

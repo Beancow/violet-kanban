@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Sentry from '@/lib/sentryWrapper';
-import { type WorkerMessage } from '@/types/worker.type';
+import { type WorkerMessage } from '@/types';
 export function useWebWorker() {
     const workerRef = useRef<Worker | null>(null);
     const [isWorkerReady, setIsWorkerReady] = useState(false);

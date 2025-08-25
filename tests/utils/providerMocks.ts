@@ -1,6 +1,5 @@
 import React from 'react';
 import type { AuthApi, OrganizationApi } from '@/types/provider-apis';
-import type { AuthContextType } from '@/providers/AuthProvider';
 
 // Lightweight mocked provider components that simply render children. Tests
 // can pass a seeded API to `mockAuthProvider(seed)` and use it in a

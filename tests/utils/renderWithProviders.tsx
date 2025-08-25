@@ -1,13 +1,9 @@
 import React, { ReactNode } from 'react';
 import { render } from '@testing-library/react';
-import { UiProvider } from '@/providers/UiProvider';
 // `AuthProvider` and `OrganizationProvider` are required lazily below so
 // tests can call `jest.mock()` with factories that replace those modules
 // without causing initialization-order problems.
 import type { AuthApi, OrganizationApi } from '@/types/provider-apis';
-// Prefer the provider's runtime context type if available to keep test helpers
-// in sync with the real provider implementation.
-import type { AuthContextType } from '@/providers/AuthProvider';
 
 interface RenderOptions {
     // Allow tests to pass in replacement provider components (useful when a test
@@ -16,12 +12,45 @@ interface RenderOptions {
     AuthProvider?: React.ComponentType<{ children?: ReactNode }>;
     OrganizationProvider?: React.ComponentType<{ children?: ReactNode }>;
     UiProvider?: React.ComponentType<{ children?: ReactNode }>;
+    // If true, mount the full application provider tree (TempIdMap, SyncError, Board/List/Card)
+    useAppProviders?: boolean;
+    // Allow overriding individual providers from the app tree for tighter control in tests
+    TempIdMapProvider?: React.ComponentType<{ children?: ReactNode }>;
+    SyncErrorProvider?: React.ComponentType<{ children?: ReactNode }>;
+    BoardProvider?: React.ComponentType<{ children?: ReactNode }>;
+    ListProvider?: React.ComponentType<{ children?: ReactNode }>;
+    CardProvider?: React.ComponentType<{ children?: ReactNode }>;
+    // Optional module mocks applied before the UI is required/created. Each
+    // entry is an object with `path` and `factory` used with `jest.doMock`.
+    mockModules?: Array<{ path: string; factory: () => any }>;
 }
 
 export function renderWithProviders(
-    ui: React.ReactElement,
-    options?: RenderOptions
+    ui: React.ReactElement | (() => React.ReactElement),
+    options?: RenderOptions & { moduleMocks?: Record<string, any> }
 ) {
+    // If the caller provided module mocks, reset the module cache and apply
+    // the mocks before any requires/imports for the UI element occur. This
+    // lets tests ensure mocked modules are in place before components that
+    // import them are evaluated.
+    // If the caller provided module mocks, reset module cache and apply them
+    // before any provider modules are required. This lets tests inject
+    // mocked provider modules safely even if other tests loaded providers.
+    if (options?.moduleMocks) {
+        Object.entries(options.moduleMocks).forEach(([mod, impl]) => {
+            // impl should be a factory or module object
+            // use doMock so subsequent requires return the mock
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            jest.doMock(mod, () => impl);
+        });
+    }
+    if (options?.mockModules && options.mockModules.length > 0) {
+        for (const m of options.mockModules) {
+            // eslint-disable-next-line no-undef
+            jest.doMock(m.path, m.factory);
+        }
+    }
     // Resolve provider modules safely across CommonJS/ESM and named/default
     // exports. If requiring the real providers throws (for example because
     // Firebase config/env isn't available in the test environment), fall
@@ -42,6 +71,16 @@ export function renderWithProviders(
         }
     }
 
+    // Diagnostic: print resolved AuthProvider shape (helps verify jest.doMock applied)
+    try {
+        // eslint-disable-next-line no-console
+        console.debug(
+            '[diag] resolved AuthProvider ->',
+            typeof AP,
+            (AP as any)?.name || (AP as any)?.displayName || null
+        );
+    } catch (e) {}
+
     if (options?.OrganizationProvider) {
         OP = options.OrganizationProvider;
     } else {
@@ -52,17 +91,179 @@ export function renderWithProviders(
             OP = require('./providerMocks').MockOrganizationProvider;
         }
     }
-    const UP = options?.UiProvider ?? UiProvider;
+    // Resolve UiProvider lazily so test module mocks can replace provider
+    // modules before they are required/evaluated. If the real UiProvider
+    // cannot be required (e.g., test env), fall back to the provided
+    // override or a pass-through component.
+    let UP: React.ComponentType<{ children?: ReactNode }>;
+    if (options?.UiProvider) {
+        UP = options.UiProvider;
+    } else if (options?.moduleMocks) {
+        // If the caller provided module mocks, avoid requiring the real
+        // UiProvider to prevent accidental module evaluation that may
+        // rely on environment not available in tests. Use a pass-through
+        // component unless the caller explicitly provided one.
+        UP = ({ children }: { children?: ReactNode }) => <>{children}</>;
+    } else {
+        try {
+            const mod = require('@/providers/UiProvider');
+            UP = mod.UiProvider ?? mod.default ?? mod;
+        } catch (e) {
+            UP = ({ children }: { children?: ReactNode }) => <>{children}</>;
+        }
+    }
+
+    // Dynamically require QueueProvider so tests that `jest.mock` it can
+    // override the module before this function is executed. If requiring the
+    // real QueueProvider fails (e.g., in some test environments), fall back to
+    // a simple pass-through component.
+    let QP: React.ComponentType<{ children?: ReactNode }>;
+    try {
+        const qpMod = require('@/providers/QueueProvider');
+        const candidate = qpMod.QueueProvider ?? qpMod.default ?? qpMod;
+        QP =
+            typeof candidate === 'function'
+                ? candidate
+                : ({ children }: { children?: ReactNode }) => <>{children}</>;
+    } catch (e) {
+        QP = ({ children }: { children?: ReactNode }) => <>{children}</>;
+    }
+
+    // Resolve optional app-level providers when requested
+    let TempP: React.ComponentType<{ children?: ReactNode }> = ({
+        children,
+    }) => <>{children}</>;
+    let SyncErrP: React.ComponentType<{ children?: ReactNode }> = ({
+        children,
+    }) => <>{children}</>;
+    let BoardP: React.ComponentType<{ children?: ReactNode }> = ({
+        children,
+    }) => <>{children}</>;
+    let ListP: React.ComponentType<{ children?: ReactNode }> = ({
+        children,
+    }) => <>{children}</>;
+    let CardP: React.ComponentType<{ children?: ReactNode }> = ({
+        children,
+    }) => <>{children}</>;
+
+    if (options?.useAppProviders) {
+        // allow overrides first
+        if (options?.TempIdMapProvider) {
+            TempP = options.TempIdMapProvider;
+        } else {
+            try {
+                const mod = require('@/providers/TempIdMapProvider');
+                TempP = mod.TempIdMapProvider ?? mod.default ?? TempP;
+            } catch (e) {
+                // leave pass-through
+            }
+        }
+
+        if (options?.SyncErrorProvider) {
+            SyncErrP = options.SyncErrorProvider;
+        } else {
+            try {
+                const mod = require('@/providers/SyncErrorProvider');
+                SyncErrP = mod.default ?? mod.SyncErrorProvider ?? SyncErrP;
+            } catch (e) {
+                // pass
+            }
+        }
+
+        if (options?.BoardProvider) {
+            BoardP = options.BoardProvider;
+        } else {
+            try {
+                const mod = require('@/providers/BoardProvider');
+                BoardP = mod.BoardProvider ?? mod.default ?? BoardP;
+            } catch (e) {}
+        }
+
+        if (options?.ListProvider) {
+            ListP = options.ListProvider;
+        } else {
+            try {
+                const mod = require('@/providers/ListProvider');
+                ListP = mod.ListProvider ?? mod.default ?? ListP;
+            } catch (e) {}
+        }
+
+        if (options?.CardProvider) {
+            CardP = options.CardProvider;
+        } else {
+            try {
+                const mod = require('@/providers/CardProvider');
+                CardP = mod.CardProvider ?? mod.default ?? CardP;
+            } catch (e) {}
+        }
+    }
 
     const Wrapper = ({ children }: { children?: ReactNode }) => (
         <AP>
-            <OP>
-                <UP>{children}</UP>
-            </OP>
+            <TempP>
+                <OP>
+                    <SyncErrP>
+                        <BoardP>
+                            <ListP>
+                                <CardP>
+                                    <UP>
+                                        <QP>{children}</QP>
+                                    </UP>
+                                </CardP>
+                            </ListP>
+                        </BoardP>
+                    </SyncErrP>
+                </OP>
+            </TempP>
         </AP>
     );
 
-    return render(ui, { wrapper: Wrapper as any });
+    // Ensure UiProvider wraps the entire provider tree so `useUi()` is
+    // available to any component rendered in tests. Use the resolved `UP`
+    // (which falls back to a pass-through) so this is safe in all test
+    // environments.
+    const FullWrapper = ({ children }: { children?: ReactNode }) => (
+        <UP>
+            <Wrapper>{children}</Wrapper>
+        </UP>
+    );
+
+    // If moduleMocks were provided, ensure the UI factory is evaluated inside
+    // an isolated module context so that jest.doMock() replacements are used
+    // by any requires executed when building the UI. Fallback to direct
+    // evaluation if jest.isolateModules is not available.
+    let element: React.ReactElement;
+    // no diagnostics
+    if (options?.moduleMocks) {
+        try {
+            // Ensure mocked modules are registered inside an isolated module
+            // context so their factories take effect for subsequent requires.
+            // Do NOT create React elements inside isolateModules because that
+            // can cause a separate React renderer/dispatcher to be used and
+            // trigger invalid-hook-call errors in tests. Create the element
+            // after exiting isolateModules so it uses the primary module
+            // registry and the same React instance as the test runtime.
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore - jest is available in the test environment
+            jest.isolateModules(() => {
+                // no-op; mocks were already installed via jest.doMock above
+            });
+            element =
+                typeof ui === 'function'
+                    ? (ui as () => React.ReactElement)()
+                    : (ui as any);
+        } catch (e) {
+            // If anything goes wrong, fall back to direct evaluation.
+            element =
+                typeof ui === 'function'
+                    ? (ui as () => React.ReactElement)()
+                    : ui;
+        }
+    } else {
+        element =
+            typeof ui === 'function' ? (ui as () => React.ReactElement)() : ui;
+    }
+    return render(element, { wrapper: FullWrapper as any });
 }
 
 export type { RenderOptions };

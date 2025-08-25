@@ -1,5 +1,5 @@
 import type { Board, BoardList, BoardCard } from './appState.type';
-import type { VioletKanbanAction } from './violet-kanban-action';
+import type { VioletKanbanAction, QueueItem } from './violet-kanban-action';
 
 // Pure data shapes used by reducers (no API methods attached).
 export type BoardStateShape = {
@@ -16,9 +16,10 @@ export type CardStateShape = {
 };
 
 export type QueueStateShape = {
-    boardActionQueue: VioletKanbanAction[];
-    listActionQueue: VioletKanbanAction[];
-    cardActionQueue: VioletKanbanAction[];
+    boardActionQueue: QueueItem[];
+    listActionQueue: QueueItem[];
+    cardActionQueue: QueueItem[];
+    orgActionQueue?: QueueItem[];
 };
 
 export type TempIdMapStateShape = Record<string, string>;

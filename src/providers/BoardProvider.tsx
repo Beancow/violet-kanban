@@ -5,6 +5,7 @@ import { reducer as boardReducer } from './reducers/boardReducer';
 import { registerBoardAdapter } from './adapter';
 import type { ReactNode } from 'react';
 import type { Board } from '../types/appState.type';
+import type { BoardApi } from '@/types/provider-apis';
 
 type State = {
     boards: Board[];
@@ -12,12 +13,7 @@ type State = {
 
 const STORAGE_KEY = 'violet-kanban-board-storage';
 
-const BoardContext = createContext<{
-    state: State;
-    addBoard: (board: Board) => void;
-    updateBoard: (board: Partial<Board> & { id: string }) => void;
-    removeBoard: (boardId: string) => void;
-} | null>(null);
+const BoardContext = createContext<BoardApi | null>(null);
 
 // reducer lives in src/providers/reducers/boardReducer.ts
 

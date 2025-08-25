@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Board } from '@/types/appState.type';
+import { Board } from '@/types';
 import type { BoardFormValues } from '@/schema/boardSchema';
 import { useVioletKanbanEnqueueBoardCreateOrUpdate } from '@/providers/useVioletKanbanHooks';
 import { BoardForm } from './BoardForm';

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import type { BoardCard } from '../types/appState.type';
+import type { CardApi } from '@/types/provider-apis';
 import { reducer as cardReducer } from './reducers/cardReducer';
 import { registerCardAdapter } from './adapter';
 
@@ -13,13 +14,7 @@ type State = {
 
 const STORAGE_KEY = 'violet-kanban-card-storage';
 
-const CardContext = createContext<{
-    state: State;
-    addCard: (card: BoardCard) => void;
-    updateCard: (card: Partial<BoardCard> & { id: string }) => void;
-    removeCard: (cardId: string) => void;
-    markCardOrphaned: (cardId: string) => void;
-} | null>(null);
+const CardContext = createContext<CardApi | null>(null);
 
 export function CardProvider({ children }: { children: ReactNode }) {
     let initial: State = { cards: [], orphanedCards: [] };

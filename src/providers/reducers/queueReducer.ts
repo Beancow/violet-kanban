@@ -1,17 +1,19 @@
 import { Draft, produce } from 'immer';
-import type { VioletKanbanAction } from '@/types/violet-kanban-action';
+import type { QueueItem } from '@/types/violet-kanban-action';
 import type { QueueStateShape } from '@/types/state-shapes';
 import { getActionItemId, squashQueueActions } from '@/providers/helpers';
 
 export type QueueState = QueueStateShape;
 
 export type QueueAction =
-    | { type: 'ENQUEUE_BOARD'; action: VioletKanbanAction }
-    | { type: 'ENQUEUE_LIST'; action: VioletKanbanAction }
-    | { type: 'ENQUEUE_CARD'; action: VioletKanbanAction }
+    | { type: 'ENQUEUE_BOARD'; action: QueueItem }
+    | { type: 'ENQUEUE_LIST'; action: QueueItem }
+    | { type: 'ENQUEUE_CARD'; action: QueueItem }
+    | { type: 'ENQUEUE_ORG'; action: QueueItem }
     | { type: 'REMOVE_BOARD_BY_ID'; itemId: string }
     | { type: 'REMOVE_LIST_BY_ID'; itemId: string }
     | { type: 'REMOVE_CARD_BY_ID'; itemId: string }
+    | { type: 'REMOVE_ORG_BY_ID'; itemId: string }
     | { type: 'SET_STATE'; state: QueueState };
 
 export function reducer(state: QueueState, action: QueueAction): QueueState {
@@ -35,6 +37,12 @@ export function reducer(state: QueueState, action: QueueAction): QueueState {
                     action.action
                 );
                 return;
+            case 'ENQUEUE_ORG':
+                draft.orgActionQueue = squashQueueActions(
+                    draft.orgActionQueue ?? [],
+                    action.action
+                );
+                return;
             case 'REMOVE_BOARD_BY_ID':
                 draft.boardActionQueue = draft.boardActionQueue.filter(
                     (a) => getActionItemId(a) !== action.itemId
@@ -47,6 +55,11 @@ export function reducer(state: QueueState, action: QueueAction): QueueState {
                 return;
             case 'REMOVE_CARD_BY_ID':
                 draft.cardActionQueue = draft.cardActionQueue.filter(
+                    (a) => getActionItemId(a) !== action.itemId
+                );
+                return;
+            case 'REMOVE_ORG_BY_ID':
+                draft.orgActionQueue = (draft.orgActionQueue ?? []).filter(
                     (a) => getActionItemId(a) !== action.itemId
                 );
                 return;

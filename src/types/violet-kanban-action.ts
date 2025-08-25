@@ -64,6 +64,11 @@ export type EnqueuePayload =
           type: 'reconcile-card';
           payload: { tempId: string; card: BoardCard };
           timestamp?: number;
+      }
+    | {
+          type: 'fetch-organizations';
+          payload: { userId: string; timestamp: number };
+          timestamp: number;
       };
 
 export type VioletKanbanAction = SyncAction | EnqueuePayload;
@@ -71,3 +76,18 @@ export type VioletKanbanAction = SyncAction | EnqueuePayload;
 // Note: original runtime definitions were in legacy files; prefer importing
 // this type from '@/types/violet-kanban-action' so the legacy implementation
 // can be removed once consumers are migrated.
+
+// Queue wrapper: keep domain actions pure and store queue bookkeeping here.
+export type QueueMeta = {
+    enqueuedAt: number; // epoch ms
+    attempts?: number;
+    nextAttemptAt?: number | null;
+    ttlMs?: number | null;
+    lastError?: string | null;
+};
+
+export type QueueItem = {
+    id: string; // deterministic dedupe key, computed at enqueue time
+    action: VioletKanbanAction;
+    meta: QueueMeta;
+};

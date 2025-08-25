@@ -8,9 +8,16 @@ module.exports = {
     // a node environment can still opt out using a per-file docblock.
     testEnvironment: 'jsdom',
     testMatch: ['**/tests/**/*.test.ts', '**/tests/**/*.test.tsx'],
-    moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths || {}, {
-        prefix: '<rootDir>/',
-    }),
+    // Ensure jest resolves react/react-dom to this repo's installed copies
+    // (helps prevent duplicate React copies when tests mock modules or when
+    // linked packages bring their own copies).
+    moduleNameMapper: {
+        '^react$': '<rootDir>/node_modules/react',
+        '^react-dom$': '<rootDir>/node_modules/react-dom',
+        ...pathsToModuleNameMapper(compilerOptions.paths || {}, {
+            prefix: '<rootDir>/',
+        }),
+    },
     // Configure ts-jest using the `transform` entry to avoid the deprecated
     // `globals['ts-jest']` usage. See ts-jest docs for advanced options:
     // https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced

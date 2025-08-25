@@ -6,7 +6,7 @@ import { useTempIdMap } from './TempIdMapProvider';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 import type { BoardCreate, ListCreate, CardCreate } from '@/types/worker.type';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
-import { isObject } from '@/types/typeGuards';
+import { isObject, hasBoardId, hasListId } from '@/types/typeGuards';
 
 // Adapters: providers expose API objects; wrap them into convenient hooks
 export function useVioletKanbanData() {
@@ -102,13 +102,8 @@ export function useVioletKanbanEnqueueListCreateOrUpdate() {
                 ...(createDataRaw as ListCreate),
             } as ListCreate;
             // safely copy boardId if present on the input
-            if (
-                isObject(data) &&
-                'boardId' in (data as Record<string, unknown>)
-            ) {
-                (createData as ListCreate).boardId = (
-                    data as Record<string, unknown>
-                ).boardId as string;
+            if (hasBoardId(data)) {
+                (createData as ListCreate).boardId = data.boardId;
             }
             q.enqueueListAction({
                 type: 'create-list',
@@ -144,21 +139,11 @@ export function useVioletKanbanEnqueueCardCreateOrUpdate() {
             const createData = {
                 ...(createDataRaw as CardCreate),
             } as CardCreate;
-            if (
-                isObject(data) &&
-                'boardId' in (data as Record<string, unknown>)
-            ) {
-                (createData as CardCreate).boardId = (
-                    data as Record<string, unknown>
-                ).boardId as string;
+            if (hasBoardId(data)) {
+                (createData as CardCreate).boardId = data.boardId;
             }
-            if (
-                isObject(data) &&
-                'listId' in (data as Record<string, unknown>)
-            ) {
-                (createData as CardCreate).listId = (
-                    data as Record<string, unknown>
-                ).listId as string;
+            if (hasListId(data)) {
+                (createData as CardCreate).listId = data.listId;
             }
             q.enqueueCardAction({
                 type: 'create-card',
