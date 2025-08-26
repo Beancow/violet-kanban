@@ -13,6 +13,9 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
         url: string;
         onmessage: ((ev: { data: any }) => void) | null = null;
         onerror: ((ev: any) => void) | null = null;
+        // track concurrent postMessage handling for tests
+        activeRequests = 0;
+        maxConcurrent = 0;
 
         constructor(url: string) {
             this.url = url;
@@ -26,7 +29,11 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
             setTimeout(() => {
                 if (this.onmessage) {
                     this.onmessage({
-                        data: { type: 'WORKER_READY', version: 'test-fake' },
+                        data: {
+                            type: 'WORKER_READY',
+                            version: 'test-fake',
+                            meta: { origin: 'worker' },
+                        },
                     });
                 }
             }, 0);
@@ -36,6 +43,10 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
             // Basic emulation: for create-*/update-*/delete-* actions call fetchImpl
             // and then call onmessage with ACTION_SUCCESS or ERROR depending on response.ok
             (async () => {
+                // mark active request
+                this.activeRequests += 1;
+                if (this.activeRequests > this.maxConcurrent)
+                    this.maxConcurrent = this.activeRequests;
                 try {
                     // Support a SYNC_DATA wrapper (used by SyncManager) by
                     // extracting the inner action when present. Many tests post
@@ -57,6 +68,7 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                                 data: {
                                     type: 'WORKER_VERSION',
                                     version: 'test-fake',
+                                    meta: { origin: 'worker' },
                                 },
                             });
                         return;
@@ -98,7 +110,11 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                                 payload.tempId = inner.payload.tempId;
                             if (this.onmessage)
                                 this.onmessage({
-                                    data: { type: 'ACTION_SUCCESS', payload },
+                                    data: {
+                                        type: 'ACTION_SUCCESS',
+                                        payload,
+                                        meta: { origin: 'worker' },
+                                    },
                                 });
                             return;
                         }
@@ -114,6 +130,7 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                                         type: actType,
                                     },
                                     error: { message: err || 'mock error' },
+                                    meta: { origin: 'worker' },
                                 },
                             });
                         return;
@@ -131,6 +148,7 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                                 error: {
                                     message: 'unhandled action in fake worker',
                                 },
+                                meta: { origin: 'worker' },
                             },
                         });
                 } catch (e: any) {
@@ -143,9 +161,12 @@ export function installFakeWorker(options?: FakeWorkerOptions) {
                                     type: action.type,
                                 },
                                 error: { message: e?.message || String(e) },
+                                meta: { origin: 'worker' },
                             },
                         });
                 }
+                // finished request
+                this.activeRequests -= 1;
             })();
         }
 

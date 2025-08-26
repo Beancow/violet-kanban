@@ -4,6 +4,7 @@ import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingPage from '@/components/LoadingPage';
+import OrganizationSelectModal from '@/components/modals/OrganizationSelectModal';
 
 export default function OrganizationGate({
     children,
@@ -14,6 +15,7 @@ export default function OrganizationGate({
     const organizations = org.organizations;
     const loading = org.loading;
     const currentOrganizationId = org.currentOrganizationId;
+    const isHydrated = (org as any).isHydrated as boolean | undefined;
     const setCurrentOrganizationId = org.setCurrentOrganizationId;
     const router = useRouter();
     const [isOnline, setIsOnline] = useState(true);
@@ -38,6 +40,41 @@ export default function OrganizationGate({
         }
     }, [loading, organizations, router, isOnline]);
 
+    // If provider hasn't hydrated local selection yet, show a loading state to avoid flicker.
+    if (!isHydrated) {
+        return <LoadingPage dataType='Organizations' />;
+    }
+
+    const refetchError = (org as any).refetchError as string | null | undefined;
+    const refetchOrganizations = org.refetchOrganizations;
+    const clearRefetchError = (org as any).clearRefetchError as
+        | (() => void)
+        | undefined;
+
+    if (refetchError) {
+        return (
+            <div style={{ textAlign: 'center', marginTop: '4rem' }}>
+                <h2>Failed to load organizations</h2>
+                <p>{refetchError}</p>
+                <div>
+                    <button
+                        className='btn btn-primary'
+                        onClick={async () => {
+                            if (clearRefetchError) clearRefetchError();
+                            try {
+                                await refetchOrganizations();
+                            } catch (_) {
+                                // refetchOrganizations sets the error state
+                            }
+                        }}
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) {
         return <LoadingPage dataType='Organizations' />;
     }
@@ -55,43 +92,24 @@ export default function OrganizationGate({
         );
     }
 
+    const [selectOpen, setSelectOpen] = useState(false);
+
     if (organizations.length > 0 && !currentOrganizationId) {
+        // Open the organization select modal immediately when provider
+        // has organizations but no current selection.
+        // Note: using state to render the modal so we can keep it controlled.
         return (
-            <div className='container mt-5'>
-                <div className='row justify-content-center'>
-                    <div className='col-md-6'>
-                        <div className='card'>
-                            <div className='card-body'>
-                                <h5 className='card-title'>
-                                    Select an Organization
-                                </h5>
-                                <p className='card-text'>
-                                    Please select an organization to continue.
-                                </p>
-                                <ul className='list-group'>
-                                    {organizations.map((org) => (
-                                        <li
-                                            key={org.id}
-                                            className='list-group-item'
-                                        >
-                                            <button
-                                                className='btn btn-link'
-                                                onClick={() =>
-                                                    setCurrentOrganizationId(
-                                                        org.id
-                                                    )
-                                                }
-                                            >
-                                                {org.name}
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <>
+                <OrganizationSelectModal
+                    open={true}
+                    onOpenChange={(v) => setSelectOpen(v)}
+                    organizations={organizations}
+                    onSelect={(id) => {
+                        setCurrentOrganizationId(id);
+                    }}
+                />
+                <LoadingPage dataType='Organizations' />
+            </>
         );
     }
 

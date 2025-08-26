@@ -27,7 +27,6 @@ type State = {
     boardActionQueue: QueueItem[];
     listActionQueue: QueueItem[];
     cardActionQueue: QueueItem[];
-    orgActionQueue?: QueueItem[];
 };
 
 type _Action =
@@ -50,7 +49,6 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         boardActionQueue: [],
         listActionQueue: [],
         cardActionQueue: [],
-        orgActionQueue: [],
     };
     try {
         if (typeof window !== 'undefined') {
@@ -105,6 +103,18 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                 type: a.type,
             });
             dispatch({ type: 'ENQUEUE_BOARD', action: item });
+            // notify the sync manager that the queue changed so it can start
+            // processing immediately (e.g. after a user action)
+            try {
+                if (typeof window !== 'undefined')
+                    window.dispatchEvent(
+                        new CustomEvent('violet:queue:updated', {
+                            detail: { kind: 'board' },
+                        })
+                    );
+            } catch (e) {
+                /* ignore (tests may run in non-browser environments) */
+            }
         },
         enqueueListAction: (a: VioletKanbanAction) => {
             const item = wrap(a);
@@ -113,6 +123,16 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                 type: a.type,
             });
             dispatch({ type: 'ENQUEUE_LIST', action: item });
+            try {
+                if (typeof window !== 'undefined')
+                    window.dispatchEvent(
+                        new CustomEvent('violet:queue:updated', {
+                            detail: { kind: 'list' },
+                        })
+                    );
+            } catch (e) {
+                /* ignore */
+            }
         },
         enqueueCardAction: (a: VioletKanbanAction) => {
             const item = wrap(a);
@@ -121,30 +141,16 @@ export function QueueProvider({ children }: { children: ReactNode }) {
                 type: a.type,
             });
             dispatch({ type: 'ENQUEUE_CARD', action: item });
-        },
-        enqueueOrgAction: (a: VioletKanbanAction) => {
-            const item = wrap(a);
-            console.debug('[QueueProvider] enqueueOrgAction', {
-                id: item.id,
-                type: a.type,
-                payload: a.payload,
-            });
-            dispatch({ type: 'ENQUEUE_ORG', action: item });
-        },
-        requeueOrgAction: (
-            itemId: string,
-            metaPatch: Partial<import('@/types/violet-kanban-action').QueueMeta>
-        ) => {
-            // remove existing and re-add with patched meta
-            const existing = (state.orgActionQueue ?? []).find(
-                (q) => q.id === itemId
-            );
-            if (!existing) return;
-            const updated: QueueItem = {
-                ...existing,
-                meta: { ...existing.meta, ...metaPatch },
-            };
-            dispatch({ type: 'ENQUEUE_ORG', action: updated });
+            try {
+                if (typeof window !== 'undefined')
+                    window.dispatchEvent(
+                        new CustomEvent('violet:queue:updated', {
+                            detail: { kind: 'card' },
+                        })
+                    );
+            } catch (e) {
+                /* ignore */
+            }
         },
         removeBoardAction: (id: string) =>
             dispatch({ type: 'REMOVE_BOARD_BY_ID', itemId: id }),
@@ -152,8 +158,6 @@ export function QueueProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'REMOVE_LIST_BY_ID', itemId: id }),
         removeCardAction: (id: string) =>
             dispatch({ type: 'REMOVE_CARD_BY_ID', itemId: id }),
-        removeOrgAction: (id: string) =>
-            dispatch({ type: 'REMOVE_ORG_BY_ID', itemId: id }),
     };
 
     // Register the adapter once when the provider mounts. Avoid re-registering
@@ -164,7 +168,6 @@ export function QueueProvider({ children }: { children: ReactNode }) {
             enqueueBoardAction: api.enqueueBoardAction,
             enqueueListAction: api.enqueueListAction,
             enqueueCardAction: api.enqueueCardAction,
-            enqueueOrgAction: api.enqueueOrgAction,
         });
         return () => registerQueueAdapter(null);
         // Intentionally empty deps: we want a single registration on mount.

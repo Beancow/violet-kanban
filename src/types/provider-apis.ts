@@ -22,6 +22,8 @@ export type AuthApi = {
     loading: boolean;
     logout: () => Promise<void>;
     idToken?: string | null;
+    // timestamp (ms) when we last successfully obtained an ID token
+    lastAuthAt?: number | null;
     refreshIdToken?: () => Promise<string | null>;
     hasAuth: boolean;
     storedUser: {
@@ -107,19 +109,10 @@ export type QueueApi = {
     enqueueCardAction: (
         a: import('./violet-kanban-action').VioletKanbanAction
     ) => void;
-    enqueueOrgAction?: (
-        a: import('./violet-kanban-action').VioletKanbanAction
-    ) => void;
-    requeueOrgAction?: (
-        id: string,
-        metaPatch:
-            | Partial<import('./violet-kanban-action').QueueMeta>
-            | import('./violet-kanban-action').QueueMeta
-    ) => void;
+
     removeBoardAction: (id: string) => void;
     removeListAction: (id: string) => void;
     removeCardAction: (id: string) => void;
-    removeOrgAction?: (id: string) => void;
 };
 
 export default {};

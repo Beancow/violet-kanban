@@ -17,6 +17,7 @@ async function handleCreateOrganization(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp, type: action.type, ...result.data },
+            meta: { origin: 'worker' },
         });
     } else {
         const error = await response.json();
@@ -24,6 +25,7 @@ async function handleCreateOrganization(action) {
             type: 'ERROR',
             payload: { timestamp, type: action.type },
             error: { message: error?.error || 'Failed to create organization' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -47,12 +49,14 @@ async function handleFetchOrgData(action) {
                 timestamp: action.timestamp,
                 type: action.type,
             },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp, type: action.type },
             error: { message: 'Failed to fetch org data' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -62,11 +66,45 @@ async function handleCreateBoard(action) {
     // Do NOT send tempId to the server; keep it local to the worker
     const headers = { 'Content-Type': 'application/json' };
     if (idToken) headers.Authorization = `Bearer ${idToken}`;
+    // Emit a lightweight debug message before making the network request.
+    // Do NOT include the idToken itself; only indicate presence.
+    try {
+        self.postMessage({
+            type: 'WORKER_OUTGOING',
+            payload: {
+                endpoint: '/api/boards/create',
+                tempId: tempId || null,
+                hasIdToken: !!idToken,
+                timestamp: action.timestamp || Date.now(),
+            },
+            meta: { origin: 'worker' },
+        });
+    } catch (e) {
+        /* ignore posting debug message failures */
+    }
     const response = await fetch('/api/boards/create', {
         method: 'POST',
         headers,
         body: JSON.stringify({ data }),
     });
+    // Emit a result message (status) for diagnostics. Avoid sending
+    // response body unfiltered — include only status and ok flag.
+    try {
+        self.postMessage({
+            type: 'WORKER_OUTGOING_RESULT',
+            payload: {
+                endpoint: '/api/boards/create',
+                tempId: tempId || null,
+                ok: response.ok,
+                status: response.status,
+                timestamp: action.timestamp || Date.now(),
+            },
+            meta: { origin: 'worker' },
+        });
+    } catch (e) {
+        /* ignore */
+    }
+
     if (response.ok) {
         const { data: responseData } = await response.json();
         self.postMessage({
@@ -78,12 +116,14 @@ async function handleCreateBoard(action) {
                 board: responseData?.data?.board || responseData?.board || null,
                 type: action.type,
             },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp, type: action.type },
             error: { message: 'Failed to create board' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -108,12 +148,14 @@ async function handleCreateList(action) {
                 list: responseData?.data?.list || responseData?.list || null,
                 type: action.type,
             },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp, type: action.type },
             error: { message: 'Failed to add list' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -138,12 +180,14 @@ async function handleCreateCard(action) {
                 card: responseData?.data?.card || responseData?.card || null,
                 type: action.type,
             },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp, type: action.type },
             error: { message: 'Failed to create card' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -161,12 +205,14 @@ async function handleUpdateCard(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to update card' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -184,12 +230,14 @@ async function handleDeleteCard(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to delete card' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -207,12 +255,14 @@ async function handleSoftDeleteCard(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to soft delete card' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -230,12 +280,14 @@ async function handleRestoreCard(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to restore card' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -253,12 +305,14 @@ async function handleDeleteList(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to delete list' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -276,12 +330,14 @@ async function handleUpdateBoard(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to update board' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -299,12 +355,14 @@ async function handleDeleteBoard(action) {
         self.postMessage({
             type: 'ACTION_SUCCESS',
             payload: { timestamp: action.timestamp },
+            meta: { origin: 'worker' },
         });
     } else {
         self.postMessage({
             type: 'ERROR',
             payload: { timestamp: action.timestamp },
             error: { message: 'Failed to delete board' },
+            meta: { origin: 'worker' },
         });
     }
 }
@@ -474,6 +532,7 @@ self.onmessage = async function (e) {
                     type: 'ERROR',
                     payload: { timestamp: action.timestamp, type: action.type },
                     error: { message: `Unknown message type: ${action.type}` },
+                    meta: { origin: 'worker' },
                 });
         }
     } catch (error) {
@@ -488,8 +547,18 @@ self.onmessage = async function (e) {
                 message:
                     error.message || 'An unknown error occurred in the worker',
             },
+            meta: { origin: 'worker' },
         });
     }
 };
 
-self.postMessage({ type: 'WORKER_READY', version: WORKER_VERSION });
+self.postMessage({
+    type: 'WORKER_VERSION',
+    version: WORKER_VERSION,
+    meta: { origin: 'worker' },
+});
+self.postMessage({
+    type: 'WORKER_READY',
+    version: WORKER_VERSION,
+    meta: { origin: 'worker' },
+});

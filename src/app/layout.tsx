@@ -4,6 +4,7 @@ import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
 import { FloatingSyncButton } from '@/components/FloatingSyncButton';
+import DevWorkerDebugPanel from '@/components/DevWorkerDebugPanel';
 import Header from '@/components/navigation/Header';
 import AppProvider from '@/providers/AppProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
@@ -24,10 +25,13 @@ export default function RootLayout({
         <html lang='en'>
             <body className={inter.className}>
                 <Theme>
-                    <AuthProvider>
+                    <AuthProvider withGuard>
                         <AppProvider>
                             <Header />
                             <FloatingSyncButton />
+                            {process.env.NODE_ENV !== 'production' && (
+                                <DevWorkerDebugPanel />
+                            )}
                             {children}
                         </AppProvider>
                     </AuthProvider>

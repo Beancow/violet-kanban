@@ -1,68 +1,119 @@
 'use client';
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import useLocalStorage from '@/hooks/useLocalStorage';
 import type { Organization } from '@/types/appState.type';
 import type { OrganizationApi } from '@/types/provider-apis';
+import { useAuth } from '@/providers/AuthProvider';
+import useFreshToken from '@/hooks/useFreshToken';
 
-type State = {
-    organizations: Organization[];
-    loading: boolean;
-    currentOrganizationId: string | null;
-};
+// A lightweight, simplified OrganizationProvider:
+// - hydrates `currentOrganizationId` from localStorage on the client
+// - does not auto-fetch organizations (consumers should call `refetchOrganizations`)
+// - only persists when `setCurrentOrganizationId` is called
 
-type Action =
-    | { type: 'SET_ORGANIZATIONS'; orgs: Organization[] }
-    | { type: 'SET_LOADING'; loading: boolean }
-    | { type: 'SET_CURRENT_ORG_ID'; id: string | null };
+type OrganizationExtendedApi = OrganizationApi & { isHydrated: boolean };
 
-const initialState: State = {
-    organizations: [],
-    loading: true,
-    currentOrganizationId: null,
-};
+const OrganizationContext = createContext<OrganizationExtendedApi | null>(null);
 
-function reducer(state: State, action: Action): State {
-    switch (action.type) {
-        case 'SET_ORGANIZATIONS':
-            return { ...state, organizations: action.orgs };
-        case 'SET_LOADING':
-            return { ...state, loading: action.loading };
-        case 'SET_CURRENT_ORG_ID':
-            return { ...state, currentOrganizationId: action.id };
-        default:
-            return state;
-    }
-}
-
-const OrganizationContext = createContext<OrganizationApi | null>(null);
-
-let _adapter: { getState: () => OrganizationApi } | null = null;
+let _adapter: { getState: () => OrganizationExtendedApi } | null = null;
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-    const [state, dispatch] = useReducer(reducer, initialState);
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [currentOrganizationId, setCurrentOrganizationIdState] = useState<
+        string | null
+    >(null);
+    const [persistedOrgId, setPersistedOrgId] = useLocalStorage<string | null>(
+        'currentOrganizationId',
+        null
+    );
+    const [isHydrated, setIsHydrated] = useState(false);
+    const auth = useAuth();
+    const [refetchError, setRefetchError] = useState<string | null>(null);
+    const getFreshToken = useFreshToken();
 
-    const api: OrganizationApi = {
-        organizations: state.organizations,
-        loading: state.loading,
-        currentOrganizationId: state.currentOrganizationId,
+    // Hydrate from localStorage when the persisted value becomes available on client
+    useEffect(() => {
+        // persistedOrgId will be null during SSR and updated on client by the hook
+        setIsHydrated(true);
+        if (persistedOrgId) {
+            setCurrentOrganizationIdState(persistedOrgId);
+        }
+        // we intentionally only depend on persistedOrgId here so hydration runs when it becomes available
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [persistedOrgId]);
+
+    const api: OrganizationExtendedApi = {
+        organizations,
+        loading,
+        currentOrganizationId,
         currentOrganization:
-            state.organizations.find(
-                (o) => o.id === state.currentOrganizationId
-            ) ?? null,
-        setCurrentOrganizationId: (id: string | null) =>
-            dispatch({ type: 'SET_CURRENT_ORG_ID', id }),
-        setOrganizations: (orgs: Organization[]) =>
-            dispatch({ type: 'SET_ORGANIZATIONS', orgs }),
-        setLoading: (loading: boolean) =>
-            dispatch({ type: 'SET_LOADING', loading }),
-        refetchOrganizations: async () => {
-            // Placeholder: consumers can call and providers can wire fetching into reducer
-            return;
+            organizations.find((o) => o.id === currentOrganizationId) ?? null,
+        setCurrentOrganizationId: (id: string | null) => {
+            setCurrentOrganizationIdState(id);
+            try {
+                setPersistedOrgId(id);
+            } catch (e) {
+                // ignore localStorage write failures
+            }
         },
-    };
+        setOrganizations: (orgs: Organization[]) => setOrganizations(orgs),
+        setLoading: (l: boolean) => setLoading(l),
+        refetchOrganizations: async () => {
+            try {
+                setLoading(true);
+                const token = await getFreshToken();
+                const res = await fetch('/api/orgs', {
+                    method: 'GET',
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (!res.ok) {
+                    const body = await res.json().catch(() => null);
+                    throw new Error(
+                        body && body.error
+                            ? String(body.error)
+                            : `Failed to fetch organizations: ${res.status}`
+                    );
+                }
+                const body = await res.json();
+                if (body && body.success && Array.isArray(body.organizations)) {
+                    setOrganizations(body.organizations);
+                    setRefetchError(null);
+                } else {
+                    const msg = 'Unexpected response fetching organizations';
+                    setRefetchError(msg);
+                    throw new Error(msg);
+                }
+            } catch (e) {
+                // keep loading false so callers can decide; log for diagnostics
+                console.error(
+                    '[OrganizationProvider] refetchOrganizations failed',
+                    e
+                );
+            } finally {
+                setLoading(false);
+            }
+        },
+        refetchError,
+        clearRefetchError: () => setRefetchError(null),
+        isHydrated,
+    } as OrganizationExtendedApi;
 
-    // Keep a lightweight adapter that exposes current API; this mirrors the old getOrCreateOrganizationStore API surface
+    // expose a tiny adapter used by legacy callers/tests
     _adapter = { getState: () => api };
+
+    // One-time auto-fetch: when auth becomes available and provider is hydrated,
+    // fetch organizations if we don't already have them. This keeps startup fetch
+    // behavior simple and idempotent.
+    useEffect(() => {
+        if (!isHydrated) return;
+        if (!auth.hasAuth) return;
+        if (organizations.length > 0) return;
+        // fire-and-forget; callers can also call refetchOrganizations manually
+        void api.refetchOrganizations();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isHydrated, auth.hasAuth]);
 
     return (
         <OrganizationContext.Provider value={api}>
@@ -94,7 +145,8 @@ export function getOrCreateOrganizationProvider() {
                     setOrganizations: () => undefined,
                     setLoading: () => undefined,
                     refetchOrganizations: async () => {},
-                } as OrganizationApi),
+                    isHydrated: false,
+                } as OrganizationExtendedApi),
         };
     }
     return _adapter;

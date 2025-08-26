@@ -7,6 +7,7 @@ import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 import type { BoardCreate, ListCreate, CardCreate } from '@/types/worker.type';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
 import { isObject, hasBoardId, hasListId } from '@/types/typeGuards';
+import { computeQueueItemId } from './helpers';
 
 // Adapters: providers expose API objects; wrap them into convenient hooks
 export function useVioletKanbanData() {
@@ -235,7 +236,20 @@ export function useVioletKanbanHandleBoardActionSuccess() {
         const realId = newBoard.id;
         tempMap.setMapping(tempId, realId);
         boardApi.addBoard(newBoard);
-        q.removeBoardAction(tempId);
+        // Remove the queued create action using the computed queue item id
+        // (e.g. 'create-board:<tempId>'). The queue stores full ids and
+        // removing by raw tempId previously failed to match and left items
+        // in the queue causing repeated POSTs.
+        try {
+            const queueId = computeQueueItemId({
+                type: 'create-board',
+                payload: { tempId },
+            } as any);
+            q.removeBoardAction(queueId);
+        } catch (e) {
+            // fallback: attempt raw removal (preserve previous behaviour)
+            q.removeBoardAction(tempId as string);
+        }
         tempMap.clearMapping(tempId);
     };
 }
@@ -249,7 +263,15 @@ export function useVioletKanbanHandleListActionSuccess() {
         const realId = newList.id;
         tempMap.setMapping(tempId, realId);
         listApi.addList(newList);
-        q.removeListAction(tempId);
+        try {
+            const queueId = computeQueueItemId({
+                type: 'create-list',
+                payload: { tempId },
+            } as any);
+            q.removeListAction(queueId);
+        } catch (e) {
+            q.removeListAction(tempId as string);
+        }
         tempMap.clearMapping(tempId);
     };
 }
@@ -263,7 +285,15 @@ export function useVioletKanbanHandleCardActionSuccess() {
         const realId = newCard.id;
         tempMap.setMapping(tempId, realId);
         cardApi.addCard(newCard);
-        q.removeCardAction(tempId);
+        try {
+            const queueId = computeQueueItemId({
+                type: 'create-card',
+                payload: { tempId },
+            } as any);
+            q.removeCardAction(queueId);
+        } catch (e) {
+            q.removeCardAction(tempId as string);
+        }
         tempMap.clearMapping(tempId);
     };
 }

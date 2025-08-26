@@ -28,7 +28,15 @@ const AuthContext = createContext<AuthApi>({
     storedUser: null,
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+import AuthGuard from './AuthGuard';
+
+export function AuthProvider({
+    children,
+    withGuard = false,
+}: {
+    children: ReactNode;
+    withGuard?: boolean;
+}) {
     const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState(true);
     // new storage key (versioned)
@@ -117,6 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await firebaseAuth.signOut();
     }, []);
 
+    // Track refresh failure state to avoid tight retry loops that can exhaust
+    // securetoken quotas. We implement exponential backoff and a longer
+    // cooldown when the error indicates quota/rate-limiting.
+    const [failedRefreshCount, setFailedRefreshCount] = useState(0);
+    const [refreshCooldownUntil, setRefreshCooldownUntil] = useState<
+        number | null
+    >(null);
+    const REFRESH_MAX_BACKOFF_MS = 60 * 60 * 1000; // 1 hour
+    const REFRESH_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
             setAuthUser(user);
@@ -157,6 +175,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const refreshIdToken = useCallback(async () => {
         if (!authUser || typeof authUser.getIdToken !== 'function') return null;
+        // honor cooldown windows to avoid tight retry loops
+        if (refreshCooldownUntil && Date.now() < refreshCooldownUntil) {
+            // still cooling down
+            return null;
+        }
         try {
             const t = await authUser.getIdToken(true);
             setIdToken(t);
@@ -170,10 +193,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 email: authUser.email ?? null,
             });
             setHasAuth(true);
+            // reset failure/backoff state on success
+            setFailedRefreshCount(0);
+            setRefreshCooldownUntil(null);
             return t;
         } catch (e) {
+            // Log the failure and set backoff/cooldown so we don't loop.
             safeCaptureException(e);
             setIdToken(null);
+            setFailedRefreshCount((c) => c + 1);
+
+            // Detect quota/rate-limit style errors and apply a long cooldown.
+            const msg =
+                e && (e as any).message
+                    ? String((e as any).message).toLowerCase()
+                    : '';
+            const code =
+                e && (e as any).code
+                    ? String((e as any).code).toLowerCase()
+                    : '';
+            const isQuotaError =
+                msg.includes('quota') ||
+                msg.includes('rate') ||
+                msg.includes('429') ||
+                code.includes('too-many-requests') ||
+                code.includes('quota');
+
+            if (isQuotaError) {
+                // aggressive cooldown for quota errors
+                setRefreshCooldownUntil(Date.now() + REFRESH_QUOTA_COOLDOWN_MS);
+            } else {
+                // exponential backoff for other failures: min(60s * 2^(n-1), cap)
+                const attempts = Math.max(1, failedRefreshCount + 1);
+                const backoffMs = Math.min(
+                    60 * 1000 * Math.pow(2, attempts - 1),
+                    REFRESH_MAX_BACKOFF_MS
+                );
+                setRefreshCooldownUntil(Date.now() + backoffMs);
+            }
+
             return null;
         }
     }, [authUser]);
@@ -183,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loading,
             logout,
             idToken,
+            lastAuthAt,
             refreshIdToken,
             hasAuth,
             storedUser,
@@ -192,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loading,
             logout,
             idToken,
+            lastAuthAt,
             refreshIdToken,
             hasAuth,
             storedUser,
@@ -261,6 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider value={contextValue}>
+            {withGuard && <AuthGuard />}
             {children}
         </AuthContext.Provider>
     );

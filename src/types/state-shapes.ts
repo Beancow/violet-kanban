@@ -19,7 +19,6 @@ export type QueueStateShape = {
     boardActionQueue: QueueItem[];
     listActionQueue: QueueItem[];
     cardActionQueue: QueueItem[];
-    orgActionQueue?: QueueItem[];
 };
 
 export type TempIdMapStateShape = Record<string, string>;

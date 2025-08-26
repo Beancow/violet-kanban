@@ -37,22 +37,19 @@ describe('startup organization fetch', () => {
         // Build provider module mocks and pass them to renderWithProviders so
         // they are applied before the test requires any provider modules.
         const pm = require('../utils/providerMocks');
-        const authMock = pm.mockAuthProviderWithToken({
-            idToken: 'token',
-            refreshIdToken: async () => 'token',
-            authUser: { uid: 'u1' },
-        });
-        const orgApi = {
-            setOrganizations: jest.fn(),
-            organizations: [],
-            loading: false,
-            currentOrganizationId: null,
-            currentOrganization: null,
-            setCurrentOrganizationId: () => {},
-            setLoading: () => {},
-            refetchOrganizations: async () => {},
+        const authMock = {
+            __esModule: true,
+            default: pm.MockAuthProvider,
+            AuthProvider: pm.MockAuthProvider,
+            useAuth: () => ({
+                authUser: { uid: 'u1' },
+                loading: false,
+                logout: async () => {},
+                idToken: 'token',
+                refreshIdToken: async () => 'token',
+                hasAuth: true,
+            }),
         };
-        const orgMock = pm.mockOrganizationProvider(orgApi);
 
         const queueMock = {
             __esModule: true,
@@ -61,28 +58,7 @@ describe('startup organization fetch', () => {
                     boardActionQueue: [],
                     listActionQueue: [],
                     cardActionQueue: [],
-                    orgActionQueue: [
-                        {
-                            id: 'fetch-organizations:u1',
-                            action: {
-                                type: 'fetch-organizations',
-                                payload: {
-                                    userId: 'u1',
-                                    timestamp: Date.now(),
-                                },
-                            },
-                            meta: {
-                                enqueuedAt: Date.now(),
-                                attempts: 0,
-                                nextAttemptAt: null,
-                                ttlMs: null,
-                                lastError: null,
-                            },
-                        },
-                    ],
                 },
-                enqueueOrgAction: jest.fn(),
-                removeOrgAction: jest.fn(),
             }),
         };
 
@@ -95,23 +71,20 @@ describe('startup organization fetch', () => {
             }),
         };
 
-        // Render SyncManager after renderWithProviders has applied module mocks.
-        renderWithProviders(
-            () => {
-                const SyncManager = require('@/components/SyncManager');
-                return React.createElement(SyncManager.default);
+        // Mount the provider tree so OrganizationProvider runs its startup
+        // auto-fetch. We render a minimal child since the provider's effect
+        // runs on mount.
+        renderWithProviders(() => React.createElement('div'), {
+            moduleMocks: {
+                '@/providers/AuthProvider': authMock,
+                '@/providers/QueueProvider': queueMock,
+                '@/providers/SyncErrorProvider': syncErrorMock,
             },
-            {
-                moduleMocks: {
-                    '@/providers/AuthProvider': authMock,
-                    '@/providers/OrganizationProvider': orgMock,
-                    '@/providers/QueueProvider': queueMock,
-                    '@/providers/SyncErrorProvider': syncErrorMock,
-                },
-            }
-        );
+        });
 
-        // Wait for fetch and processing to complete and assert org set called
-        await waitFor(() => expect(orgApi.setOrganizations).toHaveBeenCalled());
+        // Wait for provider to call the network fetch for organizations.
+        // OrganizationProvider is responsible for startup fetch now.
+        // @ts-ignore
+        await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     });
 });

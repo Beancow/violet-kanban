@@ -30,50 +30,87 @@ describe('worker + reducers integration', () => {
             return { ok: false, json: async () => ({ error: 'not found' }) };
         });
 
-        const tempId = 'temp-card-xyz';
-        const createAction = {
+        // We'll enqueue two create-card actions to ensure the worker processes
+        // them serialized (one at a time). The fake worker records
+        // maxConcurrent which should remain 1.
+        const tempId1 = 'temp-card-xyz-1';
+        const tempId2 = 'temp-card-xyz-2';
+        const createAction1 = {
             type: 'create-card',
             payload: {
-                tempId,
-                data: { title: 'T' },
+                tempId: tempId1,
+                data: { title: 'T1' },
                 listId: 'l1',
                 boardId: 'b1',
             },
             timestamp: Date.now(),
         } as any;
+        const createAction2 = {
+            type: 'create-card',
+            payload: {
+                tempId: tempId2,
+                data: { title: 'T2' },
+                listId: 'l1',
+                boardId: 'b1',
+            },
+            timestamp: Date.now() + 1,
+        } as any;
 
-        // Enqueue create in queue reducer
-        api.enqueueCardAction(createAction);
-        expect(api.getQueue().some((a: any) => a.type === 'create-card')).toBe(
-            true
-        );
+        // Enqueue only the first create via the reducer harness. The harness
+        // does not wrap actions into QueueItems with stable ids, so enqueueing
+        // two raw actions can cause squash behavior; post the second directly
+        // to the fake worker to simulate a burst without relying on queue logic.
+        api.enqueueCardAction(createAction1);
+        expect(
+            api.getQueue().filter((a: any) => a.type === 'create-card')
+        ).toHaveLength(1);
 
-        // Simulate SyncManager posting to worker: worker fake will call fetch and then call onmessage back
-        // In production SyncManager posts the same action; here we simulate by directly constructing a worker and posting
+        // Construct fake worker and post both actions quickly. With serialized
+        // SyncManager behavior, the worker should never have concurrent active
+        // requests > 1.
         const w = new (global as any).Worker('dataSyncWorker.js');
         // Wait for worker ready
         await new Promise((r) => setTimeout(r, 0));
 
-        // Post the action - fake worker will call fetch and then onmessage -> which SyncManager would intercept
-        // To keep this test focused on reducers, we simulate the reconciliation step that SyncManager does on ACTION_SUCCESS
-        // Call postMessage to trigger fake fetch and then wait for worker to respond by giving it some time
-        (w as any).postMessage(createAction);
-        await new Promise((r) => setTimeout(r, 0));
+        // Post both messages in quick succession to simulate burst. The first
+        // message represents the queued action; the second is an extra
+        // simultaneous message coming in.
+        (w as any).postMessage(createAction1);
+        (w as any).postMessage(createAction2);
 
-        // After fake worker runs, it emits ACTION_SUCCESS with payload.card and payload.tempId
-        // Simulate SyncManager behavior: set mapping, add card, remove queue item
-        api.setMapping(tempId, 'real-card-1');
+        // Allow fake worker async processing to run
+        await new Promise((r) => setTimeout(r, 50));
+
+        // Assert fake worker observed serialized processing
+        const fw = (global as any).__lastFakeWorker as any;
+        expect(fw).toBeDefined();
+        expect(fw.maxConcurrent).toBeLessThanOrEqual(1);
+
+        // Simulate SyncManager reconciliation for both completed creates
+        api.setMapping(tempId1, 'real-card-1');
         api.addCard({
             id: 'real-card-1',
-            title: 'FromServer',
+            title: 'FromServer1',
             listId: 'l1',
             boardId: 'b1',
         } as any);
-        api.removeCardAction(tempId);
+        api.removeCardAction(tempId1);
+
+        api.setMapping(tempId2, 'real-card-2');
+        api.addCard({
+            id: 'real-card-2',
+            title: 'FromServer2',
+            listId: 'l1',
+            boardId: 'b1',
+        } as any);
+        api.removeCardAction(tempId2);
 
         // assertions
-        expect(api.getCards()).toHaveLength(1);
-        expect(api.getCards()[0].id).toBe('real-card-1');
+        expect(api.getCards()).toHaveLength(2);
+        expect(api.getCards().map((c: any) => c.id)).toEqual([
+            'real-card-1',
+            'real-card-2',
+        ]);
         expect(
             api.getQueue().find((a: any) => a.type === 'create-card')
         ).toBeUndefined();

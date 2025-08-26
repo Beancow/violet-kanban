@@ -43,8 +43,12 @@ export function BoardFormWrapper({ board, onSubmit }: BoardFormWrapperProps) {
                 organizationId:
                     data?.organizationId ?? currentOrganizationId ?? '',
             } as Board;
-            enqueueBoardAction(boardPayload);
-            if (onSubmit) onSubmit(data);
+            if (onSubmit) {
+                // caller will handle enqueueing; this prevents double enqueue
+                onSubmit(data);
+            } else {
+                enqueueBoardAction(boardPayload);
+            }
             ui.close();
         },
         [board, enqueueBoardAction, onSubmit, currentOrganizationId, ui]

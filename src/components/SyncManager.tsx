@@ -1,10 +1,12 @@
 'use client';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 import { useQueues } from '@/providers/QueueProvider';
 import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { useWebWorker } from '@/hooks/useWebWorker';
+import useFreshToken from '@/hooks/useFreshToken';
 import {
     isObject,
     hasTempId,
@@ -28,8 +30,23 @@ export default function SyncManager() {
     const syncError = useSyncErrorProvider();
     const auth = useAuth();
     const org = useOrganizationProvider();
-
     const { postMessage, lastMessage, isWorkerReady } = useWebWorker();
+    const getFreshToken = useFreshToken();
+    // track a single in-flight message
+    const inFlightRef = useRef<{
+        waiting: boolean;
+        id?: string | undefined;
+        promise?: Promise<void>;
+        resolve?: () => void;
+        timeout?: number | undefined;
+    }>({ waiting: false });
+
+    // Dev-only: capture recent outgoing worker network attempts for diagnostics
+    const outgoingLogsRef = useRef<Array<Record<string, unknown>>>([]);
+    const outgoingClearTimeoutRef = useRef<number | undefined>(undefined);
+    const OUTGOING_LOG_TTL_MS = 5 * 60 * 1000; // keep logs for 5 minutes
+
+    // Deduplication moved to `useWebWorker` hook to centralize behavior.
 
     const MAX_ORG_FETCH_ATTEMPTS = 5;
 
@@ -39,174 +56,127 @@ export default function SyncManager() {
             // via the `lastMessage` effect below. We rely on the hook to
             // create/ready the worker before posting messages.
 
-            // refresh token if available
-            if (auth.refreshIdToken) await auth.refreshIdToken();
-            const freshToken = auth.idToken;
+            // get a fresh token when appropriate (hook centralizes threshold)
+            const freshToken = await getFreshToken();
 
-            // Gather all queued actions (any queue) and forward to the worker.
+            // Only process one queued action at a time. Find next available
+            // queue item (board, list, card) and post a single SYNC_DATA message
+            // to the worker, then wait for success/failure before continuing.
             const state = queueApi.state;
-            const allActions = [
-                ...(state.boardActionQueue ?? []),
-                ...(state.listActionQueue ?? []),
-                ...(state.cardActionQueue ?? []),
-            ];
-
-            // post regular actions to worker
-            allActions.forEach((actionOrItem) => {
-                const action = unwrapQueueAction(actionOrItem);
-                let orgId: string | null = null;
-                if (hasOrganizationIdInData(action.payload)) {
-                    orgId = action.payload.data.organizationId;
-                } else {
-                    orgId = org.currentOrganizationId;
+            // Pick the next queued action but skip reconcile-* items which are
+            // produced by the worker to update local state and should not be
+            // re-sent to the worker (would cause echo cycles).
+            const pickNext = (q?: any[]) => {
+                if (!q || q.length === 0) return undefined;
+                for (const item of q) {
+                    const action = unwrapQueueAction(item);
+                    const t = action && (action as any).type;
+                    if (typeof t === 'string' && t.startsWith('reconcile-'))
+                        continue;
+                    return item;
                 }
-                const base: Record<string, unknown> = {};
-                if (action && typeof action === 'object')
-                    Object.assign(base, action);
-                const payloadAugmented = isObject(action.payload)
-                    ? { ...(action.payload as Record<string, unknown>) }
-                    : {};
-                // Only attach idToken/organizationId when they are present.
-                if (freshToken) payloadAugmented.idToken = freshToken;
-                if (orgId) payloadAugmented.organizationId = orgId;
-                console.debug('[SyncManager] posting action to worker', {
-                    type: action.type,
-                    id: getActionItemId(action),
-                    payload: payloadAugmented,
-                    isWorkerReady,
-                });
-                // Worker expects SyncAction/WorkerMessage shapes; wrap as SYNC_DATA
-                postMessage({
-                    type: 'SYNC_DATA',
-                    payload: {
-                        ...(base as Record<string, unknown>),
-                        payload: payloadAugmented,
-                    },
-                    timestamp: Date.now(),
-                } as any);
+                return undefined;
+            };
+
+            const nextItem =
+                pickNext(state.boardActionQueue) ||
+                pickNext(state.listActionQueue) ||
+                pickNext(state.cardActionQueue);
+
+            if (!nextItem) return; // nothing to do
+
+            // If another message is already in-flight, skip.
+            if (inFlightRef.current.waiting) return;
+
+            const action = unwrapQueueAction(nextItem);
+            let orgId: string | null = null;
+            if (hasOrganizationIdInData(action.payload)) {
+                orgId = action.payload.data.organizationId;
+            } else {
+                orgId = org.currentOrganizationId;
+            }
+            const base: Record<string, unknown> = {};
+            if (action && typeof action === 'object')
+                Object.assign(base, action);
+            const payloadAugmented = isObject(action.payload)
+                ? { ...(action.payload as Record<string, unknown>) }
+                : {};
+            // Only attach idToken/organizationId when they are present.
+            if (freshToken) payloadAugmented.idToken = freshToken;
+            if (orgId) payloadAugmented.organizationId = orgId;
+            const actionId = getActionItemId(action);
+            console.debug('[SyncManager] posting action to worker', {
+                type: action.type,
+                id: actionId,
+                payload: payloadAugmented,
+                isWorkerReady,
             });
 
-            // process org queue
-            const orgQueue = queueApi.state.orgActionQueue ?? [];
-            for (const item of orgQueue as any[]) {
-                // If the item has explicitly exhausted attempts (nextAttemptAt === null
-                // and attempts >= MAX), treat as dead and remove it to avoid infinite retries.
-                const attempts = item.meta?.attempts ?? 0;
-                if (
-                    item.meta &&
-                    item.meta.nextAttemptAt === null &&
-                    attempts >= MAX_ORG_FETCH_ATTEMPTS
-                ) {
-                    console.debug(
-                        '[SyncManager] org fetch attempts exhausted, removing',
-                        {
-                            id: getActionItemId(item),
-                            attempts,
-                        }
-                    );
-                    try {
-                        const id = getActionItemId(item);
-                        if (id && queueApi.removeOrgAction)
-                            queueApi.removeOrgAction(id);
-                    } catch (e) {
-                        console.error(
-                            '[SyncManager] failed to remove exhausted org action',
-                            e
-                        );
-                    }
-                    continue;
-                }
+            // mark in-flight and post
+            // record in-flight id (tempId or id) so we can correlate responses
+            inFlightRef.current.waiting = true;
+            inFlightRef.current.id = actionId;
+            // create a promise that will be resolved by the worker message
+            // handler (below) when we receive success/error for this item.
+            inFlightRef.current.promise = new Promise<void>((resolve) => {
+                inFlightRef.current.resolve = resolve;
+            });
 
-                if (
-                    item.meta?.nextAttemptAt &&
-                    item.meta.nextAttemptAt > Date.now()
-                )
-                    continue;
-                const action = unwrapQueueAction(item);
-                try {
-                    if (auth.refreshIdToken) await auth.refreshIdToken();
-                    const token = auth.idToken;
-                    const res = await fetch('/api/orgs', {
-                        method: 'GET',
-                        headers: token
-                            ? { Authorization: `Bearer ${token}` }
-                            : {},
+            // Post the inner action directly so the real worker receives
+            // expected action types (e.g. 'create-card'). Tests' fake
+            // worker also accepts this shape.
+            postMessage({
+                ...(base as Record<string, unknown>),
+                payload: payloadAugmented,
+                timestamp: Date.now(),
+            } as any);
+
+            // wait until worker responds (or timeout) before continuing
+            try {
+                const waitPromise = inFlightRef.current.promise;
+                // race with a timeout to avoid permanent lock
+                const TIMEOUT_MS = 30_000; // 30s per-message timeout
+                await Promise.race([
+                    waitPromise,
+                    new Promise((_, reject) => {
+                        inFlightRef.current.timeout = window.setTimeout(
+                            () => reject(new Error('sync message timeout')),
+                            TIMEOUT_MS
+                        ) as unknown as number;
+                    }),
+                ] as any);
+            } catch (e) {
+                // timeout or other wait failure — record an error so tests/UX
+                // can observe, and clear in-flight so we can continue.
+                if (syncError.addError) {
+                    const msg =
+                        e instanceof Error
+                            ? e.message
+                            : String(e) || 'Sync timeout';
+                    syncError.addError({
+                        timestamp: Date.now(),
+                        message: msg,
                     });
-                    if (!res.ok) {
-                        const body = await res.json().catch(() => null);
-                        throw new Error(
-                            body && body.error
-                                ? String(body.error)
-                                : `Failed to fetch organizations: ${res.status}`
-                        );
-                    }
-                    const body = await res.json();
-                    if (
-                        body &&
-                        body.success &&
-                        Array.isArray(body.organizations)
-                    ) {
-                        if (org.setOrganizations)
-                            org.setOrganizations(body.organizations);
-                        if (org.setLoading) org.setLoading(false);
-                        const itemId =
-                            getActionItemId(item) || getActionItemId(action);
-                        if (itemId && queueApi.removeOrgAction)
-                            queueApi.removeOrgAction(itemId);
-                    } else {
-                        throw new Error(
-                            'Unexpected response fetching organizations'
-                        );
-                    }
-                } catch (err) {
-                    if (syncError.addError)
-                        syncError.addError({
-                            timestamp: Date.now(),
-                            message:
-                                (err as Error).message ||
-                                'Failed to fetch organizations',
-                            actionType: action.type,
-                            payload: isObject(action.payload)
-                                ? (action.payload as Record<string, unknown>)
-                                : undefined,
-                        });
-                    console.error(
-                        '[SyncManager] org fetch failed',
-                        err,
-                        action
-                    );
-                    try {
-                        if (queueApi.requeueOrgAction) {
-                            const newMeta = (
-                                await import('@/providers/helpers')
-                            ).scheduleNextAttempt(
-                                item.meta ?? {
-                                    enqueuedAt: Date.now(),
-                                    attempts: 0,
-                                    nextAttemptAt: null,
-                                    ttlMs: null,
-                                    lastError: null,
-                                }
-                            );
-                            queueApi.requeueOrgAction(
-                                getActionItemId(item) ||
-                                    getActionItemId(action) ||
-                                    String(Date.now()),
-                                newMeta
-                            );
-                        }
-                    } catch (e) {
-                        console.error(
-                            '[SyncManager] failed to schedule org fetch retry',
-                            e
-                        );
-                    }
                 }
+            } finally {
+                // clear any timeout and in-flight state
+                if (inFlightRef.current.timeout) {
+                    window.clearTimeout(inFlightRef.current.timeout as number);
+                    inFlightRef.current.timeout = undefined;
+                }
+                inFlightRef.current.waiting = false;
+                inFlightRef.current.resolve = undefined;
+                inFlightRef.current.promise = undefined;
+                // continue processing next queued item (if any)
+                // schedule on next tick to avoid deep recursion
+                setTimeout(() => void processQueuedActions(), 0);
             }
+
+            // Organization fetching and retries have moved to OrganizationProvider.
         } catch (e) {
             console.error('[SyncManager] processQueuedActions failed', e);
         }
-    }, [queueApi, auth, org, syncError]);
+    }, [queueApi, auth, org, syncError, getFreshToken]);
 
     // Handle messages coming from the worker (mirrors previous onmessage)
     useEffect(() => {
@@ -217,6 +187,63 @@ export default function SyncManager() {
             payload,
             error,
         });
+
+        // message delivered from useWebWorker (dedupe centralized there)
+
+        // Dev-only capture of worker outgoing events posted by the worker
+        try {
+            if (process.env.NODE_ENV !== 'production') {
+                if (
+                    type === 'WORKER_OUTGOING' ||
+                    type === 'WORKER_OUTGOING_RESULT'
+                ) {
+                    const record = {
+                        type,
+                        payload: isObject(payload)
+                            ? (payload as Record<string, unknown>)
+                            : payload,
+                        receivedAt: Date.now(),
+                    };
+                    outgoingLogsRef.current.push(
+                        record as Record<string, unknown>
+                    );
+                    // cap log length
+                    if (outgoingLogsRef.current.length > 200)
+                        outgoingLogsRef.current.shift();
+                    // expose for quick debugging in dev only
+                    try {
+                        // @ts-ignore - dev inspection hook
+                        (window as any).__violet_worker_outgoing =
+                            outgoingLogsRef.current;
+                    } catch (e) {
+                        safeCaptureException(e as Error);
+                    }
+                    // schedule clear if not already scheduled
+                    if (!outgoingClearTimeoutRef.current) {
+                        outgoingClearTimeoutRef.current = window.setTimeout(
+                            () => {
+                                outgoingLogsRef.current = [];
+                                try {
+                                    // @ts-ignore
+                                    (window as any).__violet_worker_outgoing =
+                                        outgoingLogsRef.current;
+                                } catch (e) {
+                                    safeCaptureException(e as Error);
+                                }
+                                outgoingClearTimeoutRef.current = undefined;
+                            },
+                            OUTGOING_LOG_TTL_MS
+                        ) as unknown as number;
+                    }
+                    console.debug(
+                        '[SyncManager] captured worker outgoing',
+                        record
+                    );
+                }
+            }
+        } catch (e) {
+            safeCaptureException(e as Error);
+        }
         if (type === 'ACTION_SUCCESS') {
             const tempId = hasTempId(payload)
                 ? (payload as any).tempId
@@ -261,6 +288,65 @@ export default function SyncManager() {
                 });
             console.error('[SyncManager] Worker error:', error, payload);
         }
+        // Only resolve the in-flight promise when the incoming worker
+        // message correlates to the currently in-flight action. This avoids
+        // unrelated worker messages from allowing the manager to progress
+        // and re-post queue items, which can cause duplicate server calls.
+        try {
+            const inFlightId = inFlightRef.current?.id;
+            let respId: string | undefined = undefined;
+            if (payload && hasTempId(payload)) {
+                respId = (payload as any).tempId;
+            } else if (payload && isObject(payload)) {
+                // try common shapes: payload.card|list|board.{id}
+                const p = payload as Record<string, unknown>;
+                if (p.card && typeof (p.card as any).id === 'string')
+                    respId = (p.card as any).id;
+                else if (p.list && typeof (p.list as any).id === 'string')
+                    respId = (p.list as any).id;
+                else if (p.board && typeof (p.board as any).id === 'string')
+                    respId = (p.board as any).id;
+                else if (typeof p.id === 'string') respId = p.id as string;
+            }
+
+            const matched = inFlightId && respId && inFlightId === respId;
+            if (matched) {
+                console.debug(
+                    '[SyncManager] worker response matches in-flight id',
+                    {
+                        inFlightId,
+                        respId,
+                        type,
+                    }
+                );
+                if (inFlightRef.current && inFlightRef.current.resolve)
+                    inFlightRef.current.resolve();
+            } else if (!inFlightId) {
+                // no in-flight id recorded: fallback to resolve to avoid lockups
+                console.debug(
+                    '[SyncManager] no in-flight id recorded; resolving to avoid lock',
+                    { type, respId }
+                );
+                if (inFlightRef.current && inFlightRef.current.resolve)
+                    inFlightRef.current.resolve();
+            } else {
+                // unrelated message — ignore for the purposes of in-flight
+                console.debug(
+                    '[SyncManager] ignoring unrelated worker message',
+                    {
+                        inFlightId,
+                        respId,
+                        type,
+                    }
+                );
+            }
+        } catch (err) {
+            // non-fatal
+            console.debug(
+                '[SyncManager] error resolving in-flight promise',
+                err
+            );
+        }
     }, [lastMessage, queueApi, syncError]);
 
     // expose debug getter & install listeners
@@ -270,82 +356,39 @@ export default function SyncManager() {
 
         // rely on user / browser events to trigger ad-hoc processing
         window.addEventListener('focus', processQueuedActions);
+        // also listen for explicit queue updates from QueueProvider so that
+        // user-initiated enqueues trigger an immediate sync run. The event
+        // may contain an advisory `detail.kind` hint (board|list|card) which
+        // we treat as a hint only; SyncManager will still re-evaluate all
+        // queues to preserve ordering guarantees.
+        const onQueueUpdated = (ev: Event) => {
+            try {
+                const ce = ev as CustomEvent | any;
+                const kind = ce?.detail?.kind;
+                if (kind)
+                    console.debug('[SyncManager] queue updated hint', { kind });
+            } catch (e) {
+                /* ignore */
+            }
+            void processQueuedActions();
+        };
+        window.addEventListener(
+            'violet:queue:updated',
+            onQueueUpdated as EventListener
+        );
         window.addEventListener('online', processQueuedActions);
 
         return () => {
             window.removeEventListener('focus', processQueuedActions);
+            window.removeEventListener(
+                'violet:queue:updated',
+                onQueueUpdated as EventListener
+            );
             window.removeEventListener('online', processQueuedActions);
         };
     }, [processQueuedActions, queueApi, auth]);
 
-    // Enqueue fetch-organizations when auth transitions to authenticated
-    useEffect(() => {
-        // run only when auth becomes available
-        if (!auth.hasAuth) return;
-        try {
-            if (queueApi.enqueueOrgAction) {
-                const fetchOrgsAction: VioletKanbanAction = {
-                    type: 'fetch-organizations',
-                    payload: {
-                        userId:
-                            auth.storedUser?.uid ??
-                            auth.authUser?.uid ??
-                            'unknown',
-                        timestamp: Date.now(),
-                    },
-                } as VioletKanbanAction;
-
-                const already = (queueApi.state.orgActionQueue ?? []).some(
-                    (qi) => {
-                        let a: VioletKanbanAction | undefined;
-                        if (isQueueItem(qi)) a = unwrapQueueAction(qi);
-                        else if (isActionLike(qi)) a = qi as VioletKanbanAction;
-                        if (!a) return false;
-                        if (a.type !== 'fetch-organizations') return false;
-                        if (!isObject(a.payload)) return false;
-                        const userId = (a.payload as Record<string, unknown>)
-                            .userId as string | undefined;
-                        return (
-                            userId ===
-                            (fetchOrgsAction.payload as Record<string, unknown>)
-                                .userId
-                        );
-                    }
-                );
-
-                if (!already) {
-                    console.debug(
-                        '[SyncManager] enqueuing fetch-organizations (auth transition)',
-                        {
-                            payload: fetchOrgsAction.payload,
-                        }
-                    );
-                    queueApi.enqueueOrgAction(fetchOrgsAction);
-                    // trigger a processing pass
-                    // read current process function via queueApiRef if available
-                    if (typeof window !== 'undefined') {
-                        // schedule next tick to allow enqueue to persist
-                        setTimeout(() => {
-                            try {
-                                // call processQueuedActions indirectly by dispatching a focus event
-                                window.dispatchEvent(new Event('focus'));
-                            } catch (e) {
-                                console.debug(
-                                    '[SyncManager] failed to trigger process on auth transition',
-                                    e
-                                );
-                            }
-                        }, 50);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error(
-                '[SyncManager] failed to enqueue fetch-organizations on auth transition',
-                e
-            );
-        }
-    }, [auth.hasAuth]);
+    // Organization fetch on auth transition is now handled by OrganizationProvider
 
     return null; // manager component doesn't render
 }

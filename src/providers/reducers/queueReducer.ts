@@ -9,7 +9,6 @@ export type QueueAction =
     | { type: 'ENQUEUE_BOARD'; action: QueueItem }
     | { type: 'ENQUEUE_LIST'; action: QueueItem }
     | { type: 'ENQUEUE_CARD'; action: QueueItem }
-    | { type: 'ENQUEUE_ORG'; action: QueueItem }
     | { type: 'REMOVE_BOARD_BY_ID'; itemId: string }
     | { type: 'REMOVE_LIST_BY_ID'; itemId: string }
     | { type: 'REMOVE_CARD_BY_ID'; itemId: string }
@@ -37,12 +36,7 @@ export function reducer(state: QueueState, action: QueueAction): QueueState {
                     action.action
                 );
                 return;
-            case 'ENQUEUE_ORG':
-                draft.orgActionQueue = squashQueueActions(
-                    draft.orgActionQueue ?? [],
-                    action.action
-                );
-                return;
+
             case 'REMOVE_BOARD_BY_ID':
                 draft.boardActionQueue = draft.boardActionQueue.filter(
                     (a) => getActionItemId(a) !== action.itemId
@@ -58,11 +52,7 @@ export function reducer(state: QueueState, action: QueueAction): QueueState {
                     (a) => getActionItemId(a) !== action.itemId
                 );
                 return;
-            case 'REMOVE_ORG_BY_ID':
-                draft.orgActionQueue = (draft.orgActionQueue ?? []).filter(
-                    (a) => getActionItemId(a) !== action.itemId
-                );
-                return;
+
             case 'SET_STATE':
                 return action.state;
         }
