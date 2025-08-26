@@ -86,7 +86,8 @@ export default function OrganizationSelector() {
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger>
                             <Button variant='soft'>
-                                {currentOrganization?.name ?? 'Select Organization'}
+                                {currentOrganization?.name ??
+                                    'Select Organization'}
                                 <CaretDownIcon />
                             </Button>
                         </DropdownMenu.Trigger>
@@ -95,13 +96,17 @@ export default function OrganizationSelector() {
                                 <DropdownMenu.Item
                                     key={org.id}
                                     onSelect={() => handleSetCurrentOrg(org.id)}
-                                    disabled={org.id === currentOrganization?.id}
+                                    disabled={
+                                        org.id === currentOrganization?.id
+                                    }
                                 >
                                     {org.name}
                                 </DropdownMenu.Item>
                             ))}
                             <DropdownMenu.Separator />
-                            <DropdownMenu.Item onSelect={() => setModalOpen(true)}>
+                            <DropdownMenu.Item
+                                onSelect={() => setModalOpen(true)}
+                            >
                                 Create New Organization
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>

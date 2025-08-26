@@ -1,4 +1,12 @@
-import { Dialog, Card, Avatar, Flex, Heading, Text, Button } from '@radix-ui/themes';
+import {
+    Dialog,
+    Card,
+    Avatar,
+    Flex,
+    Heading,
+    Text,
+    Button,
+} from '@radix-ui/themes';
 import type { Organization } from '@/types/appState.type';
 
 interface Props {
@@ -21,7 +29,15 @@ export default function OrganizationSelectModal({
                 <Dialog.Description>
                     Choose which organization you'd like to work in.
                 </Dialog.Description>
-                <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginTop: 16 }}>
+                <div
+                    style={{
+                        display: 'grid',
+                        gap: '12px',
+                        gridTemplateColumns:
+                            'repeat(auto-fit, minmax(200px, 1fr))',
+                        marginTop: 16,
+                    }}
+                >
                     {organizations.map((org) => {
                         const initials = org.name
                             .split(' ')
@@ -30,7 +46,12 @@ export default function OrganizationSelectModal({
                             .join('')
                             .toUpperCase();
                         return (
-                            <Card key={org.id} size='3' style={{ cursor: 'pointer' }} onClick={() => onSelect(org.id)}>
+                            <Card
+                                key={org.id}
+                                size='3'
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => onSelect(org.id)}
+                            >
                                 <Flex direction='row' gap='3' align='center'>
                                     <Avatar
                                         size='3'
@@ -53,7 +74,13 @@ export default function OrganizationSelectModal({
                         );
                     })}
                 </div>
-                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                <div
+                    style={{
+                        marginTop: 16,
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                    }}
+                >
                     <Button variant='ghost' onClick={() => onOpenChange(false)}>
                         Close
                     </Button>
