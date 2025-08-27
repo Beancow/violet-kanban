@@ -84,7 +84,13 @@ function parseGrepLine(line) {
     return { file: path.relative(root, line) };
 }
 
-function printTable(title, rows, columns, severity = 'warn', forceBlock = false) {
+function printTable(
+    title,
+    rows,
+    columns,
+    severity = 'warn',
+    forceBlock = false
+) {
     if (!Array.isArray(rows) || rows.length === 0) return;
     const green = '\u001b[32m';
     const red = '\u001b[31m';
@@ -199,8 +205,8 @@ function printTable(title, rows, columns, severity = 'warn', forceBlock = false)
             file: path.relative(root, p.file || ''),
             match: detectMatch(p.text),
         }));
-    // populate machine-readable report
-    report.forbiddenTypes = rows;
+        // populate machine-readable report
+        report.forbiddenTypes = rows;
         printTable(
             '\u2716 Forbidden type usage found outside tests (remove any/unknown/Record<string, unknown>):',
             rows,
@@ -430,9 +436,9 @@ if (fs.existsSync(providersDir)) {
         }
     }
     if (providerMigrationsNeeded.length) {
-        report.providerMigrationsNeeded = providerMigrationsNeeded.map(
-            (p) => ({ path: p })
-        );
+        report.providerMigrationsNeeded = providerMigrationsNeeded.map((p) => ({
+            path: p,
+        }));
         printTable(
             'Provider shims missing for the following providers (migration required):',
             report.providerMigrationsNeeded,
@@ -510,7 +516,17 @@ function writeReport(reportObj) {
 // short summary + persist report
 writeReport(report);
 console.log('\nShort summary:');
-console.log(`missingFiles: ${report.missingFiles ? report.missingFiles.length : 0}`);
-console.log(`forbiddenTypes: ${report.forbiddenTypes ? report.forbiddenTypes.length : 0}`);
-console.log(`multiExportFiles: ${report.multiExportFiles ? report.multiExportFiles.length : 0}`);
+console.log(
+    `missingFiles: ${report.missingFiles ? report.missingFiles.length : 0}`
+);
+console.log(
+    `forbiddenTypes: ${
+        report.forbiddenTypes ? report.forbiddenTypes.length : 0
+    }`
+);
+console.log(
+    `multiExportFiles: ${
+        report.multiExportFiles ? report.multiExportFiles.length : 0
+    }`
+);
 console.log(`longFiles: ${report.longFiles ? report.longFiles.length : 0}`);
