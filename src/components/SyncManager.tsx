@@ -138,11 +138,14 @@ export default function SyncManager() {
                     for (const item of q) {
                         const action = unwrapQueueAction(item);
                         if (!isActionLike(action)) continue;
-                        if (
-                            hasTypeProp(action) &&
-                            action.type.startsWith('reconcile-')
-                        )
-                            continue;
+                        if (hasTypeProp(action)) {
+                            const t = String((action as any).type || '');
+                            // Treat any reconcile-style action (case-insensitive)
+                            // as a local-only signal and do not send it to the
+                            // worker to avoid unknown-action errors.
+                            if (t.toLowerCase().startsWith('reconcile'))
+                                continue;
+                        }
                         return item;
                     }
                 }

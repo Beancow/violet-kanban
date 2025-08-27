@@ -68,6 +68,30 @@ const DELETE_CONFIG = {
     },
 };
 
+// Helper to POST JSON from the worker. Honors optional idToken and
+// organizationId fields passed via `opts` so callers can include auth
+// headers without placing them in the request body.
+async function sendPost(endpoint, body, opts) {
+    opts = opts || {};
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (opts.idToken) headers['Authorization'] = `Bearer ${opts.idToken}`;
+        if (opts.organizationId)
+            headers['X-Organization-Id'] = String(opts.organizationId);
+
+        // Use fetch available in worker context
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body || {}),
+        });
+        return res;
+    } catch (err) {
+        // Re-throw so callers handle messaging
+        throw err;
+    }
+}
+
 async function handleCreateGeneric(action) {
     const cfg = CREATE_CONFIG[action.type];
     if (!cfg) return;
