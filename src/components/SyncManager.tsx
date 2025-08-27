@@ -1,9 +1,8 @@
 'use client';
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { safeCaptureException } from '@/lib/sentryWrapper';
 import { useQueues } from '@/providers/QueueProvider';
 import { useSyncErrorProvider } from '@/providers/SyncErrorProvider';
-import { useAuth } from '@/providers/AuthProvider';
 import { useOrganizationProvider } from '@/providers/OrganizationProvider';
 import { useWebWorker } from '@/hooks/useWebWorker';
 import useFreshToken from '@/hooks/useFreshToken';
@@ -23,119 +22,212 @@ import {
     getActionItemId,
     isQueueItem,
 } from '@/providers/helpers';
-import type { VioletKanbanAction, Board, BoardList, BoardCard } from '@/types';
+import { isValidWorkerAction, sanitizeQueue } from '@/providers/helpers';
+import type { VioletKanbanAction } from '@/types';
+import { useReconciliation } from '@/providers/ReconciliationProvider';
+import { useTempIdMap } from '@/providers/TempIdMapProvider';
+import { emitEvent, onEvent } from '@/utils/eventBusClient';
 
 export default function SyncManager() {
     const queueApi = useQueues();
     const syncError = useSyncErrorProvider();
-    const auth = useAuth();
     const org = useOrganizationProvider();
-    const { postMessage, lastMessage, isWorkerReady } = useWebWorker();
+    const { postMessage, lastMessage } = useWebWorker();
     const getFreshToken = useFreshToken();
-    // track a single in-flight message
+    const reconciliation = useReconciliation();
+    const tempMap = useTempIdMap();
+    const tempMapRef = useRef(tempMap);
+    useEffect(() => {
+        tempMapRef.current = tempMap;
+    }, [tempMap]);
+
+    // Keep tempMapRef in sync via eventBus so other producers can update
+    // mappings without requiring consumer identity churn.
+    useEffect(() => {
+        try {
+            const offSet = onEvent('tempid:set', () => {
+                // nothing to do here; tempMap provider already updated
+                // but consumers may want to react — we keep tempMapRef current
+                // so other logic can read mappings.
+                tempMapRef.current = tempMap;
+            });
+            const offCleared = onEvent('tempid:cleared', () => {
+                tempMapRef.current = tempMap;
+            });
+            return () => {
+                try {
+                    if (typeof offSet === 'function') offSet();
+                    if (typeof offCleared === 'function') offCleared();
+                } catch (_) {}
+            };
+        } catch (_) {
+            /* ignore */
+        }
+    }, [tempMap]);
+
+    // Hold refs to provider APIs so we don't re-run effects when test mocks
+    // return new object identities on every render.
+    const queueApiRef = useRef(queueApi);
+    useEffect(() => {
+        queueApiRef.current = queueApi;
+    }, [queueApi]);
+    const syncErrorRef = useRef(syncError);
+    useEffect(() => {
+        syncErrorRef.current = syncError;
+    }, [syncError]);
+    const reconciliationRef = useRef(reconciliation);
+    useEffect(() => {
+        reconciliationRef.current = reconciliation;
+    }, [reconciliation]);
+    const orgRef = useRef(org);
+    useEffect(() => {
+        orgRef.current = org;
+    }, [org]);
+    const getFreshTokenRef = useRef(getFreshToken);
+    useEffect(() => {
+        getFreshTokenRef.current = getFreshToken;
+    }, [getFreshToken]);
+
     const inFlightRef = useRef<{
         waiting: boolean;
         id?: string | undefined;
-        promise?: Promise<void>;
-        resolve?: () => void;
+        promise?: Promise<void> | undefined;
+        resolve?: (() => void) | undefined;
         timeout?: number | undefined;
+        meta?: any;
     }>({ waiting: false });
 
-    // Dev-only: capture recent outgoing worker network attempts for diagnostics
+    // Track scheduled timeouts so we can clear them on unmount (prevents
+    // Jest/node from hanging because of recurring zero-delay timeouts).
+    const scheduledTimeoutsRef = useRef<number[]>([]);
+    const mountedRef = useRef(true);
+
+    // Helper to schedule a timeout only when mounted and record its id so
+    // it can be cleared on unmount. Returns the timeout id or undefined if
+    // not scheduled.
+    const scheduleTimeout = useCallback((fn: () => void, ms: number) => {
+        if (!mountedRef.current) return undefined;
+        const id = window.setTimeout(fn, ms) as unknown as number;
+        try {
+            scheduledTimeoutsRef.current.push(id);
+        } catch (_) {}
+        return id;
+    }, []);
+
     const outgoingLogsRef = useRef<Array<Record<string, unknown>>>([]);
     const outgoingClearTimeoutRef = useRef<number | undefined>(undefined);
-    const OUTGOING_LOG_TTL_MS = 5 * 60 * 1000; // keep logs for 5 minutes
-
-    // Deduplication moved to `useWebWorker` hook to centralize behavior.
-
-    const MAX_ORG_FETCH_ATTEMPTS = 5;
+    const OUTGOING_LOG_TTL_MS = 5 * 60 * 1000;
 
     const processQueuedActions = useCallback(async () => {
         try {
-            // worker lifecycle is managed by useWebWorker; messages are handled
-            // via the `lastMessage` effect below. We rely on the hook to
-            // create/ready the worker before posting messages.
+            const freshToken = await getFreshTokenRef.current();
 
-            // get a fresh token when appropriate (hook centralizes threshold)
-            const freshToken = await getFreshToken();
+            const queueApiLocal = queueApiRef.current;
+            const state = queueApiLocal.state;
+            const sanitizers: Array<[any[] | undefined, (id: string) => void]> =
+                [
+                    [state.boardActionQueue, queueApiLocal.removeBoardAction],
+                    [state.listActionQueue, queueApiLocal.removeListAction],
+                    [state.cardActionQueue, queueApiLocal.removeCardAction],
+                ];
+            sanitizers.forEach(([q, remover]) => sanitizeQueue(q, remover));
 
-            // Only process one queued action at a time. Find next available
-            // queue item (board, list, card) and post a single SYNC_DATA message
-            // to the worker, then wait for success/failure before continuing.
-            const state = queueApi.state;
-            // Pick the next queued action but skip reconcile-* items which are
-            // produced by the worker to update local state and should not be
-            // re-sent to the worker (would cause echo cycles).
-            const pickNext = (q?: any[]) => {
-                if (!q || q.length === 0) return undefined;
-                for (const item of q) {
-                    const action = unwrapQueueAction(item);
-                    const t = action && (action as any).type;
-                    if (typeof t === 'string' && t.startsWith('reconcile-'))
-                        continue;
-                    return item;
+            const pickNextFrom = (queues: Array<any[] | undefined>) => {
+                for (const q of queues) {
+                    if (!q || q.length === 0) continue;
+                    for (const item of q) {
+                        const action = unwrapQueueAction(item);
+                        if (!isActionLike(action)) continue;
+                        if (
+                            hasTypeProp(action) &&
+                            action.type.startsWith('reconcile-')
+                        )
+                            continue;
+                        return item;
+                    }
                 }
                 return undefined;
             };
 
-            const nextItem =
-                pickNext(state.boardActionQueue) ||
-                pickNext(state.listActionQueue) ||
-                pickNext(state.cardActionQueue);
+            const nextItem = pickNextFrom([
+                state.boardActionQueue,
+                state.listActionQueue,
+                state.cardActionQueue,
+            ]);
+            if (!nextItem) return;
 
-            if (!nextItem) return; // nothing to do
-
-            // If another message is already in-flight, skip.
-            if (inFlightRef.current.waiting) return;
-
-            const action = unwrapQueueAction(nextItem);
-            let orgId: string | null = null;
-            if (hasOrganizationIdInData(action.payload)) {
-                orgId = action.payload.data.organizationId;
-            } else {
-                orgId = org.currentOrganizationId;
+            const action = unwrapQueueAction(nextItem) as VioletKanbanAction;
+            if (!isValidWorkerAction(action)) {
+                try {
+                    if (isQueueItem(nextItem)) {
+                        const q = nextItem as any;
+                        const id = typeof q.id === 'string' ? q.id : undefined;
+                        if (id) {
+                            queueApi.removeBoardAction(id);
+                            queueApi.removeListAction(id);
+                            queueApi.removeCardAction(id);
+                        }
+                    }
+                } catch (e) {
+                    safeCaptureException(e as Error);
+                }
+                // Schedule next run only if still mounted; record timeout id
+                if (mountedRef.current) {
+                    scheduleTimeout(() => void processQueuedActions(), 0);
+                }
+                return;
             }
-            const base: Record<string, unknown> = {};
-            if (action && typeof action === 'object')
-                Object.assign(base, action);
-            const payloadAugmented = isObject(action.payload)
-                ? { ...(action.payload as Record<string, unknown>) }
-                : {};
-            // Only attach idToken/organizationId when they are present.
-            if (freshToken) payloadAugmented.idToken = freshToken;
-            if (orgId) payloadAugmented.organizationId = orgId;
-            const actionId = getActionItemId(action);
-            console.debug('[SyncManager] posting action to worker', {
-                type: action.type,
-                id: actionId,
-                payload: payloadAugmented,
-                isWorkerReady,
-            });
 
-            // mark in-flight and post
-            // record in-flight id (tempId or id) so we can correlate responses
+            if (inFlightRef.current.waiting) return;
+            const orgLocal = orgRef.current;
+            const orgId = hasOrganizationIdInData((action as any).payload)
+                ? (action as any).payload.data.organizationId
+                : orgLocal.currentOrganizationId;
+
+            // helper: build a clean message for the worker using type guards
+            const buildActionToPost = (
+                a: VioletKanbanAction
+            ): Record<string, unknown> => {
+                const base = isObject(a)
+                    ? (a as Record<string, unknown>)
+                    : ({} as Record<string, unknown>);
+                const originalPayload = isObject((a as any).payload)
+                    ? ({
+                          ...((a as any).payload as Record<string, unknown>),
+                      } as Record<string, unknown>)
+                    : ({} as Record<string, unknown>);
+
+                const payload = {
+                    ...originalPayload,
+                    ...(freshToken ? { idToken: freshToken } : {}),
+                    ...(orgId ? { organizationId: orgId } : {}),
+                } as Record<string, unknown>;
+
+                return { ...base, payload };
+            };
+
+            const actionToPost = buildActionToPost(action);
+
+            const actionId = getActionItemId(action);
             inFlightRef.current.waiting = true;
             inFlightRef.current.id = actionId;
-            // create a promise that will be resolved by the worker message
-            // handler (below) when we receive success/error for this item.
+            inFlightRef.current.meta =
+                (isQueueItem(nextItem) ? (nextItem as any).meta : undefined) ||
+                undefined;
             inFlightRef.current.promise = new Promise<void>((resolve) => {
                 inFlightRef.current.resolve = resolve;
             });
 
-            // Post the inner action directly so the real worker receives
-            // expected action types (e.g. 'create-card'). Tests' fake
-            // worker also accepts this shape.
+            emitEvent('sync:started', undefined as any);
+
             postMessage({
-                ...(base as Record<string, unknown>),
-                payload: payloadAugmented,
+                ...(actionToPost as Record<string, unknown>),
                 timestamp: Date.now(),
             } as any);
 
-            // wait until worker responds (or timeout) before continuing
             try {
                 const waitPromise = inFlightRef.current.promise;
-                // race with a timeout to avoid permanent lock
-                const TIMEOUT_MS = 30_000; // 30s per-message timeout
+                const TIMEOUT_MS = 30_000;
                 await Promise.race([
                     waitPromise,
                     new Promise((_, reject) => {
@@ -146,95 +238,87 @@ export default function SyncManager() {
                     }),
                 ] as any);
             } catch (e) {
-                // timeout or other wait failure — record an error so tests/UX
-                // can observe, and clear in-flight so we can continue.
-                if (syncError.addError) {
+                const syncErrorLocal = syncErrorRef.current;
+                if (syncErrorLocal) {
                     const msg =
                         e instanceof Error
                             ? e.message
                             : String(e) || 'Sync timeout';
-                    syncError.addError({
-                        timestamp: Date.now(),
-                        message: msg,
-                    });
+                    let retryCount: number | undefined = undefined;
+                    try {
+                        const inflight: any = inFlightRef.current as any;
+                        if (
+                            inflight &&
+                            inflight.meta &&
+                            typeof inflight.meta.attempts === 'number'
+                        )
+                            retryCount = inflight.meta.attempts as number;
+                    } catch {
+                        /* ignore */
+                    }
+                    try {
+                        syncErrorLocal.addError({
+                            timestamp: Date.now(),
+                            message: msg,
+                        });
+                    } catch (_) {
+                        /* ignore */
+                    }
                 }
             } finally {
-                // clear any timeout and in-flight state
                 if (inFlightRef.current.timeout) {
                     window.clearTimeout(inFlightRef.current.timeout as number);
                     inFlightRef.current.timeout = undefined;
                 }
                 inFlightRef.current.waiting = false;
+                emitEvent('sync:stopped', undefined as any);
                 inFlightRef.current.resolve = undefined;
                 inFlightRef.current.promise = undefined;
-                // continue processing next queued item (if any)
-                // schedule on next tick to avoid deep recursion
-                setTimeout(() => void processQueuedActions(), 0);
+                // Schedule next run only if still mounted; record timeout id
+                if (mountedRef.current) {
+                    scheduleTimeout(() => void processQueuedActions(), 0);
+                }
             }
-
-            // Organization fetching and retries have moved to OrganizationProvider.
         } catch (e) {
             console.error('[SyncManager] processQueuedActions failed', e);
         }
-    }, [queueApi, auth, org, syncError, getFreshToken]);
+    }, []);
 
-    // Handle messages coming from the worker (mirrors previous onmessage)
-    useEffect(() => {
-        if (!lastMessage) return;
-        const { type, payload, error } = lastMessage as Record<string, unknown>;
-        console.debug('[SyncManager] worker.onmessage', {
-            type,
-            payload,
-            error,
-        });
+    // Factor out worker message handling so we can subscribe both to the
+    // `lastMessage` hook value and to the in-process `eventBus`.
+    const handleWorkerMessage = useCallback((mIn: any) => {
+        if (!mIn) return;
+        const m = mIn as any;
+        const { type, payload, error } = m;
 
-        // message delivered from useWebWorker (dedupe centralized there)
-
-        // Dev-only capture of worker outgoing events posted by the worker
         try {
-            if (process.env.NODE_ENV !== 'production') {
-                if (
-                    type === 'WORKER_OUTGOING' ||
-                    type === 'WORKER_OUTGOING_RESULT'
-                ) {
-                    const record = {
-                        type,
-                        payload: isObject(payload)
-                            ? (payload as Record<string, unknown>)
-                            : payload,
-                        receivedAt: Date.now(),
-                    };
-                    outgoingLogsRef.current.push(
-                        record as Record<string, unknown>
-                    );
-                    // cap log length
-                    if (outgoingLogsRef.current.length > 200)
-                        outgoingLogsRef.current.shift();
-                    // expose for quick debugging in dev only
-                    try {
-                        // @ts-ignore - dev inspection hook
-                        (window as any).__violet_worker_outgoing =
-                            outgoingLogsRef.current;
-                    } catch (e) {
-                        safeCaptureException(e as Error);
-                    }
-                    // schedule clear if not already scheduled
-                    if (!outgoingClearTimeoutRef.current) {
-                        outgoingClearTimeoutRef.current = window.setTimeout(
-                            () => {
-                                outgoingLogsRef.current = [];
-                                try {
-                                    // @ts-ignore
-                                    (window as any).__violet_worker_outgoing =
-                                        outgoingLogsRef.current;
-                                } catch (e) {
-                                    safeCaptureException(e as Error);
-                                }
-                                outgoingClearTimeoutRef.current = undefined;
-                            },
-                            OUTGOING_LOG_TTL_MS
-                        ) as unknown as number;
-                    }
+            if (
+                type === 'WORKER_OUTGOING' ||
+                type === 'WORKER_OUTGOING_RESULT'
+            ) {
+                const record = isObject(payload)
+                    ? (payload as Record<string, unknown>)
+                    : { payload };
+                try {
+                    (window as any).__violet_worker_outgoing =
+                        outgoingLogsRef.current;
+                } catch (e) {
+                    safeCaptureException(e as Error);
+                }
+                if (!outgoingClearTimeoutRef.current) {
+                    const id = scheduleTimeout(() => {
+                        outgoingLogsRef.current = [];
+                        try {
+                            (window as any).__violet_worker_outgoing =
+                                outgoingLogsRef.current;
+                        } catch (e) {
+                            safeCaptureException(e as Error);
+                        }
+                        outgoingClearTimeoutRef.current = undefined;
+                    }, OUTGOING_LOG_TTL_MS) as unknown as number;
+                    outgoingClearTimeoutRef.current = id;
+                }
+                if (process.env.NODE_ENV !== 'test') {
                     console.debug(
                         '[SyncManager] captured worker outgoing',
                         record
@@ -244,151 +328,231 @@ export default function SyncManager() {
         } catch (e) {
             safeCaptureException(e as Error);
         }
+
         if (type === 'ACTION_SUCCESS') {
-            const tempId = hasTempId(payload)
-                ? (payload as any).tempId
-                : undefined;
-            if (hasBoardProp(payload)) {
-                const board = (payload as any).board as Board;
-                if (tempId)
-                    queueApi.enqueueBoardAction({
-                        type: 'reconcile-board',
-                        payload: { tempId, board },
-                    } as VioletKanbanAction);
-            } else if (hasListProp(payload)) {
-                const list = (payload as any).list as BoardList;
-                if (tempId)
-                    queueApi.enqueueListAction({
-                        type: 'reconcile-list',
-                        payload: { tempId, list },
-                    } as VioletKanbanAction);
-            } else if (hasCardProp(payload)) {
-                const card = (payload as any).card as BoardCard;
-                if (tempId)
-                    queueApi.enqueueCardAction({
-                        type: 'reconcile-card',
-                        payload: { tempId, card },
-                    } as VioletKanbanAction);
+            try {
+                if (hasTempId(payload)) {
+                    const t = (payload as any).tempId as string;
+                    if (
+                        hasBoardProp(payload) &&
+                        (payload as any).board &&
+                        (payload as any).board.id
+                    ) {
+                        const realId = String((payload as any).board.id);
+                        const current = tempMapRef.current.getRealId?.(t);
+                        if (current !== realId) {
+                            try {
+                                emitEvent('tempid:set-request', {
+                                    tempId: t,
+                                    realId,
+                                } as any);
+                            } catch (_) {}
+                        }
+                    } else if (
+                        hasListProp(payload) &&
+                        (payload as any).list &&
+                        (payload as any).list.id
+                    ) {
+                        const realId = String((payload as any).list.id);
+                        const current = tempMapRef.current.getRealId?.(t);
+                        if (current !== realId) {
+                            try {
+                                emitEvent('tempid:set-request', {
+                                    tempId: t,
+                                    realId,
+                                } as any);
+                            } catch (_) {}
+                        }
+                    } else if (
+                        hasCardProp(payload) &&
+                        (payload as any).card &&
+                        (payload as any).card.id
+                    ) {
+                        const realId = String((payload as any).card.id);
+                        const current = tempMapRef.current.getRealId?.(t);
+                        if (current !== realId) {
+                            try {
+                                emitEvent('tempid:set-request', {
+                                    tempId: t,
+                                    realId,
+                                } as any);
+                            } catch (_) {}
+                        }
+                    }
+                }
+            } catch (e) {
+                safeCaptureException(e as Error);
             }
-        } else if (type === 'ERROR' || type === 'ACTION_ERROR') {
-            if (syncError.addError)
-                syncError.addError({
-                    timestamp: hasTimestampProp(payload)
-                        ? (payload as any).timestamp
-                        : Date.now(),
-                    message:
-                        (error as Error | undefined)?.message ||
-                        'Unknown sync error',
-                    actionType: hasTypeProp(payload)
-                        ? (payload as any).type
-                        : undefined,
-                    payload: isObject(payload)
-                        ? (payload as Record<string, unknown>)
-                        : undefined,
-                });
-            console.error('[SyncManager] Worker error:', error, payload);
+
+            emitEvent('reconciliation:request', {
+                payload,
+                queueItem: m.queueItem,
+            } as any);
+            // For compatibility with tests and adapters, enqueue a small
+            // RECONCILE_* action when the worker returned an object with a
+            // concrete id so other systems can react. Guarded to avoid
+            // accidental loops.
+            try {
+                const qa = queueApiRef.current;
+                if (qa) {
+                    if (hasCardProp(payload) && (payload as any).card?.id) {
+                        qa.enqueueCardAction?.({
+                            type: 'RECONCILE_CARD',
+                            payload: { id: (payload as any).card.id },
+                            timestamp: Date.now(),
+                        } as any);
+                    } else if (
+                        hasListProp(payload) &&
+                        (payload as any).list?.id
+                    ) {
+                        qa.enqueueListAction?.({
+                            type: 'RECONCILE_LIST',
+                            payload: { id: (payload as any).list.id },
+                            timestamp: Date.now(),
+                        } as any);
+                    } else if (
+                        hasBoardProp(payload) &&
+                        (payload as any).board?.id
+                    ) {
+                        qa.enqueueBoardAction?.({
+                            type: 'RECONCILE_BOARD',
+                            payload: { id: (payload as any).board.id },
+                            timestamp: Date.now(),
+                        } as any);
+                    }
+                }
+            } catch (e) {
+                /* ignore */
+            }
+            return;
         }
-        // Only resolve the in-flight promise when the incoming worker
-        // message correlates to the currently in-flight action. This avoids
-        // unrelated worker messages from allowing the manager to progress
-        // and re-post queue items, which can cause duplicate server calls.
+
+        if (type === 'ERROR' || type === 'ACTION_ERROR') {
+            const err: any = {
+                timestamp: hasTimestampProp(payload)
+                    ? (payload as any).timestamp
+                    : Date.now(),
+                message:
+                    (error as Error | undefined)?.message ||
+                    'Unknown sync error',
+                actionType: hasTypeProp(payload)
+                    ? (payload as any).type
+                    : undefined,
+                payload: isObject(payload)
+                    ? (payload as Record<string, unknown>)
+                    : undefined,
+            };
+
+            if (syncError.addError) syncError.addError(err);
+            try {
+                safeCaptureException(error as Error);
+            } catch (e) {
+                console.error(
+                    '[SyncManager] Worker error (fallback):',
+                    error,
+                    payload
+                );
+            }
+            return;
+        }
+
         try {
             const inFlightId = inFlightRef.current?.id;
-            let respId: string | undefined = undefined;
-            if (payload && hasTempId(payload)) {
-                respId = (payload as any).tempId;
-            } else if (payload && isObject(payload)) {
-                // try common shapes: payload.card|list|board.{id}
-                const p = payload as Record<string, unknown>;
-                if (p.card && typeof (p.card as any).id === 'string')
-                    respId = (p.card as any).id;
-                else if (p.list && typeof (p.list as any).id === 'string')
-                    respId = (p.list as any).id;
-                else if (p.board && typeof (p.board as any).id === 'string')
-                    respId = (p.board as any).id;
-                else if (typeof p.id === 'string') respId = p.id as string;
+            let respId: string | undefined;
+            if (payload && hasTempId(payload)) respId = (payload as any).tempId;
+            else if (payload && isObject(payload)) {
+                if (
+                    hasCardProp(payload) &&
+                    typeof (payload as any).card.id === 'string'
+                )
+                    respId = (payload as any).card.id;
+                else if (
+                    hasListProp(payload) &&
+                    typeof (payload as any).list.id === 'string'
+                )
+                    respId = (payload as any).list.id;
+                else if (
+                    hasBoardProp(payload) &&
+                    typeof (payload as any).board.id === 'string'
+                )
+                    respId = (payload as any).board.id;
+                else if (typeof (payload as any).id === 'string')
+                    respId = (payload as any).id as string;
             }
 
             const matched = inFlightId && respId && inFlightId === respId;
             if (matched) {
-                console.debug(
-                    '[SyncManager] worker response matches in-flight id',
-                    {
-                        inFlightId,
-                        respId,
-                        type,
-                    }
-                );
                 if (inFlightRef.current && inFlightRef.current.resolve)
                     inFlightRef.current.resolve();
             } else if (!inFlightId) {
-                // no in-flight id recorded: fallback to resolve to avoid lockups
-                console.debug(
-                    '[SyncManager] no in-flight id recorded; resolving to avoid lock',
-                    { type, respId }
-                );
                 if (inFlightRef.current && inFlightRef.current.resolve)
                     inFlightRef.current.resolve();
-            } else {
-                // unrelated message — ignore for the purposes of in-flight
-                console.debug(
-                    '[SyncManager] ignoring unrelated worker message',
-                    {
-                        inFlightId,
-                        respId,
-                        type,
-                    }
-                );
             }
         } catch (err) {
-            // non-fatal
             console.debug(
                 '[SyncManager] error resolving in-flight promise',
                 err
             );
         }
-    }, [lastMessage, queueApi, syncError]);
+    }, []);
 
-    // expose debug getter & install listeners
     useEffect(() => {
-        // initial pass
+        if (lastMessage) handleWorkerMessage(lastMessage);
+        // subscribe to eventBus worker messages for more stable delivery
+        try {
+            const off = onEvent('worker:message', (m: any) => {
+                try {
+                    handleWorkerMessage(m);
+                } catch {
+                    /* ignore */
+                }
+            });
+            return () => {
+                try {
+                    if (typeof off === 'function') off();
+                } catch (_) {}
+            };
+        } catch (e) {
+            // no-op
+        }
+        // Only re-run this effect when `lastMessage` changes. Use refs for
+        // other provider APIs to avoid re-running on object identity changes.
+    }, [lastMessage]);
+
+    useEffect(() => {
         void processQueuedActions();
-
-        // rely on user / browser events to trigger ad-hoc processing
         window.addEventListener('focus', processQueuedActions);
-        // also listen for explicit queue updates from QueueProvider so that
-        // user-initiated enqueues trigger an immediate sync run. The event
-        // may contain an advisory `detail.kind` hint (board|list|card) which
-        // we treat as a hint only; SyncManager will still re-evaluate all
-        // queues to preserve ordering guarantees.
-        const onQueueUpdated = (ev: Event) => {
-            try {
-                const ce = ev as CustomEvent | any;
-                const kind = ce?.detail?.kind;
-                if (kind)
-                    console.debug('[SyncManager] queue updated hint', { kind });
-            } catch (e) {
-                /* ignore */
-            }
-            void processQueuedActions();
-        };
-        window.addEventListener(
-            'violet:queue:updated',
-            onQueueUpdated as EventListener
-        );
+        // Subscribe to the in-process event bus for queue hints. We no
+        // longer rely on DOM CustomEvents for coordination.
+        let busOff: (() => void) | undefined;
+        try {
+            busOff = onEvent('queue:updated', (p: any) => {
+                try {
+                    if (p?.kind && process.env.NODE_ENV !== 'test')
+                        console.debug('[SyncManager] queue updated hint', {
+                            kind: p.kind,
+                        });
+                } catch {}
+                void processQueuedActions();
+            });
+        } catch (e) {}
         window.addEventListener('online', processQueuedActions);
-
         return () => {
+            mountedRef.current = false;
+            // clear any scheduled timeouts
+            try {
+                for (const t of scheduledTimeoutsRef.current) {
+                    window.clearTimeout(t as number);
+                }
+            } catch (_) {}
+            scheduledTimeoutsRef.current = [];
             window.removeEventListener('focus', processQueuedActions);
-            window.removeEventListener(
-                'violet:queue:updated',
-                onQueueUpdated as EventListener
-            );
+            try {
+                if (typeof busOff === 'function') busOff();
+            } catch (_) {}
             window.removeEventListener('online', processQueuedActions);
         };
-    }, [processQueuedActions, queueApi, auth]);
+    }, [processQueuedActions, queueApi]);
 
-    // Organization fetch on auth transition is now handled by OrganizationProvider
-
-    return null; // manager component doesn't render
+    return null;
 }
