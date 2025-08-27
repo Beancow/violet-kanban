@@ -276,6 +276,8 @@ if (fs.existsSync(srcRoot)) {
             lpath.startsWith('src/utils/') ||
             // allow files that are named *Provider* (e.g. BoardProvider.tsx) to export multiple symbols
             baseName.includes('provider') ||
+            // allow hook-like files (use*) to export multiple helpers
+            baseName.includes('use') ||
             lpath.includes('/helpers/') ||
             lpath.includes('helper')
         ) {
