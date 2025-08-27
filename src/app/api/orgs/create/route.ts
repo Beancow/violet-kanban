@@ -10,13 +10,29 @@ export async function POST(request: NextRequest) {
         const result = await createOrganizationServerAction(data, user.id);
 
         if (!result.success) {
+            // Include error message and cause when available for diagnostics
+            const errMsg =
+                result.error?.message ?? 'Failed to create organization';
+            const cause = (result.error as any)?.cause;
             return NextResponse.json(
-                { success: false, error: result.error?.message },
+                {
+                    success: false,
+                    error: errMsg,
+                    cause: cause?.message || String(cause ?? ''),
+                },
                 { status: 400 }
             );
         }
 
-        return NextResponse.json(result);
+        // Normalize successful response to include orgId and message and use 201
+        return NextResponse.json(
+            {
+                success: true,
+                orgId: result.data?.orgId,
+                message: result.data?.message,
+            },
+            { status: 201 }
+        );
     } catch (error) {
         const errorMessage =
             error instanceof Error

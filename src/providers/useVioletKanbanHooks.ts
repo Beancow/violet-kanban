@@ -2,12 +2,12 @@ import { useBoards } from './BoardProvider';
 import { useLists } from './ListProvider';
 import { useCards } from './CardProvider';
 import { useQueues } from './QueueProvider';
-import { useTempIdMap } from './TempIdMapProvider';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 import type { BoardCreate, ListCreate, CardCreate } from '@/types/worker.type';
 import type { VioletKanbanAction } from '@/types/violet-kanban-action';
-import { isObject, hasBoardId, hasListId } from '@/types/typeGuards';
+import { hasBoardId, hasListId } from '@/types/typeGuards';
 import { computeQueueItemId } from './helpers';
+import { emitEvent } from '@/utils/eventBusClient';
 
 // Adapters: providers expose API objects; wrap them into convenient hooks
 export function useVioletKanbanData() {
@@ -229,12 +229,11 @@ export function useVioletKanbanRemoveCardAction() {
 
 export function useVioletKanbanHandleBoardActionSuccess() {
     const q = useQueues();
-    const tempMap = useTempIdMap();
     const boardApi = useBoards();
     return (tempId: string | undefined, newBoard: Board) => {
         if (!tempId) return;
         const realId = newBoard.id;
-        tempMap.setMapping(tempId, realId);
+        emitEvent('tempid:set-request', { tempId, realId } as any);
         boardApi.addBoard(newBoard);
         // Remove the queued create action using the computed queue item id
         // (e.g. 'create-board:<tempId>'). The queue stores full ids and
@@ -246,22 +245,21 @@ export function useVioletKanbanHandleBoardActionSuccess() {
                 payload: { tempId },
             } as any);
             q.removeBoardAction(queueId);
-        } catch (e) {
+        } catch {
             // fallback: attempt raw removal (preserve previous behaviour)
             q.removeBoardAction(tempId as string);
         }
-        tempMap.clearMapping(tempId);
+        emitEvent('tempid:clear-request', { tempId } as any);
     };
 }
 
 export function useVioletKanbanHandleListActionSuccess() {
     const q = useQueues();
-    const tempMap = useTempIdMap();
     const listApi = useLists();
     return (tempId: string | undefined, newList: BoardList) => {
         if (!tempId) return;
         const realId = newList.id;
-        tempMap.setMapping(tempId, realId);
+        emitEvent('tempid:set-request', { tempId, realId } as any);
         listApi.addList(newList);
         try {
             const queueId = computeQueueItemId({
@@ -269,21 +267,20 @@ export function useVioletKanbanHandleListActionSuccess() {
                 payload: { tempId },
             } as any);
             q.removeListAction(queueId);
-        } catch (e) {
+        } catch {
             q.removeListAction(tempId as string);
         }
-        tempMap.clearMapping(tempId);
+        emitEvent('tempid:clear-request', { tempId } as any);
     };
 }
 
 export function useVioletKanbanHandleCardActionSuccess() {
     const q = useQueues();
-    const tempMap = useTempIdMap();
     const cardApi = useCards();
     return (tempId: string | undefined, newCard: BoardCard) => {
         if (!tempId) return;
         const realId = newCard.id;
-        tempMap.setMapping(tempId, realId);
+        emitEvent('tempid:set-request', { tempId, realId } as any);
         cardApi.addCard(newCard);
         try {
             const queueId = computeQueueItemId({
@@ -291,9 +288,42 @@ export function useVioletKanbanHandleCardActionSuccess() {
                 payload: { tempId },
             } as any);
             q.removeCardAction(queueId);
-        } catch (e) {
+        } catch {
             q.removeCardAction(tempId as string);
         }
-        tempMap.clearMapping(tempId);
+        emitEvent('tempid:clear-request', { tempId } as any);
+    };
+}
+
+export function useVioletKanbanEnqueueOrganizationCreateOrUpdate() {
+    const q = useQueues();
+    return (data: Partial<Record<string, unknown>> & { id?: string }) => {
+        const idCandidate = data?.id;
+        if (
+            (typeof idCandidate === 'string' &&
+                idCandidate.startsWith('temp-')) ||
+            !idCandidate
+        ) {
+            const tempId =
+                (typeof idCandidate === 'string' && idCandidate) ||
+                `org-temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const { id, ...createDataRaw } = data as Record<string, unknown> & {
+                id?: string;
+            };
+            const createData = {
+                ...(createDataRaw as Record<string, unknown>),
+            };
+            q.enqueueBoardAction({
+                type: 'create-organization',
+                payload: createData,
+                timestamp: Date.now(),
+            } as any);
+            return;
+        }
+        q.enqueueBoardAction({
+            type: 'update-organization',
+            payload: { data },
+            timestamp: Date.now(),
+        } as any);
     };
 }

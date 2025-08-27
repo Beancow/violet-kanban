@@ -1,5 +1,5 @@
 import type { Board, BoardList, BoardCard } from './appState.type';
-import type { VioletKanbanAction, QueueItem } from './violet-kanban-action';
+import type { QueueItem } from './violet-kanban-action';
 
 // Pure data shapes used by reducers (no API methods attached).
 export type BoardStateShape = {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 
 // Client-only hook for typed localStorage access.
 // Safely no-ops during SSR and provides a stable API for components/guards.
@@ -13,8 +14,13 @@ export function useLocalStorage<T>(key: string, initialValue: T | null = null) {
             const raw = window.localStorage.getItem(key);
             if (raw === null) return initialValue;
             return JSON.parse(raw) as T;
-        } catch (e) {
-            // If parsing fails, return initial value
+        } catch (err) {
+            // If parsing fails, return initial value. Surface in dev and capture for diagnostics.
+            try {
+                safeCaptureException(err as Error);
+            } catch (_) {}
+            if (process.env.NODE_ENV !== 'production')
+                console.debug('[useLocalStorage] readValue failed', err);
             return initialValue;
         }
     }, [key, initialValue, isClient]);
@@ -40,8 +46,13 @@ export function useLocalStorage<T>(key: string, initialValue: T | null = null) {
                     window.localStorage.setItem(key, JSON.stringify(nextValue));
                 }
                 setStoredValue(nextValue);
-            } catch (e) {
-                // ignore write errors
+            } catch (err) {
+                // ignore write errors but surface in dev and capture unexpected issues
+                try {
+                    safeCaptureException(err as Error);
+                } catch (_) {}
+                if (process.env.NODE_ENV !== 'production')
+                    console.debug('[useLocalStorage] setValue failed', err);
             }
         },
         [key, readValue, isClient]

@@ -3,7 +3,7 @@ import type {
     QueueItem,
 } from '@/types/violet-kanban-action';
 import type { QueueMeta } from '@/types/violet-kanban-action';
-import { isObject, hasUserId } from '@/types/typeGuards';
+import { isObject, hasUserId, isActionLike } from '@/types/typeGuards';
 import type { SyncAction } from '@/types/worker.type';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
 
@@ -312,4 +312,52 @@ export function isCardActionStale(
     const serverUpdatedAt = extractUpdatedAt(serverCard.updatedAt);
     const ts = getActionTimestamp(action);
     return isActionStale(ts ? { timestamp: ts } : undefined, serverUpdatedAt);
+}
+
+// Lightweight validation to determine if an action is safe to post to the
+// worker. This mirrors the minimal checks used in SyncManager to avoid
+// posting malformed actions that can cause the worker to crash.
+export function isValidWorkerAction(x: unknown): boolean {
+    try {
+        if (!isObject(x)) return false;
+        const a = x as Record<string, unknown>;
+        if (typeof a.type !== 'string') return false;
+        if ('payload' in a && a.payload !== undefined && !isObject(a.payload))
+            return false;
+        // Basic specific checks: ensure create-card has data present when used
+        if (a.type === 'create-card') {
+            const p = a.payload as Record<string, unknown> | undefined;
+            if (!p || !('data' in p)) return false;
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Remove malformed queue items by inspecting each QueueItem and calling the
+// provided removal function when the item is invalid for worker processing.
+export function sanitizeQueue(
+    q: any[] | undefined,
+    removeFn?: (id: string) => void
+) {
+    if (!q || q.length === 0 || !removeFn) return;
+    for (const item of q) {
+        try {
+            if (!isQueueItem(item)) continue;
+            const action = unwrapQueueAction(item);
+            if (!isActionLike(action) || !isValidWorkerAction(action)) {
+                const id = (item as any).id as string | undefined;
+                if (id) {
+                    try {
+                        removeFn(id);
+                    } catch (e) {
+                        /* ignore removal errors */
+                    }
+                }
+            }
+        } catch (e) {
+            /* ignore per-item sanitize errors */
+        }
+    }
 }

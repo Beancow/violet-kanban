@@ -24,7 +24,7 @@ export default function CreateOrganizationModal({
         resolver: zodResolver(OrganizationSchema),
         defaultValues: organization
             ? (organization as unknown as OrganizationFormValues)
-            : { name: '', orgType: 'personal' },
+            : { name: '', type: 'personal' },
     });
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>

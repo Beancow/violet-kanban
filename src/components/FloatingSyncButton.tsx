@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useEffect } from 'react';
 import { useVioletKanbanQueues } from '@/providers/useVioletKanbanHooks';
 import { ArrowUpIcon } from '@radix-ui/react-icons';
 import { ActionQueue } from './ActionQueue';
+import { onEvent } from '@/utils/eventBusClient';
 
 export function FloatingSyncButton() {
     const [open, setOpen] = useState(false);
@@ -14,6 +16,26 @@ export function FloatingSyncButton() {
         ...listActionQueue,
         ...cardActionQueue,
     ];
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    useEffect(() => {
+        const onStart = () => setIsSyncing(true);
+        const onStop = () => setIsSyncing(false);
+        let offStart: (() => void) | undefined;
+        let offStop: (() => void) | undefined;
+        try {
+            offStart = onEvent('sync:started', () => onStart());
+            offStop = onEvent('sync:stopped', () => onStop());
+        } catch (e) {
+            // fallback to no-op if eventBus isn't available
+        }
+        return () => {
+            try {
+                if (typeof offStart === 'function') offStart();
+                if (typeof offStop === 'function') offStop();
+            } catch (_) {}
+        };
+    }, []);
 
     return (
         <>
@@ -42,7 +64,17 @@ export function FloatingSyncButton() {
                         cursor: 'pointer',
                     }}
                 >
-                    <ArrowUpIcon />
+                    <span
+                        style={{
+                            display: 'inline-block',
+                            transformOrigin: 'center',
+                            animation: isSyncing
+                                ? 'vk-spin 1s linear infinite'
+                                : 'none',
+                        }}
+                    >
+                        <ArrowUpIcon />
+                    </span>
                     {actionQueue.length > 0 && (
                         <span
                             style={{
@@ -114,6 +146,7 @@ export function FloatingSyncButton() {
                     </div>
                 </div>
             )}
+            <style>{`@keyframes vk-spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }`}</style>
         </>
     );
 }

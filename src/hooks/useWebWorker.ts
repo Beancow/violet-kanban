@@ -26,7 +26,15 @@ export function createDedupe(opts?: {
             if (respId) return `${String(type)}:${respId}`;
             const s = JSON.stringify(payload ?? '');
             return `${String(type)}:${s.slice(0, 200)}`;
-        } catch (e) {
+        } catch (err) {
+            // best-effort: log in dev and capture to Sentry
+            try {
+                safeCaptureException(err as Error);
+            } catch (_) {
+                /* ignore */
+            }
+            if (process.env.NODE_ENV !== 'production')
+                console.debug('[useWebWorker] makeMessageKey failed', err);
             return String(type ?? 'unknown');
         }
     };
@@ -52,6 +60,7 @@ export function createDedupe(opts?: {
     return { isDuplicateMessage };
 }
 import { safeCaptureException } from '@/lib/sentryWrapper';
+import { emitEvent } from '@/utils/eventBusClient';
 import { type WorkerMessage } from '@/types';
 export function useWebWorker(opts?: {
     dedupeTtlMs?: number;
@@ -85,6 +94,10 @@ export function useWebWorker(opts?: {
                         const t = e.data && (e.data as any).type;
                         if (t === 'WORKER_READY' || t === 'WORKER_VERSION') {
                             setLastMessage(e.data as WorkerMessage);
+                            emitEvent(
+                                'worker:message',
+                                e.data as WorkerMessage
+                            );
                         } else {
                             // Prevent duplicate/echoed messages from being delivered
                             try {
@@ -97,8 +110,22 @@ export function useWebWorker(opts?: {
                                     return;
                                 }
                                 setLastMessage(e.data as WorkerMessage);
+                                emitEvent(
+                                    'worker:message',
+                                    e.data as WorkerMessage
+                                );
                             } catch (err) {
-                                // fallback to delivering message
+                                // fallback to delivering message; surface in dev and capture to Sentry
+                                try {
+                                    safeCaptureException(err as Error);
+                                } catch {
+                                    /* ignore */
+                                }
+                                if (process.env.NODE_ENV !== 'production')
+                                    console.debug(
+                                        '[useWebWorker] failed to dedupe message',
+                                        err
+                                    );
                                 setLastMessage(e.data as WorkerMessage);
                             }
                         }
@@ -150,7 +177,9 @@ export function useWebWorker(opts?: {
             } catch (err) {
                 // Log worker creation errors including the caught error value
                 console.error('useWebWorker failed to create worker', err);
-                safeCaptureException(err as Error);
+                try {
+                    safeCaptureException(err as Error);
+                } catch {}
                 setWorkerError('Failed to create web worker');
             }
         } else {
@@ -174,12 +203,15 @@ export function useWebWorker(opts?: {
             if (!m.meta) m.meta = { origin: 'main' };
             else if (!m.meta.origin) m.meta.origin = 'main';
             workerRef.current.postMessage(m);
+            emitEvent('worker:outgoing', m as any);
         } catch (e) {
             // best-effort
             try {
                 workerRef.current.postMessage(message as any);
             } catch (err) {
-                safeCaptureException(err as Error);
+                try {
+                    safeCaptureException(err as Error);
+                } catch {}
             }
         }
     }, []);

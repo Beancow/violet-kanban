@@ -56,14 +56,14 @@ export type UiApi = {
     open: (name: string, props?: Record<string, unknown>) => void;
     close: () => void;
     toggle: (name: string, props?: Record<string, unknown>) => void;
+    // Returns true if the modal with the given name is currently open.
+    isOpen?: (name: string) => boolean;
 };
 
 // Public provider API types for other providers
 export type TempIdMapApi = {
     state: Record<string, string>;
-    setMapping: (tempId: string, realId: string) => void;
     getRealId: (tempId: string) => string | undefined;
-    clearMapping: (tempId: string) => void;
     clearAll: () => void;
 };
 

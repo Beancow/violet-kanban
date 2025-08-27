@@ -95,3 +95,29 @@ export function mockOrganizationProvider(seed?: Partial<OrganizationApi>) {
         __seededApi: api,
     } as any;
 }
+
+// Reconciliation mock: provides a no-op provider and hooks for tests that
+// render components which call useReconciliation/useMaybeReconciliation.
+export const MockReconciliationProvider = ({
+    children,
+}: {
+    children?: React.ReactNode;
+}) => {
+    return React.createElement(React.Fragment, null, children);
+};
+
+export function mockReconciliationProvider() {
+    const api = {
+        reconcileSuccess: async () => {
+            /* no-op */
+        },
+    };
+    return {
+        __esModule: true,
+        default: MockReconciliationProvider,
+        ReconciliationProvider: MockReconciliationProvider,
+        useReconciliation: () => api,
+        useMaybeReconciliation: () => api,
+        __seededApi: api,
+    } as any;
+}

@@ -1,370 +1,206 @@
-async function handleCreateOrganization(action) {
-    const { payload, timestamp } = action;
-    const { idToken, ...orgData } = payload;
-    const headers = {
-        'Content-Type': 'application/json',
-    };
-    if (idToken) {
-        headers['Authorization'] = `Bearer ${idToken}`;
-    }
-    const response = await fetch('/api/orgs/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(orgData),
-    });
-    if (response.ok) {
-        const result = await response.json();
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp, type: action.type, ...result.data },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        const error = await response.json();
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp, type: action.type },
-            error: { message: error?.error || 'Failed to create organization' },
-            meta: { origin: 'worker' },
-        });
-    }
-}
-async function handleFetchOrgData(action) {
-    const { organizationId, idToken } = action.payload;
-    const headers = {
-        'Content-Type': 'application/json',
-        'X-Organization-Id': organizationId,
-    };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch(`/api/orgs/${organizationId}/sync`, {
-        method: 'GET',
-        headers,
-    });
-    if (response.ok) {
-        const { data } = await response.json();
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: {
-                ...data,
-                timestamp: action.timestamp,
-                type: action.type,
-            },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp, type: action.type },
-            error: { message: 'Failed to fetch org data' },
-            meta: { origin: 'worker' },
-        });
-    }
-}
+// Lightweight data sync worker for offline queue processing.
+// - Keeps network requests minimal
+// - Forwards organizationId via X-Organization-Id header when present
+// --- Generic Action handlers ---------------------------------------------
+const CREATE_CONFIG = {
+    'create-board': {
+        endpoint: '/api/boards/create',
+        bodyFrom: (p) => ({ data: p.data }),
+        resultKey: 'board',
+    },
+    'create-list': {
+        endpoint: '/api/lists/create',
+        bodyFrom: (p) => ({ data: p.data, boardId: p.boardId }),
+        resultKey: 'list',
+    },
+    'create-card': {
+        endpoint: '/api/cards/create',
+        bodyFrom: (p) => ({
+            data: p.data,
+            boardId: p.boardId,
+            listId: p.listId,
+        }),
+        resultKey: 'card',
+    },
+    'create-organization': {
+        endpoint: '/api/orgs/create',
+        // strip idToken from body while preserving it for headers
+        bodyFrom: (p) => {
+            const { idToken, ...rest } = p || {};
+            return { ...(rest || {}) };
+        },
+        resultKey: null,
+    },
+};
 
-async function handleCreateBoard(action) {
-    const { data, tempId, idToken } = action.payload;
-    // Do NOT send tempId to the server; keep it local to the worker
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    // Emit a lightweight debug message before making the network request.
-    // Do NOT include the idToken itself; only indicate presence.
+const UPDATE_CONFIG = {
+    'update-board': {
+        endpoint: '/api/boards/update',
+        bodyFrom: (p) => ({ data: p.data }),
+    },
+    'update-card': {
+        endpoint: '/api/cards/update',
+        bodyFrom: (p) => ({ data: p.data }),
+    },
+    'restore-card': {
+        endpoint: '/api/cards/restore',
+        bodyFrom: (p) => ({ id: p.id }),
+    },
+    // future: update-list
+};
+
+const DELETE_CONFIG = {
+    'delete-card': {
+        endpoint: '/api/cards/delete',
+        bodyFrom: (p) => ({ id: p.id }),
+    },
+    'soft-delete-card': {
+        endpoint: '/api/cards/soft-delete',
+        bodyFrom: (p) => ({ id: p.id }),
+    },
+    'delete-list': {
+        endpoint: '/api/lists/delete',
+        bodyFrom: (p) => ({ id: p.id }),
+    },
+    'delete-board': {
+        endpoint: '/api/boards/delete',
+        bodyFrom: (p) => ({ id: p.id }),
+    },
+};
+
+async function handleCreateGeneric(action) {
+    const cfg = CREATE_CONFIG[action.type];
+    if (!cfg) return;
+    const payload = action.payload || {};
+    const body = cfg.bodyFrom(payload);
+    const response = await sendPost(cfg.endpoint, body, {
+        ...payload,
+        tempId: payload.tempId,
+        timestamp: action.timestamp,
+    });
+
+    if (response.ok) {
+        const json = await response.json().catch(() => ({}));
+        const responseData = json.data || json || {};
+        const out = {
+            timestamp: action.timestamp,
+            type: action.type,
+        };
+        if (payload.tempId) out.tempId = payload.tempId;
+        if (cfg.resultKey) {
+            out[cfg.resultKey] = responseData?.[cfg.resultKey] || null;
+        } else {
+            // organization create returns variable shape; spread server data
+            Object.assign(out, responseData || {});
+        }
+        self.postMessage({
+            type: 'ACTION_SUCCESS',
+            payload: out,
+            meta: { origin: 'worker' },
+        });
+        return;
+    }
+
+    let errorBody = null;
     try {
-        self.postMessage({
-            type: 'WORKER_OUTGOING',
-            payload: {
-                endpoint: '/api/boards/create',
-                tempId: tempId || null,
-                hasIdToken: !!idToken,
-                timestamp: action.timestamp || Date.now(),
-            },
-            meta: { origin: 'worker' },
-        });
-    } catch (e) {
-        /* ignore posting debug message failures */
-    }
-    const response = await fetch('/api/boards/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data }),
-    });
-    // Emit a result message (status) for diagnostics. Avoid sending
-    // response body unfiltered — include only status and ok flag.
-    try {
-        self.postMessage({
-            type: 'WORKER_OUTGOING_RESULT',
-            payload: {
-                endpoint: '/api/boards/create',
-                tempId: tempId || null,
-                ok: response.ok,
-                status: response.status,
-                timestamp: action.timestamp || Date.now(),
-            },
-            meta: { origin: 'worker' },
-        });
-    } catch (e) {
-        /* ignore */
-    }
+        errorBody = await response.json();
+    } catch (e) {}
 
-    if (response.ok) {
-        const { data: responseData } = await response.json();
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            // Attach local tempId for reconciliation but do NOT forward it to server
-            payload: {
-                timestamp: action.timestamp,
-                tempId: tempId,
-                board: responseData?.data?.board || responseData?.board || null,
-                type: action.type,
-            },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp, type: action.type },
-            error: { message: 'Failed to create board' },
-            meta: { origin: 'worker' },
-        });
-    }
+    self.postMessage({
+        type: 'ERROR',
+        payload: { timestamp: action.timestamp, type: action.type },
+        error: { message: errorBody?.error || `Failed to ${action.type}` },
+        meta: { origin: 'worker' },
+    });
 }
 
-async function handleCreateList(action) {
-    const { data, boardId, tempId, idToken } = action.payload;
-    // Do NOT send tempId to server
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/lists/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data, boardId }),
+async function handleUpdateGeneric(action) {
+    const cfg = UPDATE_CONFIG[action.type];
+    if (!cfg) return;
+    const payload = action.payload || {};
+    const body = cfg.bodyFrom(payload);
+    const response = await sendPost(cfg.endpoint, body, {
+        ...payload,
+        timestamp: action.timestamp,
     });
+
     if (response.ok) {
-        const { data: responseData } = await response.json();
         self.postMessage({
             type: 'ACTION_SUCCESS',
-            payload: {
-                timestamp: action.timestamp,
-                tempId: tempId,
-                list: responseData?.data?.list || responseData?.list || null,
-                type: action.type,
-            },
+            payload: { timestamp: action.timestamp },
             meta: { origin: 'worker' },
         });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp, type: action.type },
-            error: { message: 'Failed to add list' },
-            meta: { origin: 'worker' },
-        });
+        return;
     }
+
+    self.postMessage({
+        type: 'ERROR',
+        payload: { timestamp: action.timestamp },
+        error: { message: `Failed to ${action.type}` },
+        meta: { origin: 'worker' },
+    });
 }
 
-async function handleCreateCard(action) {
-    const { data, boardId, listId, tempId, idToken } = action.payload;
-    // Do NOT send tempId to the server
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/cards/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data, boardId, listId }),
+async function handleDeleteGeneric(action) {
+    const cfg = DELETE_CONFIG[action.type];
+    if (!cfg) return;
+    const payload = action.payload || {};
+    const body = cfg.bodyFrom(payload);
+    const response = await sendPost(cfg.endpoint, body, {
+        ...payload,
+        timestamp: action.timestamp,
     });
+
     if (response.ok) {
-        const { data: responseData } = await response.json();
         self.postMessage({
             type: 'ACTION_SUCCESS',
-            payload: {
-                timestamp: action.timestamp,
-                tempId: tempId,
-                card: responseData?.data?.card || responseData?.card || null,
-                type: action.type,
-            },
+            payload: { timestamp: action.timestamp },
             meta: { origin: 'worker' },
         });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp, type: action.type },
-            error: { message: 'Failed to create card' },
-            meta: { origin: 'worker' },
-        });
+        return;
     }
+
+    self.postMessage({
+        type: 'ERROR',
+        payload: { timestamp: action.timestamp, type: action.type },
+        error: { message: `Failed to ${action.type}` },
+        meta: { origin: 'worker' },
+    });
 }
 
-async function handleUpdateCard(action) {
-    const { data, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/cards/update', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to update card' },
-            meta: { origin: 'worker' },
-        });
+// Worker verbosity: initial value comes from the worker script URL query
+// parameter `?verbose=1|true`. It can also be toggled at runtime by the
+// main thread sending a `{ type: 'SET_WORKER_VERBOSE', verbose: true }`
+// message to the worker.
+let VERBOSE = false;
+try {
+    if (typeof self !== 'undefined' && self.location && self.location.href) {
+        try {
+            const params = new URL(self.location.href).searchParams;
+            const v = params.get('verbose');
+            VERBOSE = v === '1' || v === 'true';
+        } catch (err) {
+            if (VERBOSE)
+                console.error(
+                    '🔍 [Worker] Failed to parse verbose query param from worker URL',
+                    err
+                );
+        }
     }
+} catch (err) {
+    if (VERBOSE)
+        console.error(
+            '🔍 [Worker] Error while accessing self.location to read verbose param',
+            err
+        );
 }
 
-async function handleDeleteCard(action) {
-    const { id, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/cards/delete', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to delete card' },
-            meta: { origin: 'worker' },
-        });
-    }
+function setVerbose(v) {
+    VERBOSE = !!v;
 }
 
-async function handleSoftDeleteCard(action) {
-    const { id, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/cards/soft-delete', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to soft delete card' },
-            meta: { origin: 'worker' },
-        });
-    }
-}
-
-async function handleRestoreCard(action) {
-    const { id, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/cards/restore', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to restore card' },
-            meta: { origin: 'worker' },
-        });
-    }
-}
-
-async function handleDeleteList(action) {
-    const { id, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/lists/delete', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to delete list' },
-            meta: { origin: 'worker' },
-        });
-    }
-}
-
-async function handleUpdateBoard(action) {
-    const { data, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/boards/update', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to update board' },
-            meta: { origin: 'worker' },
-        });
-    }
-}
-
-async function handleDeleteBoard(action) {
-    const { id, idToken } = action.payload;
-    const headers = { 'Content-Type': 'application/json' };
-    if (idToken) headers.Authorization = `Bearer ${idToken}`;
-    const response = await fetch('/api/boards/delete', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-        self.postMessage({
-            type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
-            meta: { origin: 'worker' },
-        });
-    } else {
-        self.postMessage({
-            type: 'ERROR',
-            payload: { timestamp: action.timestamp },
-            error: { message: 'Failed to delete board' },
-            meta: { origin: 'worker' },
-        });
-    }
+function isVerbose() {
+    return VERBOSE;
 }
 
 // Worker versioning
@@ -373,179 +209,80 @@ const WORKER_VERSION = '1.0.0';
 self.onmessage = async function (e) {
     // Check for version request
     if (e.data && e.data.type === 'GET_WORKER_VERSION') {
-        console.log('🤖 [Worker] Received GET_WORKER_VERSION');
         self.postMessage({ type: 'WORKER_VERSION', version: WORKER_VERSION });
         return;
     }
+
+    // Allow the main thread to toggle verbose logging at runtime
+    if (e.data && e.data.type === 'SET_WORKER_VERBOSE') {
+        try {
+            const v = !!e.data.verbose;
+            setVerbose(v);
+            self.postMessage({
+                type: 'WORKER_VERBOSE_SET',
+                verbose: isVerbose(),
+                meta: { origin: 'worker' },
+            });
+        } catch (err) {
+            if (isVerbose())
+                console.error(
+                    '🔍 [Worker] Failed to set verbose flag from main thread message',
+                    err
+                );
+        }
+        return;
+    }
+
     const action = e.data;
     try {
-        console.log(
-            `🟣🤖 [Worker] Received action: ${action.type} @ ${action.timestamp}`
-        );
-        switch (action.type) {
-            case 'create-board':
-                console.log(
-                    `🟦 [Worker] Creating board @ ${action.timestamp}`,
-                    action
-                );
-                await handleCreateBoard(action);
-                break;
-            case 'update-board':
-                console.log(
-                    `🟦 [Worker] Updating board @ ${action.timestamp}`,
-                    action
-                );
-                await handleUpdateBoard(action);
-                break;
-            case 'delete-board':
-                console.log(
-                    `🟦 [Worker] Deleting board @ ${action.timestamp}`,
-                    action
-                );
-                await handleDeleteBoard(action);
-                break;
-            case 'create-list':
-                console.log(
-                    `🟩 [Worker] Creating list @ ${action.timestamp}`,
-                    action
-                );
-                await handleCreateList(action);
-                break;
-            case 'update-list':
-                console.log(
-                    `🟩 [Worker] Updating list @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'delete-list':
-                console.log(
-                    `🟩 [Worker] Deleting list @ ${action.timestamp}`,
-                    action
-                );
-                await handleDeleteList(action);
-                break;
-            case 'create-card':
-                console.log(
-                    `🟨 [Worker] Creating card @ ${action.timestamp}`,
-                    action
-                );
-                await handleCreateCard(action);
-                break;
-            case 'update-card':
-                console.log(
-                    `🟨 [Worker] Updating card @ ${action.timestamp}`,
-                    action
-                );
-                await handleUpdateCard(action);
-                break;
-            case 'delete-card':
-                console.log(
-                    `🟨 [Worker] Deleting card @ ${action.timestamp}`,
-                    action
-                );
-                await handleDeleteCard(action);
-                break;
-            case 'soft-delete-card':
-                console.log(
-                    `🟨 [Worker] Soft-deleting card @ ${action.timestamp}`,
-                    action
-                );
-                await handleSoftDeleteCard(action);
-                break;
-            case 'restore-card':
-                console.log(
-                    `🟨 [Worker] Restoring card @ ${action.timestamp}`,
-                    action
-                );
-                await handleRestoreCard(action);
-                break;
-            case 'move-board':
-                console.log(
-                    `🟦 [Worker] Moving board @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'move-list':
-                console.log(
-                    `🟩 [Worker] Moving list @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'move-card':
-                console.log(
-                    `🟨 [Worker] Moving card @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'create-organization':
-                console.log(
-                    `🟪 [Worker] Creating organization @ ${action.timestamp}`,
-                    action
-                );
-                await handleCreateOrganization(action);
-                break;
-            case 'update-organization':
-                console.log(
-                    `🟪 [Worker] Updating organization @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'delete-organization':
-                console.log(
-                    `🟪 [Worker] Deleting organization @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'fetch-org-data':
-                console.log(
-                    `🟪 [Worker] Fetching org data @ ${action.timestamp}`,
-                    action
-                );
-                await handleFetchOrgData(action);
-                break;
-            case 'sync-complete':
-                console.log(
-                    `🟣 [Worker] Sync complete @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            case 'error':
-                console.log(
-                    `🔴 [Worker] Error action received @ ${action.timestamp}`,
-                    action
-                );
-                // Implement as needed
-                break;
-            default:
-                console.error(
-                    `🔴🤖 [Worker] Unknown message type: ${action.type} @ ${action.timestamp}`,
-                    action
-                );
-                self.postMessage({
-                    type: 'ERROR',
-                    payload: { timestamp: action.timestamp, type: action.type },
-                    error: { message: `Unknown message type: ${action.type}` },
-                    meta: { origin: 'worker' },
-                });
+        // Route generic create/update/delete actions via config maps
+        if (action && CREATE_CONFIG[action.type]) {
+            await handleCreateGeneric(action);
+            return;
         }
+
+        if (action && UPDATE_CONFIG[action.type]) {
+            await handleUpdateGeneric(action);
+            return;
+        }
+
+        if (action && DELETE_CONFIG[action.type]) {
+            await handleDeleteGeneric(action);
+            return;
+        }
+
+        // Fallback for any specialized handlers that may exist
+        if (
+            action &&
+            action.type === 'fetch-org-data' &&
+            typeof handleFetchOrgData === 'function'
+        ) {
+            await handleFetchOrgData(action);
+            return;
+        }
+
+        // Unknown action
+        console.error(
+            `🔴🤖 [Worker] Unknown message type: ${action?.type} @ ${action?.timestamp}`,
+            action
+        );
+        self.postMessage({
+            type: 'ERROR',
+            payload: { timestamp: action?.timestamp, type: action?.type },
+            error: { message: `Unknown message type: ${action?.type}` },
+            meta: { origin: 'worker' },
+        });
     } catch (error) {
         console.error(
-            `🔴🤖 [Worker] Error in action handler @ ${action.timestamp}:`,
+            `🔴🤖 [Worker] Error in action handler @ ${action?.timestamp}:`,
             error
         );
         self.postMessage({
             type: 'ERROR',
-            payload: { timestamp: action.timestamp, type: action.type },
+            payload: { timestamp: action?.timestamp, type: action?.type },
             error: {
                 message:
-                    error.message || 'An unknown error occurred in the worker',
+                    error?.message || 'An unknown error occurred in the worker',
             },
             meta: { origin: 'worker' },
         });

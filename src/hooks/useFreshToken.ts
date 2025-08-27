@@ -1,6 +1,7 @@
 'use client';
 import { useCallback } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 
 // Keep the same threshold used elsewhere: refresh proactively after 50 minutes
 const TOKEN_REFRESH_THRESHOLD_MS = 50 * 60 * 1000; // 50 minutes
@@ -19,8 +20,14 @@ export default function useFreshToken() {
             if (!last || Date.now() - last > TOKEN_REFRESH_THRESHOLD_MS) {
                 try {
                     await auth.refreshIdToken();
-                } catch (e) {
-                    // ignore - refreshIdToken manages its own state and cooldown
+                } catch (err) {
+                    // surface in dev and capture unexpected failures
+                    safeCaptureException(err as Error);
+                    if (process.env.NODE_ENV !== 'production')
+                        console.debug(
+                            '[useFreshToken] refreshIdToken failed',
+                            err
+                        );
                 }
                 token = auth.idToken ?? null;
             }

@@ -63,8 +63,13 @@ export default function OrganizationGate({
                             if (clearRefetchError) clearRefetchError();
                             try {
                                 await refetchOrganizations();
-                            } catch (_) {
-                                // refetchOrganizations sets the error state
+                            } catch (err) {
+                                // refetchOrganizations sets the error state; surface in dev
+                                if (process.env.NODE_ENV !== 'production')
+                                    console.debug(
+                                        '[OrganizationGate] refetchOrganizations failed',
+                                        err
+                                    );
                             }
                         }}
                     >

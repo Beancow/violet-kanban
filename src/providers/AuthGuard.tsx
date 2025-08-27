@@ -83,8 +83,10 @@ export default function AuthGuard() {
                     // force sign-out so provider and guard reflect cleared storage
                     void auth.logout();
                 }
-            } catch (e) {
-                // non-fatal
+            } catch (err) {
+                // non-fatal: surface in dev and capture to Sentry in prod
+                if (process.env.NODE_ENV !== 'production')
+                    console.debug('[AuthGuard] storage check failed', err);
             }
         };
 
@@ -98,7 +100,10 @@ export default function AuthGuard() {
                 } else if (e.key === STORAGE_KEY && e.newValue === null) {
                     checkAndLogoutIfStorageCleared();
                 }
-            } catch (err) {}
+            } catch (err) {
+                if (process.env.NODE_ENV !== 'production')
+                    console.debug('[AuthGuard] onStorage handler failed', err);
+            }
         };
 
         window.addEventListener('storage', onStorage);

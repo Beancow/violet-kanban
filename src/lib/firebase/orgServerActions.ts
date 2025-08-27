@@ -7,6 +7,11 @@ import {
     AddMemberToOrganizationResult,
     User,
 } from '@/types';
+import {
+    hasCompanyNameProp,
+    hasCompanyWebsiteProp,
+    hasLogoURLProp,
+} from '@/types/typeGuards';
 
 import { adminDataConverter } from './adminDataConverter';
 import * as sentry from '@/lib/sentryWrapper';
@@ -57,6 +62,15 @@ import { getUserServerAction } from './userServerActions';
 
 // ...
 
+// ...existing code...
+
+// Helper to read a FormData value as string when present
+const formGetString = (data: FormData, key: string) => {
+    const v = data.get(key);
+    if (v === null || typeof v === 'undefined') return undefined;
+    return String(v);
+};
+
 export async function createOrganizationServerAction(
     data: { [key: string]: string },
     uid: string
@@ -74,10 +88,27 @@ export async function createOrganizationServerAction(
         const newOrgRef = organizations.doc();
         const batch = adminFirestore.batch();
 
-        const newOrg = {
+        // Require a name; enforce server-side validation to avoid silent bad writes
+        if (!data?.name) {
+            throw new Error('Organization name is required');
+        }
+
+        // Default type only when not provided; otherwise accept caller value
+        const safeType =
+            (data.type as 'personal' | 'company' | 'private') || 'personal';
+
+        // Collect company-related fields only when provided
+        const companyFields: Record<string, unknown> = {};
+        if (hasCompanyNameProp(data))
+            companyFields.companyName = data.companyName;
+        if (hasCompanyWebsiteProp(data))
+            companyFields.companyWebsite = data.companyWebsite;
+        if (hasLogoURLProp(data)) companyFields.logoURL = data.logoURL;
+
+        const baseOrg: Record<string, unknown> = {
             id: newOrgRef.id,
             name: data.name,
-            type: data.type as 'personal' | 'company',
+            type: safeType,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             createdBy: {
@@ -88,16 +119,37 @@ export async function createOrganizationServerAction(
             members: {
                 [user.id]: { role: 'owner' },
             },
-            data: {
-                companyName: data.companyName,
-                companyWebsite: data.companyWebsite,
-                logoURL: data.logoURL,
-            },
         };
+
+        // Build top-level fields to merge. Always allow logoURL if provided.
+        const topFields: Record<string, unknown> = {};
+        if (typeof companyFields.logoURL !== 'undefined')
+            topFields.logoURL = companyFields.logoURL;
+        if (safeType !== 'personal') {
+            if (typeof companyFields.companyName !== 'undefined')
+                topFields.companyName = companyFields.companyName;
+            if (typeof companyFields.companyWebsite !== 'undefined')
+                topFields.companyWebsite = companyFields.companyWebsite;
+        }
+
+        const newOrg: Record<string, unknown> = { ...baseOrg, ...topFields };
 
         console.log(
             '--- createOrganizationServerAction: Creating new org ---',
             newOrg
+        );
+        // Diagnostic: explicitly log presence of company fields for easier debugging
+        console.log(
+            '--- createOrganizationServerAction: companyName present? ---',
+            typeof newOrg.companyName !== 'undefined'
+        );
+        console.log(
+            '--- createOrganizationServerAction: companyWebsite present? ---',
+            typeof newOrg.companyWebsite !== 'undefined'
+        );
+        console.log(
+            '--- createOrganizationServerAction: logoURL present? ---',
+            typeof newOrg.logoURL !== 'undefined'
         );
         batch.set(newOrgRef, newOrg);
 
@@ -220,18 +272,51 @@ export async function updateOrganizationServerAction(
             };
         }
 
-        const updatedOrg = {
-            name: data.get('name') as string,
-            type: data.get('type') as 'personal' | 'company',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            data: {
-                companyName: data.get('companyName') as string,
-                companyWebsite: data.get('companyWebsite') as string,
-                logoURL: data.get('logoURL') as string,
-            },
-        };
+        // Build a partial update object, including only fields provided in the FormData
+        const updatedOrg: Record<string, unknown> = {};
+        // Use form helpers, then guards to decide which fields to include
+        const nameVal = formGetString(data, 'name');
+        const typeVal = formGetString(data, 'type');
+        if (typeof nameVal !== 'undefined') updatedOrg.name = nameVal;
+        if (typeof typeVal !== 'undefined')
+            updatedOrg.type = typeVal as 'personal' | 'company' | 'private';
+        // always update timestamp
+        updatedOrg.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
-        await adminFirestore.batch().update(orgRef, updatedOrg).commit();
+        // Fields from the form
+        const maybeCompanyName = formGetString(data, 'companyName');
+        const maybeCompanyWebsite = formGetString(data, 'companyWebsite');
+        const maybeLogoURL = formGetString(data, 'logoURL');
+
+        // Determine effective type after this update: if typeVal provided, use it; else keep existing
+        const effectiveType =
+            typeof typeVal !== 'undefined' ? (typeVal as string) : orgData.type;
+
+        if (effectiveType === 'personal') {
+            // If moving/remaining personal, remove company-specific fields from the document
+            if (orgData?.companyName)
+                updatedOrg['companyName'] = admin.firestore.FieldValue.delete();
+            if (orgData?.companyWebsite)
+                updatedOrg['companyWebsite'] =
+                    admin.firestore.FieldValue.delete();
+            // If logoURL was explicitly provided, allow updating it
+            if (typeof maybeLogoURL !== 'undefined')
+                updatedOrg['logoURL'] = maybeLogoURL;
+        } else {
+            // For company/private orgs, include provided nested fields
+            if (typeof maybeCompanyName !== 'undefined')
+                updatedOrg['companyName'] = maybeCompanyName;
+            if (typeof maybeCompanyWebsite !== 'undefined')
+                updatedOrg['companyWebsite'] = maybeCompanyWebsite;
+            if (typeof maybeLogoURL !== 'undefined')
+                updatedOrg['logoURL'] = maybeLogoURL;
+        }
+
+        // Firestore batch.update expects a looser shape; cast at the callsite.
+        await adminFirestore
+            .batch()
+            .update(orgRef, updatedOrg as Record<string, any>)
+            .commit();
         revalidatePath(`/org/${orgId}`);
         return { success: true };
     } catch (error) {

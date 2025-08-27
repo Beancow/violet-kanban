@@ -22,6 +22,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
                     ? { name: null, props: null }
                     : { name, props: props ?? null }
             ),
+        isOpen: (name: string) => openModal.name === name,
     };
 
     return <UiContext.Provider value={api}>{children}</UiContext.Provider>;

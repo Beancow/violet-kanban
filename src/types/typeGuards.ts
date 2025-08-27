@@ -58,6 +58,29 @@ export function hasTypeProp(v: unknown): v is { type: string } {
     );
 }
 
+export function hasCompanyNameProp(v: unknown): v is { companyName: string } {
+    return (
+        isObject(v) &&
+        typeof (v as Record<string, unknown>).companyName === 'string'
+    );
+}
+
+export function hasCompanyWebsiteProp(
+    v: unknown
+): v is { companyWebsite: string } {
+    return (
+        isObject(v) &&
+        typeof (v as Record<string, unknown>).companyWebsite === 'string'
+    );
+}
+
+export function hasLogoURLProp(v: unknown): v is { logoURL: string } {
+    return (
+        isObject(v) &&
+        typeof (v as Record<string, unknown>).logoURL === 'string'
+    );
+}
+
 export function isActionLike(
     v: unknown
 ): v is { type: string; payload?: unknown } {
@@ -66,6 +89,8 @@ export function isActionLike(
         isObject(v) && typeof (v as Record<string, unknown>).type === 'string'
     );
 }
+
+// (extractActionLikeId removed) use provider-level dedupe instead
 
 export function isStringId(v: unknown): v is string {
     return typeof v === 'string' && v.length > 0;

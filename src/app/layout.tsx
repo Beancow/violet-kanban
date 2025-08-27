@@ -8,6 +8,9 @@ import DevWorkerDebugPanel from '@/components/DevWorkerDebugPanel';
 import Header from '@/components/navigation/Header';
 import AppProvider from '@/providers/AppProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
+import stylesToast from '@/components/Toast.module.css';
+import { ToastProvider } from '@/providers/ToastProvider';
+import * as RadixToast from '@radix-ui/react-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,14 +29,16 @@ export default function RootLayout({
             <body className={inter.className}>
                 <Theme>
                     <AuthProvider withGuard>
-                        <AppProvider>
-                            <Header />
-                            <FloatingSyncButton />
-                            {process.env.NODE_ENV !== 'production' && (
-                                <DevWorkerDebugPanel />
-                            )}
-                            {children}
-                        </AppProvider>
+                        <ToastProvider>
+                            <AppProvider>
+                                <Header />
+                                <FloatingSyncButton />
+                                {process.env.NODE_ENV !== 'production' && (
+                                    <DevWorkerDebugPanel />
+                                )}
+                                {children}
+                            </AppProvider>
+                        </ToastProvider>
                     </AuthProvider>
                 </Theme>
             </body>

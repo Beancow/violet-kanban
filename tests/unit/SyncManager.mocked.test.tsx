@@ -29,6 +29,11 @@ jest.mock('../../src/providers/SyncErrorProvider', () => ({
     }),
 }));
 
+// Mock UiProvider so SyncManager can call useUi() during the test.
+jest.mock('../../src/providers/UiProvider', () => ({
+    useUi: () => ({ isOpen: (name?: string) => false }),
+}));
+
 const {
     __setLastMessage,
     __postMessageMock,

@@ -36,7 +36,7 @@ export default function OrganizationForm({
         watch,
     } = form;
 
-    const orgType = watch('orgType');
+    const type = watch('type');
 
     return (
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -58,11 +58,11 @@ export default function OrganizationForm({
                         Organization Type
                     </Text>
                     <Select.Root
-                        value={orgType}
+                        value={type}
                         onValueChange={(value) =>
                             setValue(
-                                'orgType',
-                                value as OrganizationFormValues['orgType']
+                                'type',
+                                value as OrganizationFormValues['type']
                             )
                         }
                     >
@@ -78,11 +78,11 @@ export default function OrganizationForm({
                             ))}
                         </Select.Content>
                     </Select.Root>
-                    {errors.orgType && (
-                        <Text color='red'>{errors.orgType.message}</Text>
+                    {errors.type && (
+                        <Text color='red'>{errors.type.message}</Text>
                     )}
                 </Flex>
-                {orgType === 'company' && (
+                {type === 'company' && (
                     <Flex direction='column'>
                         <Text as='label' size='2' mb='1'>
                             Company Name
@@ -98,7 +98,7 @@ export default function OrganizationForm({
                         )}
                     </Flex>
                 )}
-                {orgType === 'company' && (
+                {type === 'company' && (
                     <Flex direction='column'>
                         <Text as='label' size='2' mb='1'>
                             Company Website

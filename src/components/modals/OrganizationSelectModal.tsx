@@ -1,12 +1,8 @@
-import {
-    Dialog,
-    Card,
-    Avatar,
-    Flex,
-    Heading,
-    Text,
-    Button,
-} from '@radix-ui/themes';
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { Dialog, Card, Flex, Heading, Text, Button } from '@radix-ui/themes';
+import AvatarWithFallback from '@/components/AvatarWithFallback';
 import type { Organization } from '@/types/appState.type';
 
 interface Props {
@@ -22,6 +18,7 @@ export default function OrganizationSelectModal({
     organizations,
     onSelect,
 }: Props) {
+    // No manual preload here; AvatarWithFallback handles preloading and fallback.
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Content>
@@ -53,11 +50,10 @@ export default function OrganizationSelectModal({
                                 onClick={() => onSelect(org.id)}
                             >
                                 <Flex direction='row' gap='3' align='center'>
-                                    <Avatar
-                                        size='3'
+                                    <AvatarWithFallback
+                                        size={32}
                                         src={org.logoURL || undefined}
                                         fallback={initials}
-                                        radius='full'
                                     />
                                     <div>
                                         <Heading as='h3' size='3'>

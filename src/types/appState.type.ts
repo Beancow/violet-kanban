@@ -60,7 +60,7 @@ export type Board = {
 export type Organization = {
     id: string;
     name: string;
-    orgType?: 'personal' | 'company' | 'private';
+    type?: 'personal' | 'company' | 'private';
     members?: {
         [userId: string]: 'owner' | 'admin' | 'editor' | 'member';
     };

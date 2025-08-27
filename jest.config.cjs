@@ -14,6 +14,8 @@ module.exports = {
     moduleNameMapper: {
         '^react$': '<rootDir>/node_modules/react',
         '^react-dom$': '<rootDir>/node_modules/react-dom',
+        '^.+\\.module\\.(css|sass|scss)$':
+            '<rootDir>/tests/__mocks__/styleMock.js',
         ...pathsToModuleNameMapper(compilerOptions.paths || {}, {
             prefix: '<rootDir>/',
         }),

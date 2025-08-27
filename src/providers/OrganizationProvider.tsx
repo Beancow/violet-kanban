@@ -6,6 +6,7 @@ import type { Organization } from '@/types/appState.type';
 import type { OrganizationApi } from '@/types/provider-apis';
 import { useAuth } from '@/providers/AuthProvider';
 import useFreshToken from '@/hooks/useFreshToken';
+import { safeCaptureException } from '@/lib/sentryWrapper';
 
 // A lightweight, simplified OrganizationProvider:
 // - hydrates `currentOrganizationId` from localStorage on the client
@@ -55,7 +56,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             try {
                 setPersistedOrgId(id);
             } catch (e) {
-                // ignore localStorage write failures
+                // localStorage write failed — surface in dev and capture for diagnostics
+                safeCaptureException(e as Error);
+                if (process.env.NODE_ENV !== 'production')
+                    console.debug(
+                        '[OrganizationProvider] failed to persist currentOrganizationId',
+                        e
+                    );
             }
         },
         setOrganizations: (orgs: Organization[]) => setOrganizations(orgs),
