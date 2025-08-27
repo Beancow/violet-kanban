@@ -1,6 +1,8 @@
 'use client';
 import React from 'react';
 import { BoardProvider } from './BoardProvider';
+// IDB-backed alternative. Swap in to enable IndexedDB-backed boards.
+import BoardIDBProvider from './BoardIDBProvider';
 import { ListProvider } from './ListProvider';
 import { CardProvider } from './CardProvider';
 import { QueueProvider } from './QueueProvider';
@@ -8,7 +10,7 @@ import { TempIdMapProvider } from './TempIdMapProvider';
 import OrganizationProvider from './OrganizationProvider';
 import SyncErrorProvider from './SyncErrorProvider';
 import ReconciliationProvider from './ReconciliationProvider';
-import SyncManager from '@/components/SyncManager';
+import SyncBootstrap from '@/components/SyncBootstrap';
 import { UiProvider } from './UiProvider';
 import ToastProvider from './ToastProvider';
 
@@ -18,12 +20,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             <TempIdMapProvider>
                 <OrganizationProvider>
                     <SyncErrorProvider>
+                        {/* To enable IndexedDB-backed boards swap the providers here:
+                            <BoardIDBProvider> ... </BoardIDBProvider>
+                            For now we keep the original BoardProvider active. */}
                         <BoardProvider>
                             <ListProvider>
                                 <CardProvider>
                                     <QueueProvider>
                                         <ReconciliationProvider>
-                                            <SyncManager />
+                                            <SyncBootstrap />
                                             {children}
                                         </ReconciliationProvider>
                                     </QueueProvider>

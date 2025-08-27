@@ -27,6 +27,7 @@ import type { VioletKanbanAction } from '@/types';
 import { useReconciliation } from '@/providers/ReconciliationProvider';
 import { useTempIdMap } from '@/providers/TempIdMapProvider';
 import { emitEvent, onEvent } from '@/utils/eventBusClient';
+import SyncOrchestrator from '@/services/SyncOrchestrator';
 
 export default function SyncManager() {
     const queueApi = useQueues();
@@ -117,6 +118,62 @@ export default function SyncManager() {
     const outgoingLogsRef = useRef<Array<Record<string, unknown>>>([]);
     const outgoingClearTimeoutRef = useRef<number | undefined>(undefined);
     const OUTGOING_LOG_TTL_MS = 5 * 60 * 1000;
+
+    // Capture outgoing worker posts (from main -> worker) so the dev panel can
+    // display attempted network calls. `useWebWorker` emits a `worker:outgoing`
+    // event when posting; subscribe and mirror into the window global used by
+    // `DevWorkerDebugPanel`.
+    useEffect(() => {
+        try {
+            const off = onEvent('worker:outgoing', (m: any) => {
+                try {
+                    const record: Record<string, unknown> = isObject(m)
+                        ? ({ ...m, receivedAt: Date.now() } as any)
+                        : { payload: m, receivedAt: Date.now() };
+                    try {
+                        outgoingLogsRef.current = [record]
+                            .concat(outgoingLogsRef.current || [])
+                            .slice(0, 200);
+                    } catch (_) {
+                        outgoingLogsRef.current = [record];
+                    }
+                    try {
+                        (window as any).__violet_worker_outgoing =
+                            outgoingLogsRef.current;
+                    } catch (e) {
+                        safeCaptureException(e as Error);
+                    }
+                    // reset the auto-clear timer
+                    try {
+                        if (outgoingClearTimeoutRef.current)
+                            window.clearTimeout(
+                                outgoingClearTimeoutRef.current
+                            );
+                    } catch (_) {}
+                    const id = scheduleTimeout(() => {
+                        outgoingLogsRef.current = [];
+                        try {
+                            (window as any).__violet_worker_outgoing =
+                                outgoingLogsRef.current;
+                        } catch (e) {
+                            safeCaptureException(e as Error);
+                        }
+                        outgoingClearTimeoutRef.current = undefined;
+                    }, OUTGOING_LOG_TTL_MS) as unknown as number;
+                    outgoingClearTimeoutRef.current = id;
+                } catch (e) {
+                    safeCaptureException(e as Error);
+                }
+            });
+            return () => {
+                try {
+                    if (typeof off === 'function') off();
+                } catch (_) {}
+            };
+        } catch (e) {
+            /* ignore */
+        }
+    }, []);
 
     const processQueuedActions = useCallback(async () => {
         try {
@@ -523,23 +580,9 @@ export default function SyncManager() {
     }, [lastMessage]);
 
     useEffect(() => {
-        void processQueuedActions();
-        window.addEventListener('focus', processQueuedActions);
-        // Subscribe to the in-process event bus for queue hints. We no
-        // longer rely on DOM CustomEvents for coordination.
-        let busOff: (() => void) | undefined;
-        try {
-            busOff = onEvent('queue:updated', (p: any) => {
-                try {
-                    if (p?.kind && process.env.NODE_ENV !== 'test')
-                        console.debug('[SyncManager] queue updated hint', {
-                            kind: p.kind,
-                        });
-                } catch {}
-                void processQueuedActions();
-            });
-        } catch (e) {}
-        window.addEventListener('online', processQueuedActions);
+        mountedRef.current = true;
+        const orchestrator = new SyncOrchestrator(processQueuedActions);
+        orchestrator.start();
         return () => {
             mountedRef.current = false;
             // clear any scheduled timeouts
@@ -549,11 +592,9 @@ export default function SyncManager() {
                 }
             } catch (_) {}
             scheduledTimeoutsRef.current = [];
-            window.removeEventListener('focus', processQueuedActions);
             try {
-                if (typeof busOff === 'function') busOff();
+                orchestrator.stop();
             } catch (_) {}
-            window.removeEventListener('online', processQueuedActions);
         };
     }, [processQueuedActions, queueApi]);
 

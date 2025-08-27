@@ -1,6 +1,8 @@
 'use client';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { safeCaptureException } from '@/lib/sentryWrapper';
+import { useOrganizationProvider } from './OrganizationProvider';
+import useFreshToken from '@/hooks/useFreshToken';
 import { reducer as boardReducer } from './reducers/boardReducer';
 import { registerBoardAdapter } from './adapter';
 import type { ReactNode } from 'react';
@@ -33,6 +35,9 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
     const [state, dispatch] = useReducer(boardReducer, initial);
 
+    const org = useOrganizationProvider();
+    const getFreshToken = useFreshToken();
+
     useEffect(() => {
         try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -43,6 +48,65 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         }
     }, [state]);
 
+    // Fetch canonical boards when currentOrganizationId changes or when
+    // another tab updates the selection via localStorage. We include the
+    // organization id in the `X-Organization-Id` header and forward the
+    // idToken for authenticated requests.
+    useEffect(() => {
+        let mounted = true;
+
+        const doFetch = async (orgId: string | null) => {
+            if (!orgId) return;
+            try {
+                const token = await getFreshToken();
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                };
+                if (token) headers.Authorization = `Bearer ${token}`;
+                headers['X-Organization-Id'] = String(orgId);
+
+                const res = await fetch('/api/boards', {
+                    method: 'GET',
+                    headers,
+                });
+                if (!mounted) return;
+                if (!res.ok) return;
+                const body = await res.json().catch(() => null);
+                if (!body || !body.success || !Array.isArray(body.boards)) {
+                    return;
+                }
+                api.setBoards(body.boards as Board[]);
+            } catch (e) {
+                safeCaptureException(e as Error);
+            }
+        };
+
+        // Initial fetch when the currentOrganizationId is set
+        try {
+            doFetch(org.currentOrganizationId);
+        } catch (e) {
+            /* ignore */
+        }
+
+        const onStorage = (ev: StorageEvent) => {
+            try {
+                if (ev.key === 'currentOrganizationId') {
+                    const newVal = ev.newValue;
+                    doFetch(newVal);
+                }
+            } catch (e) {
+                /* ignore */
+            }
+        };
+
+        window.addEventListener('storage', onStorage);
+        return () => {
+            mounted = false;
+            window.removeEventListener('storage', onStorage);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [org.currentOrganizationId]);
+
     const api = {
         state,
         addBoard: (board: Board) => dispatch({ type: 'ADD_BOARD', board }),
@@ -50,6 +114,8 @@ export function BoardProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'UPDATE_BOARD', board }),
         removeBoard: (boardId: string) =>
             dispatch({ type: 'REMOVE_BOARD', boardId }),
+        setBoards: (boards: Board[]) =>
+            dispatch({ type: 'SET_BOARDS', boards }),
     };
     useEffect(() => {
         registerBoardAdapter({

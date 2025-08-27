@@ -15,6 +15,7 @@ import {
     hasBoardProp,
     hasListProp,
     hasCardProp,
+    hasIdProp,
 } from '@/types/typeGuards';
 
 type ReconciliationApi = {
@@ -46,23 +47,24 @@ export function ReconciliationProvider({ children }: { children: ReactNode }) {
         try {
             // Board payload
             if (hasBoardProp(payload)) {
-                const board = (payload as any).board;
+                // Narrowed by hasBoardProp: payload is { board: unknown }
+                const board = (payload as { board: unknown }).board;
                 try {
-                    boards?.addBoard && boards.addBoard(board);
+                    boards?.addBoard && boards.addBoard(board as any);
                 } catch (e) {
                     safeCaptureException(e as Error);
                 }
             } else if (hasListProp(payload)) {
-                const list = (payload as any).list;
+                const list = (payload as { list: unknown }).list;
                 try {
-                    lists?.addList && lists.addList(list);
+                    lists?.addList && lists.addList(list as any);
                 } catch (e) {
                     safeCaptureException(e as Error);
                 }
             } else if (hasCardProp(payload)) {
-                const card = (payload as any).card;
+                const card = (payload as { card: unknown }).card;
                 try {
-                    cards?.addCard && cards.addCard(card);
+                    cards?.addCard && cards.addCard(card as any);
                 } catch (e) {
                     safeCaptureException(e as Error);
                 }
@@ -99,7 +101,8 @@ export function ReconciliationProvider({ children }: { children: ReactNode }) {
                 let removed = false;
                 // If payload has a tempId, try to compute the original queue id
                 if (hasTempId(payload)) {
-                    const t = (payload as any).tempId as string;
+                    // hasTempId narrows payload to { tempId: string }
+                    const t = payload.tempId as string;
                     // compute expected queue id for create-* actions referencing tempId
                     try {
                         const maybeReal = tempMap
@@ -148,8 +151,8 @@ export function ReconciliationProvider({ children }: { children: ReactNode }) {
 
                 // If not removed above, fall back to best-effort removal using
                 // queueItem.id when provided.
-                if (!removed && queueItem && (queueItem as any).id) {
-                    const id = String((queueItem as any).id);
+                if (!removed && hasIdProp(queueItem)) {
+                    const id = String((queueItem as { id: unknown }).id);
                     try {
                         queues?.removeBoardAction &&
                             queues.removeBoardAction(id);
@@ -174,7 +177,7 @@ export function ReconciliationProvider({ children }: { children: ReactNode }) {
                 // Clear tempId mapping after successful reconciliation if mapping exists
                 if (hasTempId(payload)) {
                     try {
-                        const t = (payload as any).tempId as string;
+                        const t = payload.tempId as string;
                         try {
                             // emit via generic helper
                             emitEvent('tempid:clear-request', {

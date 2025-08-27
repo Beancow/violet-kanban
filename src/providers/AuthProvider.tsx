@@ -136,7 +136,17 @@ export function AuthProvider({
     const REFRESH_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
     useEffect(() => {
+        let _fired = false;
+        const SAFETY_MS = 5000;
+        let safetyTimer: number | undefined = undefined;
+
         const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+            _fired = true;
+            try {
+                if (typeof safetyTimer !== 'undefined')
+                    window.clearTimeout(safetyTimer);
+            } catch (_) {}
+
             setAuthUser(user);
 
             // update minimal stored user info and hasAuth flag
@@ -170,7 +180,31 @@ export function AuthProvider({
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        // safety: if onAuthStateChanged doesn't invoke within SAFETY_MS, stop showing
+        // the loading UI so app can proceed; this helps local dev where the auth
+        // SDK may be slow or misconfigured.
+        try {
+            if (typeof window !== 'undefined') {
+                safetyTimer = window.setTimeout(() => {
+                    if (!_fired) {
+                        // Log for diagnostics and allow UI to progress.
+                        // eslint-disable-next-line no-console
+                        console.warn(
+                            '[AuthProvider] auth state callback not received within timeout; clearing loading'
+                        );
+                        setLoading(false);
+                    }
+                }, SAFETY_MS) as unknown as number;
+            }
+        } catch (_) {}
+
+        return () => {
+            try {
+                if (typeof safetyTimer !== 'undefined')
+                    window.clearTimeout(safetyTimer);
+            } catch (_) {}
+            unsubscribe();
+        };
     }, []);
 
     const refreshIdToken = useCallback(async () => {

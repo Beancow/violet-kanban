@@ -149,9 +149,13 @@ async function handleUpdateGeneric(action) {
     });
 
     if (response.ok) {
+        // Include identifying fields from the request body so the main
+        // thread can correlate ACTION_SUCCESS with local records and run
+        // reconciliation (for example, delete a board with the given id).
+        const successPayload = { timestamp: action.timestamp, ...(body || {}) };
         self.postMessage({
             type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
+            payload: successPayload,
             meta: { origin: 'worker' },
         });
         return;
@@ -176,9 +180,12 @@ async function handleDeleteGeneric(action) {
     });
 
     if (response.ok) {
+        // For updates, include the request body so consumers can detect the
+        // affected id(s) and reconcile local state accordingly.
+        const successPayload = { timestamp: action.timestamp, ...(body || {}) };
         self.postMessage({
             type: 'ACTION_SUCCESS',
-            payload: { timestamp: action.timestamp },
+            payload: successPayload,
             meta: { origin: 'worker' },
         });
         return;

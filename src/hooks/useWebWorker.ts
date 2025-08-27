@@ -71,6 +71,7 @@ export function useWebWorker(opts?: {
     const [workerError, setWorkerError] = useState<string | null>(null);
     const [lastMessage, setLastMessage] = useState<WorkerMessage | null>(null);
     const [workerVersion, setWorkerVersion] = useState<string | null>(null);
+    const [workerVerbose, setWorkerVerbose] = useState<boolean>(false);
     const EXPECTED_WORKER_VERSION = '1.0.0';
     // Create a dedupe instance for this hook
     const { isDuplicateMessage } = createDedupe({
@@ -103,10 +104,12 @@ export function useWebWorker(opts?: {
                             try {
                                 const payload = (e.data as any).payload;
                                 if (isDuplicateMessage(t, payload)) {
-                                    console.debug(
-                                        '[useWebWorker] ignoring duplicate worker message',
-                                        { type: t }
-                                    );
+                                    if (workerVerbose) {
+                                        console.debug(
+                                            '[useWebWorker] ignoring duplicate worker message',
+                                            { type: t }
+                                        );
+                                    }
                                     return;
                                 }
                                 setLastMessage(e.data as WorkerMessage);
@@ -127,6 +130,17 @@ export function useWebWorker(opts?: {
                                         err
                                     );
                                 setLastMessage(e.data as WorkerMessage);
+                            }
+                        }
+
+                        // Track worker verbose flag set events so the hook can
+                        // suppress noisy debug messages unless explicit verbose
+                        // mode is enabled by the main thread.
+                        if (e.data && e.data.type === 'WORKER_VERBOSE_SET') {
+                            try {
+                                setWorkerVerbose(!!(e.data as any).verbose);
+                            } catch (_) {
+                                setWorkerVerbose(false);
                             }
                         }
 
@@ -204,6 +218,23 @@ export function useWebWorker(opts?: {
             else if (!m.meta.origin) m.meta.origin = 'main';
             workerRef.current.postMessage(m);
             emitEvent('worker:outgoing', m as any);
+            try {
+                // Mirror outgoing to window global as a fallback so dev panels
+                // can show outgoing attempts even if no listener is registered
+                // yet (race conditions during early app init).
+                const arr = (window as any).__violet_worker_outgoing || [];
+                const rec = { ...(m as any), receivedAt: Date.now() } as any;
+                try {
+                    // keep list bounded
+                    (window as any).__violet_worker_outgoing = [rec]
+                        .concat(arr)
+                        .slice(0, 200);
+                } catch (_) {
+                    (window as any).__violet_worker_outgoing = [rec];
+                }
+            } catch (e) {
+                /* ignore */
+            }
         } catch (e) {
             // best-effort
             try {

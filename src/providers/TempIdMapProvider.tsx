@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import { reducer as tempIdMapReducer } from './reducers/tempIdMapReducer';
+import TempIdMapStore from '@/stores/TempIdMapStore';
 
 export type TempIdMapState = Record<string, string>;
 import type { TempIdMapApi } from '@/types/provider-apis';
@@ -15,27 +16,83 @@ const STORAGE_KEY = 'violet-kanban-tempidmap-storage';
 const TempIdMapContext = createContext<TempIdMapApi | null>(null);
 
 export function TempIdMapProvider({ children }: { children: ReactNode }) {
-    let initial: TempIdMapState = {};
-    try {
-        if (typeof window !== 'undefined') {
-            const raw = window.localStorage.getItem(STORAGE_KEY);
-            if (raw) initial = JSON.parse(raw);
-        }
-    } catch (e) {
-        // Log parse errors when reading localStorage for debugging.
-        console.error('[tempIdMap] failed to read from localStorage', e);
-        safeCaptureException(e);
-        initial = {};
-    }
-    const [state, dispatch] = useReducer(tempIdMapReducer, initial);
+    const [state, dispatch] = useReducer(tempIdMapReducer, {});
 
+    // Hydrate from IDB on mount. This ensures the provider is canonical and
+    // that non-React producers may request writes which the provider will
+    // persist in IDB.
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const keys = await TempIdMapStore.getAllKeys?.();
+                // TempIdMapStore may not implement getAllKeys; fallback to existing
+                // localStorage-based hydratation when absent.
+                if (keys && Array.isArray(keys)) {
+                    const loaded: Record<string, string> = {};
+                    for (const k of keys) {
+                        const real = await TempIdMapStore.getRealId(k);
+                        if (real) loaded[k] = real;
+                    }
+                    if (mounted) {
+                        // Replace state via CLEAR_ALL then SET_MAPPING for each
+                        // entry so reducer keeps history manageable.
+                        dispatch({ type: 'CLEAR_ALL' });
+                        for (const [t, r] of Object.entries(loaded)) {
+                            dispatch({
+                                type: 'SET_MAPPING',
+                                tempId: t,
+                                realId: r,
+                            });
+                        }
+                    }
+                } else if (typeof window !== 'undefined') {
+                    // Fallback: hydrate from localStorage for older installs.
+                    try {
+                        const raw = window.localStorage.getItem(STORAGE_KEY);
+                        if (raw) {
+                            const parsed = JSON.parse(raw || '{}');
+                            dispatch({ type: 'CLEAR_ALL' });
+                            Object.entries(parsed).forEach(([t, r]) => {
+                                if (
+                                    typeof t === 'string' &&
+                                    typeof r === 'string'
+                                ) {
+                                    dispatch({
+                                        type: 'SET_MAPPING',
+                                        tempId: t,
+                                        realId: r,
+                                    });
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error(
+                            '[tempIdMap] localStorage hydrate failed',
+                            e
+                        );
+                    }
+                }
+            } catch (e) {
+                console.error('[TempIdMapProvider] hydrate failed', e);
+                safeCaptureException(e as Error);
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    // Keep a best-effort localStorage mirror so older code paths depending on
+    // the storage key continue to work. This runs after state changes.
     useEffect(() => {
         try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            }
         } catch (e) {
-            // Log write errors for diagnostics (e.g., storage quota exceeded)
             console.error('[tempIdMap] failed to write to localStorage', e);
-            safeCaptureException(e);
+            safeCaptureException(e as Error);
         }
     }, [state]);
 
@@ -61,10 +118,21 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
                     const realId =
                         p && typeof p.realId === 'string' && p.realId;
                     if (tempId && realId) {
+                        // Persist canonical mapping to IDB first.
+                        (async () => {
+                            try {
+                                await TempIdMapStore.put(tempId, realId);
+                            } catch (e) {
+                                safeCaptureException(e as Error);
+                            }
+                        })();
+
                         dispatch({ type: 'SET_MAPPING', tempId, realId });
                         emitEvent('tempid:set', { tempId, realId } as any);
                     }
-                } catch {}
+                } catch (e) {
+                    safeCaptureException(e as Error);
+                }
             }
         );
 
@@ -75,10 +143,20 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
                     const tempId =
                         p && typeof p.tempId === 'string' && p.tempId;
                     if (tempId) {
+                        (async () => {
+                            try {
+                                await TempIdMapStore.delete(tempId);
+                            } catch (e) {
+                                safeCaptureException(e as Error);
+                            }
+                        })();
+
                         dispatch({ type: 'CLEAR_MAPPING', tempId });
                         emitEvent('tempid:cleared', { tempId } as any);
                     }
-                } catch {}
+                } catch (e) {
+                    safeCaptureException(e as Error);
+                }
             }
         );
 
@@ -86,7 +164,9 @@ export function TempIdMapProvider({ children }: { children: ReactNode }) {
             try {
                 if (typeof offSetReq === 'function') offSetReq();
                 if (typeof offClearReq === 'function') offClearReq();
-            } catch (_) {}
+            } catch (err) {
+                safeCaptureException(err as Error);
+            }
         };
     }, []);
 

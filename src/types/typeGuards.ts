@@ -140,3 +140,48 @@ export function hasUserId(v: unknown): v is { userId: string } {
         isObject(v) && typeof (v as Record<string, unknown>).userId === 'string'
     );
 }
+
+export function hasRevProp(v: unknown): v is { rev: number } {
+    return (
+        isObject(v) && typeof (v as Record<string, unknown>).rev === 'number'
+    );
+}
+
+export function hasUpdatedAtPropAny(
+    v: unknown
+): v is { updatedAt: string | Date } {
+    return (
+        isObject(v) &&
+        (typeof (v as Record<string, unknown>).updatedAt === 'string' ||
+            (v as any).updatedAt instanceof Date)
+    );
+}
+
+export function hasOrganizationId(v: unknown): v is { organizationId: string } {
+    return (
+        isObject(v) &&
+        typeof (v as Record<string, unknown>).organizationId === 'string'
+    );
+}
+
+export function hasBoardsProp(v: unknown): v is { boards: unknown[] } {
+    return isObject(v) && Array.isArray((v as Record<string, unknown>).boards);
+}
+
+export function hasListsProp(v: unknown): v is { lists: unknown[] } {
+    return isObject(v) && Array.isArray((v as Record<string, unknown>).lists);
+}
+
+export function hasCardsProp(v: unknown): v is { cards: unknown[] } {
+    return isObject(v) && Array.isArray((v as Record<string, unknown>).cards);
+}
+
+export function isBoardRecordLike(
+    v: unknown
+): v is import('../types/appState.type').Board {
+    return (
+        isObject(v) &&
+        typeof (v as Record<string, unknown>).id === 'string' &&
+        typeof (v as Record<string, unknown>).organizationId === 'string'
+    );
+}

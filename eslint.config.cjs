@@ -17,6 +17,7 @@ module.exports = [
         },
         plugins: {
             '@typescript-eslint': require('@typescript-eslint/eslint-plugin'),
+            'react-hooks': require('eslint-plugin-react-hooks'),
         },
         rules: {
             // Use the TS-aware no-unused-vars rule
@@ -25,6 +26,9 @@ module.exports = [
                 'warn',
                 { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
             ],
+            // Keep react-hooks/exhaustive-deps off here; we rely on developers
+            // to manage hook deps and avoid pulling the rule into the build.
+            'react-hooks/exhaustive-deps': 'off',
             // Prevent accidental use of the `@/src/...` alias (resolves to src/src/...)
             'no-restricted-imports': [
                 'error',

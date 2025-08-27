@@ -39,7 +39,8 @@ export const eventBus = {
         if (!arr || arr.length === 0) return;
         for (const h of arr.slice()) {
             try {
-                (h as any)(payload as any);
+                // Invoke handler with the declared event payload type.
+                (h as Handler<EventMap[K]>)(payload as EventMap[K]);
             } catch (e) {
                 safeCaptureException(e);
             }
