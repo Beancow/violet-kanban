@@ -29,6 +29,14 @@ function warnMsg(msg) {
 }
 
 const root = process.cwd();
+// aggregate findings for a machine-readable report
+const report = {
+    forbiddenTypes: [],
+    longFiles: [],
+    multiExportFiles: [],
+    missingFiles: [],
+    providerMigrationsNeeded: [],
+};
 // check types dir
 const preferredTypes = path.join(root, 'src', 'types');
 const altTypes = path.join(root, 'types');
@@ -60,20 +68,23 @@ function parseGrepLine(line) {
         const abs = m[1];
         const rel = path.relative(root, abs);
         let text = (m[3] || '').trim().replace(/\s+/g, ' ');
-            // insert a newline to help stdout/table wrap in terminals
-            if (text.length > 80) {
-                const head = text.slice(0, 60);
-                const tail = text.slice(60, 140);
-                text = head + '\n' + (tail.length ? tail + (text.length > 140 ? '…' : '') : '');
-            } else {
-                text = truncate(text, 140);
-            }
+        // insert a newline to help stdout/table wrap in terminals
+        if (text.length > 80) {
+            const head = text.slice(0, 60);
+            const tail = text.slice(60, 140);
+            text =
+                head +
+                '\n' +
+                (tail.length ? tail + (text.length > 140 ? '…' : '') : '');
+        } else {
+            text = truncate(text, 140);
+        }
         return { file: rel, line: Number(m[2]), text };
     }
     return { file: path.relative(root, line) };
 }
 
-function printTable(title, rows, columns, severity = 'warn') {
+function printTable(title, rows, columns, severity = 'warn', forceBlock = false) {
     if (!Array.isArray(rows) || rows.length === 0) return;
     const green = '\u001b[32m';
     const red = '\u001b[31m';
@@ -90,19 +101,66 @@ function printTable(title, rows, columns, severity = 'warn') {
 
     try {
         // add a status column to each row so the table shows a tick/cross per row
-    // use plain unicode icons for table cells (avoid ANSI escapes which console.table escapes)
-    const icon = severity === 'ok' ? '✔' : severity === 'fail' ? '✖' : '⚠';
+        // use plain unicode icons for table cells (avoid ANSI escapes which console.table escapes)
+        const icon = severity === 'ok' ? '✔' : severity === 'fail' ? '✖' : '⚠';
         const displayRows = rows.map((r) => {
-            // don't override if caller already set a status
             if (Object.prototype.hasOwnProperty.call(r, 'status')) return r;
             return Object.assign({ status: icon }, r);
         });
-        if (columns) {
-            // ensure status is the first column in the printed table
-            const cols = ['status'].concat(columns.filter((c) => c !== 'status'));
-            console.table(displayRows.map((r) => cols.reduce((acc, c) => ((acc[c] = r[c]), acc), {})));
-        } else {
-            console.table(displayRows);
+
+        // If the table is large or wide, render as a single multi-line block so other console output
+        // doesn't interleave and break the visual structure in some terminals.
+        const maxFileLen = displayRows.reduce(
+            (m, r) => Math.max(m, String(r.file || r.path || '').length),
+            0
+        );
+        // lower thresholds: wide > 40 chars, large > 8 rows
+        const wide = maxFileLen > 40;
+        const large = displayRows.length > 8;
+        const useBlock = forceBlock || wide || large;
+        if (wide || large) {
+            // fallback to block mode
+            const cols =
+                columns && columns.length
+                    ? ['status'].concat(columns.filter((c) => c !== 'status'))
+                    : null;
+            const headerLine = cols
+                ? cols.map((c) => c.toUpperCase()).join(' | ')
+                : Object.keys(displayRows[0] || {}).join(' | ');
+            const lines = [headerLine];
+            for (const r of displayRows) {
+                if (cols) {
+                    lines.push(
+                        cols
+                            .map((c) => String(r[c] === undefined ? '' : r[c]))
+                            .join(' | ')
+                    );
+                } else {
+                    lines.push(
+                        Object.values(r)
+                            .map((v) => String(v))
+                            .join(' | ')
+                    );
+                }
+            }
+            const block = lines.join('\n');
+            if (severity === 'fail') console.error(block);
+            else if (severity === 'ok') console.log(block);
+            else console.warn(block);
+        } else if (!useBlock) {
+            if (columns) {
+                // ensure status is the first column in the printed table
+                const cols = ['status'].concat(
+                    columns.filter((c) => c !== 'status')
+                );
+                console.table(
+                    displayRows.map((r) =>
+                        cols.reduce((acc, c) => ((acc[c] = r[c]), acc), {})
+                    )
+                );
+            } else {
+                console.table(displayRows);
+            }
         }
     } catch (e) {
         // fallback
@@ -113,13 +171,16 @@ function printTable(title, rows, columns, severity = 'warn') {
 // Strict banned-type check outside of tests: disallow `any`, `as any`, `unknown`, and `Record<string, unknown>`
 // in non-test source files. Tests and mocks are excluded.
 (function bannedTypeCheck() {
-    const pattern = ': any|as any|\bunknown\b|Record<\s*string\s*,\s*unknown\s*>';
+    const pattern = ': any|as any|\bunknown\b|Record<s*strings*,s*unknowns*>';
     const out = grep(pattern, path.join(root, 'src'));
     // filter out true test files (filenames with .spec. or .test. or paths containing /tests/ or /__mocks__/)
     const filtered = out.filter((l) => {
         const parts = l.split(':');
         const file = parts[0] || '';
-        const isTest = /(?:\.spec\.|\.test\.|\/tests\/|\/__mocks__\/|__tests__\/)/i.test(file);
+        const isTest =
+            /(?:\.spec\.|\.test\.|\/tests\/|\/__mocks__\/|__tests__\/)/i.test(
+                file
+            );
         return !isTest;
     });
     if (filtered.length) {
@@ -128,12 +189,24 @@ function printTable(title, rows, columns, severity = 'warn') {
             if (!t) return 'match';
             if (/\bas any\b/.test(t)) return 'as any';
             if (/(:\s*any)\b/.test(t)) return ': any';
-            if (/\bRecord\s*<\s*string\s*,\s*unknown\s*>/.test(t)) return 'Record<string, unknown>';
+            if (/\bRecord\s*<\s*string\s*,\s*unknown\s*>/.test(t))
+                return 'Record<string, unknown>';
             if (/\bunknown\b/.test(t)) return 'unknown';
             return 'match';
         }
-        const rows = parsed.map((p) => ({ line: p.line || 0, file: path.relative(root, p.file || ''), match: detectMatch(p.text) }));
-        printTable('\u2716 Forbidden type usage found outside tests (remove any/unknown/Record<string, unknown>):', rows, ['line', 'file', 'match'], 'fail');
+        const rows = parsed.map((p) => ({
+            line: p.line || 0,
+            file: path.relative(root, p.file || ''),
+            match: detectMatch(p.text),
+        }));
+    // populate machine-readable report
+    report.forbiddenTypes = rows;
+        printTable(
+            '\u2716 Forbidden type usage found outside tests (remove any/unknown/Record<string, unknown>):',
+            rows,
+            ['line', 'file', 'match'],
+            'fail'
+        );
         // This is strict: fail the validator so authors fix types outside tests.
         fail('Forbidden type usage found outside tests');
     }
@@ -175,9 +248,20 @@ if (fs.existsSync(srcRoot)) {
         } catch (e) {}
     }
     if (longFiles.length) {
-    printTable('\u26a0 Files longer than 300 lines detected (consider splitting):', longFiles.map((l) => ({ path: path.relative(root, l.path), lines: l.lines })), ['path', 'lines'], 'warn');
-    // non-fatal warning
-    process.exitCode = 2;
+        const longFileRows = longFiles.map((l) => ({
+            path: path.relative(root, l.path),
+            lines: l.lines,
+        }));
+        report.longFiles = longFileRows;
+        printTable(
+            '\u26a0 Files longer than 300 lines detected (consider splitting):',
+            longFileRows,
+            ['path', 'lines'],
+            'warn',
+            false
+        );
+        // non-fatal warning
+        process.exitCode = 2;
     }
     for (const f of allFiles) {
         const base = path.basename(f).toLowerCase();
@@ -194,9 +278,22 @@ if (fs.existsSync(srcRoot)) {
         }
     }
     if (multiExportFiles.length) {
-    printTable('Files with multiple exports (split single-responsibility handlers into separate files):', multiExportFiles.map((m) => ({ path: path.relative(root, m.path), exports: m.exports })), ['path', 'exports'], 'fail');
-    console.error('Note: barrel files named `index.*` are allowed to re-export multiple symbols.');
-    process.exitCode = 1;
+        const multiRows = multiExportFiles.map((m) => ({
+            path: path.relative(root, m.path),
+            exports: m.exports,
+        }));
+        report.multiExportFiles = multiRows;
+        printTable(
+            'Files with multiple exports (split single-responsibility handlers into separate files):',
+            multiRows,
+            ['path', 'exports'],
+            'fail',
+            true // force block mode for this table
+        );
+        console.error(
+            'Note: barrel files named `index.*` are allowed to re-export multiple symbols.'
+        );
+        process.exitCode = 1;
     } else {
         ok('No files with multiple exports detected (non-barrel)');
     }
@@ -210,10 +307,17 @@ if (fs.existsSync(typeGuardsPath)) {
     try {
         const txt = fs.readFileSync(typeGuardsPath, 'utf8');
         const needs = ['isObject', 'isActionLike', 'hasOrganizationId'];
-        const missing = needs.filter((n) => !new RegExp(`export\\s+(const|function)\\s+${n}`,'m').test(txt));
+        const missing = needs.filter(
+            (n) =>
+                !new RegExp(`export\\s+(const|function)\\s+${n}`, 'm').test(txt)
+        );
         if (missing.length) {
-        warnMsg(`typeGuards missing expected guards (warning): ${missing.join(', ')}`);
-        process.exitCode = 2;
+            warnMsg(
+                `typeGuards missing expected guards (warning): ${missing.join(
+                    ', '
+                )}`
+            );
+            process.exitCode = 2;
         } else {
             ok('typeGuards exports look reasonable');
         }
@@ -273,8 +377,15 @@ for (const p of requiredFiles) {
     if (!fs.existsSync(abs)) missingFiles.push(p);
 }
 
-    if (missingFiles.length) {
-    printTable('Missing required files per DEV_GUIDELINES:', missingFiles.map((f) => ({ path: f })), ['path'], 'fail');
+if (missingFiles.length) {
+    report.missingFiles = missingFiles.map((f) => ({ path: f }));
+    printTable(
+        'Missing required files per DEV_GUIDELINES:',
+        report.missingFiles,
+        ['path'],
+        'fail',
+        true // force block mode for missing-files list
+    );
     // make this a failing condition so CI highlights missing implementations
     process.exitCode = 1;
 } else {
@@ -302,7 +413,16 @@ if (fs.existsSync(providersDir)) {
         }
     }
     if (providerMigrationsNeeded.length) {
-        printTable('Provider shims missing for the following providers (migration required):', providerMigrationsNeeded.map((p) => ({ path: p })), ['path'], 'fail');
+        report.providerMigrationsNeeded = providerMigrationsNeeded.map(
+            (p) => ({ path: p })
+        );
+        printTable(
+            'Provider shims missing for the following providers (migration required):',
+            report.providerMigrationsNeeded,
+            ['path'],
+            'fail',
+            true
+        );
         process.exitCode = 1;
     } else {
         ok('Provider shims exist for all detected providers');
@@ -315,7 +435,9 @@ if (fs.existsSync(providersDir)) {
 // or if store-specific helpers are not inside their DB folder.
 const storeHelpersDir = path.join(root, 'src', 'stores', 'helpers');
 if (fs.existsSync(storeHelpersDir)) {
-    fail('Found `src/stores/helpers` — move store-specific helpers into the relevant xStoreDB or xQueueDB folders');
+    fail(
+        'Found `src/stores/helpers` — move store-specific helpers into the relevant xStoreDB or xQueueDB folders'
+    );
 }
 
 // Find any helper directories directly under src/stores that are not DB folders
@@ -337,8 +459,10 @@ for (const sub of storeSubdirs) {
         sub !== 'helpers'
     ) {
         // if this directory contains files and it's not a DB directory, warn
-    warnMsg(`Found top-level files in src/stores/${sub} — ensure store DB logic lives under a *DB folder (e.g. ${sub}StoreDB/)`);
-    process.exitCode = 2;
+        warnMsg(
+            `Found top-level files in src/stores/${sub} — ensure store DB logic lives under a *DB folder (e.g. ${sub}StoreDB/)`
+        );
+        process.exitCode = 2;
     }
 }
 
@@ -346,7 +470,30 @@ if (process.exitCode && process.exitCode !== 2) {
     // a non-warning exit code indicates failure
     console.error('\u001b[31mValidation failed. See messages above.\u001b[0m');
 } else if (process.exitCode === 2) {
-    console.warn('\u001b[33mValidation completed with warnings (exit code 2)\u001b[0m');
+    console.warn(
+        '\u001b[33mValidation completed with warnings (exit code 2)\u001b[0m'
+    );
 } else {
     ok('Validation completed with no errors');
 }
+
+// write machine-readable report for CI to consume
+function writeReport(reportObj) {
+    try {
+        const outDir = path.join(root, 'reports');
+        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+        const outFile = path.join(outDir, 'validate-dev-guidelines.json');
+        fs.writeFileSync(outFile, JSON.stringify(reportObj, null, 2), 'utf8');
+        console.log('\nValidation report written to ' + outFile);
+    } catch (err) {
+        console.error('Failed to write validation report:', err && err.message);
+    }
+}
+
+// short summary + persist report
+writeReport(report);
+console.log('\nShort summary:');
+console.log(`missingFiles: ${report.missingFiles ? report.missingFiles.length : 0}`);
+console.log(`forbiddenTypes: ${report.forbiddenTypes ? report.forbiddenTypes.length : 0}`);
+console.log(`multiExportFiles: ${report.multiExportFiles ? report.multiExportFiles.length : 0}`);
+console.log(`longFiles: ${report.longFiles ? report.longFiles.length : 0}`);

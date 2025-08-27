@@ -8,6 +8,7 @@
 -   `src/utils/leaderElection.ts`  simple BroadcastChannel-based leader election helper.
 
 -   `docs/migration.md`  short checklist and steps for converting Provider -> ProviderShim + Store.
+
 ## Developer Guidelines (updated)
 
 This file contains the active rules we apply when refactoring or adding sync, worker and persistence code. Keep rules precise and enforceable. When you change these rules, update `scripts/validate-dev-guidelines.js` accordingly.
@@ -198,31 +199,31 @@ If you want me to scaffold a small number of the DB classes and shims, name whic
 
 Suggested additions (concise, non-duplicative)
 
-- Add small, explicit handler ctx contracts and optional runtime schemas (zod or similar) under `src/types/handlers/` and wire minimal checks into `typeGuards.ts` where needed.  
-    Maps to: "Handlers must be passed an explicit small ctx object" and "Use runtime guards".
+-   Add small, explicit handler ctx contracts and optional runtime schemas (zod or similar) under `src/types/handlers/` and wire minimal checks into `typeGuards.ts` where needed.  
+     Maps to: "Handlers must be passed an explicit small ctx object" and "Use runtime guards".
 
-- Provide a tiny `Store` interface and an in-memory adapter (dev/test) under `src/stores/adapters/`. This prevents repeated refactors when swapping IDB implementations and enables fast unit tests.  
-    Maps to: "Prefer class-based Stores" and "Provider Shims".
+-   Provide a tiny `Store` interface and an in-memory adapter (dev/test) under `src/stores/adapters/`. This prevents repeated refactors when swapping IDB implementations and enables fast unit tests.  
+     Maps to: "Prefer class-based Stores" and "Provider Shims".
 
-- Define a small worker message envelope type (`src/types/worker.ts`) and runtime guards for it so `workerPoster`/handlers can depend on a single shape.  
-    Maps to: "workers/workerPoster" and "workerMessageHandler".
+-   Define a small worker message envelope type (`src/types/worker.ts`) and runtime guards for it so `workerPoster`/handlers can depend on a single shape.  
+     Maps to: "workers/workerPoster" and "workerMessageHandler".
 
-- Standardize queue items with an idempotency key and explicit `maxRetries`/`poison` policy; persist `nextAttempt` with jittered exponential backoff (helper `backoff.ts`).  
-    Maps to: "Queue lifecycle", "backoffJob" and "On error increment `retryCount`".
+-   Standardize queue items with an idempotency key and explicit `maxRetries`/`poison` policy; persist `nextAttempt` with jittered exponential backoff (helper `backoff.ts`).  
+     Maps to: "Queue lifecycle", "backoffJob" and "On error increment `retryCount`".
 
-- Add leader-election using `BroadcastChannel` (simple claim/renew lock) so only one tab processes queues at a time.  
-    Maps to: "BroadcastChannel" and "Orchestrator reads queues".
+-   Add leader-election using `BroadcastChannel` (simple claim/renew lock) so only one tab processes queues at a time.  
+     Maps to: "BroadcastChannel" and "Orchestrator reads queues".
 
-- Extend the validator to optionally (config flag) fail on `: any` in critical folders and to warn on files >300 lines so the single-responsibility rule is auto-enforced. Keep defaults lenient for migration branches.  
-    Maps to: "The validator" and "One handler per file".
+-   Extend the validator to optionally (config flag) fail on `: any` in critical folders and to warn on files >300 lines so the single-responsibility rule is auto-enforced. Keep defaults lenient for migration branches.  
+     Maps to: "The validator" and "One handler per file".
 
-- Introduce structured sync error codes (enum) and include a `code` field on `SyncError` to make UI grouping and retries clearer.  
-    Maps to: "SyncErrorStore" and "record the error in SyncErrorStore".
+-   Introduce structured sync error codes (enum) and include a `code` field on `SyncError` to make UI grouping and retries clearer.  
+     Maps to: "SyncErrorStore" and "record the error in SyncErrorStore".
 
-- Add a short `docs/migration.md` checklist for converting a Provider → ProviderShim + Store to keep migrations consistent.  
-    Maps to: "Provider shims" and "When you change these rules, update the validator".
+-   Add a short `docs/migration.md` checklist for converting a Provider → ProviderShim + Store to keep migrations consistent.  
+     Maps to: "Provider shims" and "When you change these rules, update the validator".
 
-- Spell out a security note for IndexedDB persistence: never store raw secret tokens; persist only safe refresh fingerprints or short-lived safe tokens and document the allowed shape.  
-    Maps to: "IndexedDB is the authoritative persistence layer".
+-   Spell out a security note for IndexedDB persistence: never store raw secret tokens; persist only safe refresh fingerprints or short-lived safe tokens and document the allowed shape.  
+     Maps to: "IndexedDB is the authoritative persistence layer".
 
 These are intentionally short, actionable items that avoid restating the existing rules; if you'd like, I can scaffold one or two of them (worker envelope + runtime guard, or Store interface + in-memory adapter) next and wire up a small unit test to demonstrate the pattern.
