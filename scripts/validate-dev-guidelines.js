@@ -267,6 +267,16 @@ if (fs.existsSync(srcRoot)) {
         const base = path.basename(f).toLowerCase();
         // allow barrel files named index.*
         if (base.startsWith('index.')) continue;
+        // allow multiple exports inside types, utils and helper files
+        const relPath = path.relative(root, f).replace(/\\/g, '/');
+        if (
+            relPath.startsWith('src/types/') ||
+            relPath.startsWith('src/utils/') ||
+            relPath.includes('/helpers/')
+        ) {
+            // skip these directories from the strict multi-export rule
+            continue;
+        }
         try {
             const txt = fs.readFileSync(f, 'utf8');
             const matches = txt.match(/^\s*export\b/gm) || [];
