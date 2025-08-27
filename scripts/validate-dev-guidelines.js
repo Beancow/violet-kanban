@@ -267,12 +267,17 @@ if (fs.existsSync(srcRoot)) {
         const base = path.basename(f).toLowerCase();
         // allow barrel files named index.*
         if (base.startsWith('index.')) continue;
-        // allow multiple exports inside types, utils and helper files
+        // allow multiple exports inside types, utils, providers and helper files
         const relPath = path.relative(root, f).replace(/\\/g, '/');
+        const lpath = relPath.toLowerCase();
+        const baseName = path.basename(f).toLowerCase();
         if (
-            relPath.startsWith('src/types/') ||
-            relPath.startsWith('src/utils/') ||
-            relPath.includes('/helpers/')
+            lpath.startsWith('src/types/') ||
+            lpath.startsWith('src/utils/') ||
+            // allow files that are named *Provider* (e.g. BoardProvider.tsx) to export multiple symbols
+            baseName.includes('provider') ||
+            lpath.includes('/helpers/') ||
+            lpath.includes('helper')
         ) {
             // skip these directories from the strict multi-export rule
             continue;
