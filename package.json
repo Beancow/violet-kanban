@@ -15,7 +15,8 @@
         "test": "jest --watchAll=false --passWithNoTests",
         "test:e2e": "playwright test",
         "test:e2e:ci": "playwright test --reporter=github",
-        "test:smoke": "jest --watchAll=false --passWithNoTests tests/smoke"
+        "test:smoke": "jest --watchAll=false --passWithNoTests tests/smoke",
+        "validate:dev-guidelines": "node scripts/validate-dev-guidelines.js"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",
