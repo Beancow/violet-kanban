@@ -19,6 +19,28 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
+    validate:
+        name: Validate dev guidelines
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 18
+                  cache: 'npm'
+            - name: Install dependencies
+              run: |
+                  if [ "${{ github.event.inputs.retry_with_force }}" = "true" ]; then
+                    npm install --force
+                  elif [ "${{ github.event.inputs.retry_with_legacy_peer_deps }}" = "true" ]; then
+                    npm install --legacy-peer-deps
+                  else
+                    npm ci
+                  fi
+            - name: Validate DEV_GUIDELINES
+              run: npm run validate:dev-guidelines
+
     lint:
         name: Lint
         runs-on: ubuntu-latest
@@ -42,6 +64,7 @@ jobs:
               run: DISABLE_SENTRY=1 NEXT_PUBLIC_DISABLE_SENTRY=1 npm run lint
 
     test:
+        needs: validate
         name: Test
         runs-on: ubuntu-latest
         steps:
@@ -64,6 +87,7 @@ jobs:
               run: npm test
 
     type-check:
+        needs: validate
         name: Type check
         runs-on: ubuntu-latest
         steps:
@@ -86,6 +110,7 @@ jobs:
               run: npx tsc --noEmit
 
     build-scan:
+        needs: validate
         name: Build and scan for leaked paths
         runs-on: ubuntu-latest
         steps:
