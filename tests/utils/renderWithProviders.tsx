@@ -14,6 +14,7 @@ interface RenderOptions {
     UiProvider?: React.ComponentType<{ children?: ReactNode }>;
     // If true, mount the full application provider tree (TempIdMap, SyncError, Board/List/Card)
     useAppProviders?: boolean;
+    ReconciliationProvider?: React.ComponentType<{ children?: ReactNode }>;
     // Allow overriding individual providers from the app tree for tighter control in tests
     TempIdMapProvider?: React.ComponentType<{ children?: ReactNode }>;
     SyncErrorProvider?: React.ComponentType<{ children?: ReactNode }>;
@@ -58,6 +59,9 @@ export function renderWithProviders(
     // can run without booting external integrations.
     let AP: React.ComponentType<{ children?: ReactNode }>;
     let OP: React.ComponentType<{ children?: ReactNode }>;
+    let ReconP: React.ComponentType<{ children?: ReactNode }> = ({
+        children,
+    }) => <>{children}</>;
 
     if (options?.AuthProvider) {
         AP = options.AuthProvider;
@@ -71,15 +75,7 @@ export function renderWithProviders(
         }
     }
 
-    // Diagnostic: print resolved AuthProvider shape (helps verify jest.doMock applied)
-    try {
-        // eslint-disable-next-line no-console
-        console.debug(
-            '[diag] resolved AuthProvider ->',
-            typeof AP,
-            (AP as any)?.name || (AP as any)?.displayName || null
-        );
-    } catch (e) {}
+    // (removed temporary diagnostics)
 
     if (options?.OrganizationProvider) {
         OP = options.OrganizationProvider;
@@ -89,6 +85,19 @@ export function renderWithProviders(
             OP = orgMod.OrganizationProvider ?? orgMod.default ?? orgMod;
         } catch (e) {
             OP = require('./providerMocks').MockOrganizationProvider;
+        }
+    }
+    // Resolve reconciliation provider (fall back to test mock). This ensures
+    // `useReconciliation()` is safe to call in components rendered by tests
+    // without requiring callers to opt into the full app provider tree.
+    try {
+        const reconMod = require('@/providers/ReconciliationProvider');
+        ReconP = reconMod.ReconciliationProvider ?? reconMod.default ?? ReconP;
+    } catch (e) {
+        try {
+            ReconP = require('./providerMocks').MockReconciliationProvider;
+        } catch (_) {
+            // leave pass-through
         }
     }
     // Resolve UiProvider lazily so test module mocks can replace provider
@@ -121,6 +130,9 @@ export function renderWithProviders(
     try {
         const qpMod = require('@/providers/QueueProvider');
         const candidate = qpMod.QueueProvider ?? qpMod.default ?? qpMod;
+        // Diagnostic: print resolved QueueProvider shape for test triage
+        // (removed temporary diagnostics)
+
         QP =
             typeof candidate === 'function'
                 ? candidate
@@ -129,10 +141,19 @@ export function renderWithProviders(
         QP = ({ children }: { children?: ReactNode }) => <>{children}</>;
     }
 
-    // Resolve optional app-level providers when requested
+    // Resolve optional app-level providers. TempIdMapProvider is required by
+    // some low-level components (e.g., SyncManager), so try to resolve it by
+    // default and fall back to a pass-through component if unavailable.
     let TempP: React.ComponentType<{ children?: ReactNode }> = ({
         children,
     }) => <>{children}</>;
+    try {
+        const mod = require('@/providers/TempIdMapProvider');
+        TempP = mod.TempIdMapProvider ?? mod.default ?? TempP;
+    } catch (e) {
+        // leave pass-through if module can't be required in test env
+    }
+    // (removed temporary diagnostics)
     let SyncErrP: React.ComponentType<{ children?: ReactNode }> = ({
         children,
     }) => <>{children}</>;
@@ -150,14 +171,11 @@ export function renderWithProviders(
         // allow overrides first
         if (options?.TempIdMapProvider) {
             TempP = options.TempIdMapProvider;
-        } else {
-            try {
-                const mod = require('@/providers/TempIdMapProvider');
-                TempP = mod.TempIdMapProvider ?? mod.default ?? TempP;
-            } catch (e) {
-                // leave pass-through
-            }
         }
+
+        // Reconciliation provider is resolved below (so it is available to
+        // SyncManager and other low-level components even when tests don't
+        // explicitly enable the full app provider tree).
 
         if (options?.SyncErrorProvider) {
             SyncErrP = options.SyncErrorProvider;
@@ -201,22 +219,26 @@ export function renderWithProviders(
     const Wrapper = ({ children }: { children?: ReactNode }) => (
         <AP>
             <TempP>
-                <OP>
-                    <SyncErrP>
-                        <BoardP>
-                            <ListP>
-                                <CardP>
-                                    <UP>
-                                        <QP>{children}</QP>
-                                    </UP>
-                                </CardP>
-                            </ListP>
-                        </BoardP>
-                    </SyncErrP>
-                </OP>
+                <ReconP>
+                    <OP>
+                        <SyncErrP>
+                            <BoardP>
+                                <ListP>
+                                    <CardP>
+                                        <UP>
+                                            <QP>{children}</QP>
+                                        </UP>
+                                    </CardP>
+                                </ListP>
+                            </BoardP>
+                        </SyncErrP>
+                    </OP>
+                </ReconP>
             </TempP>
         </AP>
     );
+
+    // (removed temporary diagnostics)
 
     // Ensure UiProvider wraps the entire provider tree so `useUi()` is
     // available to any component rendered in tests. Use the resolved `UP`

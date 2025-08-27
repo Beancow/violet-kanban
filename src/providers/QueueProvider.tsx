@@ -1,42 +1,20 @@
 'use client';
-// debug: module load trace for test triage
-// eslint-disable-next-line no-console
-console.debug && console.debug('[module-load] src/providers/QueueProvider');
+
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import * as Sentry from '@/lib/sentryWrapper';
 import { safeCaptureException } from '@/lib/sentryWrapper';
 import type { ReactNode } from 'react';
 import type { VioletKanbanAction, QueueItem } from '@/types';
 import type { QueueApi } from '@/types/provider-apis';
-// Provider hooks imported but not directly used in this file
-// import { useTempIdMap } from './TempIdMapProvider';
-// import { useBoards } from './BoardProvider';
-// import { useLists } from './ListProvider';
-// import { useCards } from './CardProvider';
 import { reducer as queueReducer } from './reducers/queueReducer';
 import { registerQueueAdapter } from './adapter';
-import {
-    computeQueueItemId,
-    unwrapQueueAction,
-    squashQueueActions as _squashQueueActions,
-} from './helpers';
-
-// Minimal queue reducer using same concepts: queues for board/list/card actions
+import { computeQueueItemId } from './helpers';
+import { emitEvent } from '@/utils/eventBusClient';
 
 type State = {
     boardActionQueue: QueueItem[];
     listActionQueue: QueueItem[];
     cardActionQueue: QueueItem[];
 };
-
-type _Action =
-    | { type: 'ENQUEUE_BOARD'; action: VioletKanbanAction }
-    | { type: 'ENQUEUE_LIST'; action: VioletKanbanAction }
-    | { type: 'ENQUEUE_CARD'; action: VioletKanbanAction }
-    | { type: 'REMOVE_BOARD_BY_ID'; itemId: string }
-    | { type: 'REMOVE_LIST_BY_ID'; itemId: string }
-    | { type: 'REMOVE_CARD_BY_ID'; itemId: string }
-    | { type: 'SET_STATE'; state: State };
 
 const STORAGE_KEY = 'violet-kanban-queue-storage';
 
@@ -94,71 +72,47 @@ export function QueueProvider({ children }: { children: ReactNode }) {
         };
     };
 
-    const api = {
-        state,
-        enqueueBoardAction: (a: VioletKanbanAction) => {
-            const item = wrap(a);
-            console.debug('[QueueProvider] enqueueBoardAction', {
-                id: item.id,
-                type: a.type,
-            });
-            dispatch({ type: 'ENQUEUE_BOARD', action: item });
-            // notify the sync manager that the queue changed so it can start
-            // processing immediately (e.g. after a user action)
-            try {
-                if (typeof window !== 'undefined')
-                    window.dispatchEvent(
-                        new CustomEvent('violet:queue:updated', {
-                            detail: { kind: 'board' },
-                        })
-                    );
-            } catch (e) {
-                /* ignore (tests may run in non-browser environments) */
-            }
-        },
-        enqueueListAction: (a: VioletKanbanAction) => {
-            const item = wrap(a);
-            console.debug('[QueueProvider] enqueueListAction', {
-                id: item.id,
-                type: a.type,
-            });
-            dispatch({ type: 'ENQUEUE_LIST', action: item });
-            try {
-                if (typeof window !== 'undefined')
-                    window.dispatchEvent(
-                        new CustomEvent('violet:queue:updated', {
-                            detail: { kind: 'list' },
-                        })
-                    );
-            } catch (e) {
-                /* ignore */
-            }
-        },
-        enqueueCardAction: (a: VioletKanbanAction) => {
-            const item = wrap(a);
-            console.debug('[QueueProvider] enqueueCardAction', {
-                id: item.id,
-                type: a.type,
-            });
-            dispatch({ type: 'ENQUEUE_CARD', action: item });
-            try {
-                if (typeof window !== 'undefined')
-                    window.dispatchEvent(
-                        new CustomEvent('violet:queue:updated', {
-                            detail: { kind: 'card' },
-                        })
-                    );
-            } catch (e) {
-                /* ignore */
-            }
-        },
-        removeBoardAction: (id: string) =>
-            dispatch({ type: 'REMOVE_BOARD_BY_ID', itemId: id }),
-        removeListAction: (id: string) =>
-            dispatch({ type: 'REMOVE_LIST_BY_ID', itemId: id }),
-        removeCardAction: (id: string) =>
-            dispatch({ type: 'REMOVE_CARD_BY_ID', itemId: id }),
-    };
+    const api = React.useMemo(() => {
+        return {
+            state,
+            enqueueBoardAction: (a: VioletKanbanAction) => {
+                const item = wrap(a);
+                console.debug('[QueueProvider] enqueueBoardAction', {
+                    id: item.id,
+                    type: a.type,
+                });
+                dispatch({ type: 'ENQUEUE_BOARD', action: item });
+                // notify the sync manager that the queue changed so it can start
+                // processing immediately (e.g. after a user action)
+                emitEvent('queue:updated', { kind: 'board' });
+            },
+            enqueueListAction: (a: VioletKanbanAction) => {
+                const item = wrap(a);
+                console.debug('[QueueProvider] enqueueListAction', {
+                    id: item.id,
+                    type: a.type,
+                });
+                dispatch({ type: 'ENQUEUE_LIST', action: item });
+                emitEvent('queue:updated', { kind: 'list' });
+            },
+            enqueueCardAction: (a: VioletKanbanAction) => {
+                const item = wrap(a);
+                console.debug('[QueueProvider] enqueueCardAction', {
+                    id: item.id,
+                    type: a.type,
+                });
+                dispatch({ type: 'ENQUEUE_CARD', action: item });
+                emitEvent('queue:updated', { kind: 'card' });
+            },
+            removeBoardAction: (id: string) =>
+                dispatch({ type: 'REMOVE_BOARD_BY_ID', itemId: id }),
+            removeListAction: (id: string) =>
+                dispatch({ type: 'REMOVE_LIST_BY_ID', itemId: id }),
+            removeCardAction: (id: string) =>
+                dispatch({ type: 'REMOVE_CARD_BY_ID', itemId: id }),
+        } as QueueApi;
+        // Keep identity stable except when `state` changes. `dispatch` is stable.
+    }, [state]);
 
     // Register the adapter once when the provider mounts. Avoid re-registering
     // on every state change which can cause transient unregister/register
