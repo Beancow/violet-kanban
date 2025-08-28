@@ -13,36 +13,18 @@ import {
     isBoardLike,
 } from '@/types/typeGuards';
 import { onEvent, emitEvent } from '@/utils/eventBusClient';
+import type {
+    WorkerMessageCtxLite as WorkerMessageCtx,
+    QueueApiLike,
+    SyncErrorLike,
+} from '@/types/services';
 import handleActionSuccess, {
     handleCardSuccess,
     handleListSuccess,
     handleBoardSuccess,
 } from '@/services/syncJobs/actionSuccessJob';
 
-export type QueueApiLike = {
-    state?: any;
-    removeBoardAction?: (id: string) => void;
-    removeListAction?: (id: string) => void;
-    removeCardAction?: (id: string) => void;
-    enqueueCardAction?: (a: any) => void;
-    enqueueListAction?: (a: any) => void;
-    enqueueBoardAction?: (a: any) => void;
-    updateQueueMeta?: (id: string, meta: any) => void;
-};
-
-export type SyncErrorLike = {
-    addError?: (e: any) => void;
-};
-
-export type WorkerMessageCtx = {
-    outgoingLogs: Array<Record<string, unknown>>;
-    outgoingClearTimeout?: number | undefined;
-    inFlightManager: any;
-    attemptsMap: Record<string, any>;
-    queueApi?: QueueApiLike;
-    tempMap?: any;
-    syncError?: SyncErrorLike;
-};
+// Use centralized lightweight service types from `src/types/services`
 
 export default async function handleWorkerMessage(
     ctx: WorkerMessageCtx,
