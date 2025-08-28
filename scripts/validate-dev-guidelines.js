@@ -752,7 +752,9 @@ if (fs.existsSync(storeHelpersDir)) {
         // typescript not available; skip this check
         return;
     }
-    const enableFail = process.argv.includes('--fail-on-unknown-casts') || process.env.VALIDATOR_FAIL_ON_UNKNOWN_CASTS === '1';
+    const enableFail =
+        process.argv.includes('--fail-on-unknown-casts') ||
+        process.env.VALIDATOR_FAIL_ON_UNKNOWN_CASTS === '1';
     const allFiles = walkDir(srcRoot);
     const matches = [];
     for (const f of allFiles) {
@@ -760,10 +762,16 @@ if (fs.existsSync(storeHelpersDir)) {
         if (isFrozen(rel)) continue;
         if (isExcludedForNoise(rel)) continue;
         // skip tests and mocks
-        if (/(?:\.spec\.|\.test\.|\/tests\/|__mocks__|__tests__)/i.test(rel)) continue;
+        if (/(?:\.spec\.|\.test\.|\/tests\/|__mocks__|__tests__)/i.test(rel))
+            continue;
         try {
             const src = fs.readFileSync(f, 'utf8');
-            const sf = ts.createSourceFile(f, src, ts.ScriptTarget.ESNext, true);
+            const sf = ts.createSourceFile(
+                f,
+                src,
+                ts.ScriptTarget.ESNext,
+                true
+            );
 
             function checkFunctionNode(node) {
                 // handle function-like nodes: declarations, expressions, arrows, methods
@@ -773,11 +781,17 @@ if (fs.existsSync(storeHelpersDir)) {
                     ts.isArrowFunction(node) ||
                     ts.isMethodDeclaration(node)
                 ) {
-                    if (!node.parameters || node.parameters.length === 0) return;
+                    if (!node.parameters || node.parameters.length === 0)
+                        return;
                     node.parameters.forEach((param) => {
-                        const paramId = param.name && ts.isIdentifier(param.name) ? param.name.text : null;
+                        const paramId =
+                            param.name && ts.isIdentifier(param.name)
+                                ? param.name.text
+                                : null;
                         if (!paramId) return;
-                        const hasUnknownType = param.type && param.type.kind === ts.SyntaxKind.UnknownKeyword;
+                        const hasUnknownType =
+                            param.type &&
+                            param.type.kind === ts.SyntaxKind.UnknownKeyword;
                         const hasNoType = !param.type;
                         if (!hasUnknownType && !hasNoType) return;
 
@@ -786,9 +800,15 @@ if (fs.existsSync(storeHelpersDir)) {
                         function findInBody(n) {
                             if (found) return;
                             // as-expression: <expr> as Type
-                            if (ts.isAsExpression(n) || ts.isTypeAssertionExpression(n)) {
+                            if (
+                                ts.isAsExpression(n) ||
+                                ts.isTypeAssertionExpression(n)
+                            ) {
                                 const inner = n.expression;
-                                if (ts.isIdentifier(inner) && inner.text === paramId) {
+                                if (
+                                    ts.isIdentifier(inner) &&
+                                    inner.text === paramId
+                                ) {
                                     found = true;
                                     return;
                                 }
@@ -796,7 +816,12 @@ if (fs.existsSync(storeHelpersDir)) {
                             // variable initializer like: const p = param as Foo
                             if (ts.isVariableDeclaration(n) && n.initializer) {
                                 const init = n.initializer;
-                                if ((ts.isAsExpression(init) || ts.isTypeAssertionExpression(init)) && ts.isIdentifier(init.expression) && init.expression.text === paramId) {
+                                if (
+                                    (ts.isAsExpression(init) ||
+                                        ts.isTypeAssertionExpression(init)) &&
+                                    ts.isIdentifier(init.expression) &&
+                                    init.expression.text === paramId
+                                ) {
                                     found = true;
                                     return;
                                 }
@@ -806,8 +831,16 @@ if (fs.existsSync(storeHelpersDir)) {
 
                         if (node.body) findInBody(node.body);
                         if (found) {
-                            const loc = sf.getLineAndCharacterOfPosition(param.pos || 0);
-                            matches.push({ file: rel, line: loc.line + 1, param: paramId, unknown: hasUnknownType, implicit: hasNoType });
+                            const loc = sf.getLineAndCharacterOfPosition(
+                                param.pos || 0
+                            );
+                            matches.push({
+                                file: rel,
+                                line: loc.line + 1,
+                                param: paramId,
+                                unknown: hasUnknownType,
+                                implicit: hasNoType,
+                            });
                         }
                     });
                 }
@@ -832,7 +865,9 @@ if (fs.existsSync(storeHelpersDir)) {
         if (enableFail) {
             fail('Found unknown/implicit parameter casts');
         } else {
-            warnMsg('Unknown/implicit parameter casts detected (warning). Use --fail-on-unknown-casts to make this an error.');
+            warnMsg(
+                'Unknown/implicit parameter casts detected (warning). Use --fail-on-unknown-casts to make this an error.'
+            );
             // mark validator with a warning exit code to surface in CI if desired
             process.exitCode = Math.max(process.exitCode || 0, 2);
         }
