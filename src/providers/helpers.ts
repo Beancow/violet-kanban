@@ -6,6 +6,7 @@ import type { QueueMeta } from '@/types/violet-kanban-action';
 import { isObject, hasUserId, isActionLike } from '@/types/typeGuards';
 import type { SyncAction } from '@/types/worker.type';
 import type { Board, BoardList, BoardCard } from '@/types/appState.type';
+import sanitizeArray from '@/utils/sanitizeArray';
 
 // Detect conflicts for board, list, and card updates in the action queue
 export function detectActionConflicts(
@@ -154,6 +155,13 @@ export function computeQueueItemId(
     }
 }
 
+/**
+ * @deprecated This helper is implementation detail of queue backoff logic and
+ * will be internalized into the orchestration/backoff jobs during the
+ * provider->store migration. Do not add type fixes here; update callers to
+ * use `scheduleNextAttempt`/`backoffJob` helpers instead and remove this
+ * export in a follow-up cleanup PR.
+ */
 // Exponential backoff helper for scheduling retries. Returns milliseconds.
 export function computeBackoffMs(attempts = 0) {
     // base 1s, double each attempt, cap at 60s
@@ -258,7 +266,7 @@ export function getActionItemId(
 
     // check payload.id / payload.tempId
     // New: support org fetch actions which carry payload.userId
-    if (hasUserId(p)) return (p as Record<string, unknown>).userId as string;
+    if (hasUserId(p)) return p.userId;
     if (hasIdField(p)) return p.id;
     if (hasTempIdField(p)) return p.tempId;
     return undefined;
@@ -270,6 +278,12 @@ export function squashQueueActions(queue: QueueItem[], newItem: QueueItem) {
 }
 
 // Determines if an action is stale compared to a server updatedAt ISO string
+/**
+ * @deprecated Internal helper — action staleness checks will be moved into
+ * orchestrator/job-level logic. Avoid editing types here; consumers should
+ * rely on the orchestrator/store APIs. This will be removed in a later
+ * migration PR.
+ */
 export function isActionStale(
     action: { timestamp?: number } | undefined,
     serverUpdatedAt?: string | undefined
@@ -289,17 +303,20 @@ function getActionTimestamp(action: unknown): number | undefined {
         'payload' in action &&
         isObject((action as Record<string, unknown>).payload)
     ) {
-        const p = (action as Record<string, unknown>).payload as Record<
-            string,
-            unknown
-        >;
-        const t = p.timestamp as unknown;
-        return typeof t === 'number' ? (t as number) : undefined;
+        const p = (action as Record<string, unknown>).payload;
+        if (hasTimestampField(p)) return p.timestamp;
+        return undefined;
     }
     return undefined;
 }
 
 // Specific helper to check card update actions against server card list
+/**
+ * @deprecated Card-specific staleness helper; will be internalized or
+ * removed as part of the provider -> store migration. Please do not change
+ * types in this helper — add guards or types in `src/types/` and migrate
+ * callers instead.
+ */
 export function isCardActionStale(
     action: VioletKanbanAction | undefined,
     cards: BoardCard[] = []
@@ -337,23 +354,20 @@ export function isValidWorkerAction(x: unknown): boolean {
 
 // Remove malformed queue items by inspecting each QueueItem and calling the
 // provided removal function when the item is invalid for worker processing.
-export function sanitizeQueue(
-    q: any[] | undefined,
+export function sanitizeQueue<T>(
+    q: T[] | undefined,
     removeFn?: (id: string) => void
 ) {
     if (!q || q.length === 0 || !removeFn) return;
-    for (const item of q) {
+    const items = sanitizeArray(q, isQueueItem);
+    for (const item of items) {
         try {
-            if (!isQueueItem(item)) continue;
             const action = unwrapQueueAction(item);
             if (!isActionLike(action) || !isValidWorkerAction(action)) {
-                const id = (item as any).id as string | undefined;
-                if (id) {
-                    try {
-                        removeFn(id);
-                    } catch (e) {
-                        /* ignore removal errors */
-                    }
+                try {
+                    removeFn(item.id);
+                } catch (e) {
+                    /* ignore removal errors */
                 }
             }
         } catch (e) {

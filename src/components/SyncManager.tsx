@@ -15,6 +15,8 @@ import {
     hasTimestampProp,
     hasTypeProp,
     hasOrganizationIdInData,
+    hasIdProp,
+    isStringId,
 } from '@/types/typeGuards';
 import { isActionLike } from '@/types/typeGuards';
 import {
@@ -89,14 +91,9 @@ export default function SyncManager() {
         getFreshTokenRef.current = getFreshToken;
     }, [getFreshToken]);
 
-    const inFlightRef = useRef<{
-        waiting: boolean;
-        id?: string | undefined;
-        promise?: Promise<void> | undefined;
-        resolve?: (() => void) | undefined;
-        timeout?: number | undefined;
-        meta?: any;
-    }>({ waiting: false });
+    const inFlightRef = useRef<
+        import('@/types/syncManager.types').SyncManagerInFlightRef
+    >({ waiting: false });
 
     // Track scheduled timeouts so we can clear them on unmount (prevents
     // Jest/node from hanging because of recurring zero-delay timeouts).
@@ -180,13 +177,14 @@ export default function SyncManager() {
             const freshToken = await getFreshTokenRef.current();
 
             const queueApiLocal = queueApiRef.current;
-            const state = queueApiLocal.state;
-            const sanitizers: Array<[any[] | undefined, (id: string) => void]> =
-                [
-                    [state.boardActionQueue, queueApiLocal.removeBoardAction],
-                    [state.listActionQueue, queueApiLocal.removeListAction],
-                    [state.cardActionQueue, queueApiLocal.removeCardAction],
-                ];
+            const state = queueApiLocal.state ?? {};
+            const sanitizers: Array<
+                import('@/types/syncManager.types').SanitizerTuple
+            > = [
+                [state.boardActionQueue, queueApiLocal.removeBoardAction],
+                [state.listActionQueue, queueApiLocal.removeListAction],
+                [state.cardActionQueue, queueApiLocal.removeCardAction],
+            ];
             sanitizers.forEach(([q, remover]) => sanitizeQueue(q, remover));
 
             const pickNextFrom = (queues: Array<any[] | undefined>) => {
@@ -220,8 +218,11 @@ export default function SyncManager() {
             if (!isValidWorkerAction(action)) {
                 try {
                     if (isQueueItem(nextItem)) {
-                        const q = nextItem as any;
-                        const id = typeof q.id === 'string' ? q.id : undefined;
+                        const q = nextItem as Record<string, unknown>;
+                        const id =
+                            hasIdProp(q) && isStringId(q.id)
+                                ? (q.id as string)
+                                : undefined;
                         if (id) {
                             queueApi.removeBoardAction(id);
                             queueApi.removeListAction(id);
@@ -581,7 +582,21 @@ export default function SyncManager() {
 
     useEffect(() => {
         mountedRef.current = true;
-        const orchestrator = new SyncOrchestrator(processQueuedActions);
+        const orchestrator = new SyncOrchestrator({
+            queueApi:
+                queueApi as unknown as import('@/types/services').QueueApiLike,
+            syncError:
+                syncError as unknown as import('@/types/services').SyncErrorLike,
+            getFreshToken:
+                getFreshToken as unknown as import('@/types/services').FreshTokenFn,
+            postMessage:
+                postMessage as unknown as import('@/types/services').WebWorkerPoster,
+            reconciliation,
+            tempMap,
+            orgProvider: {
+                currentOrganizationId: org.currentOrganizationId ?? undefined,
+            },
+        });
         orchestrator.start();
         return () => {
             mountedRef.current = false;
