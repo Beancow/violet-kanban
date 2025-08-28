@@ -20,6 +20,58 @@ High-level rules (required)
 -   Handlers must be passed an explicit small ctx object with everything they need; avoid hidden globals.
 -   Centralize types under `src/types/` (use subfolders to mirror `src/` layout).
 -   Use runtime guards from `src/types/typeGuards.ts` when narrowing is required. Add new guards there as needed.
+-   Do not create new type declarations inline in feature or provider files; add new types to `src/types/` and import them where needed.
+-   Prefer using runtime type guards from `src/types/typeGuards.ts` instead of ad-hoc `typeof` checks in handlers; add or extend guards there when needed.
+-   When creating new files, place all exported types in the centralized `src/types/` folder (or reuse existing types) — avoid `type`/`export type` declarations outside `src/types/`.
+
+Refactor plan & priorities (recommended incremental workflow)
+
+-   Goal: migrate providers -> provider shims + typed `*StoreDB` implementations with minimal disruption to other work and CI. Types will change a lot during the migration; treat type cleanup as the final step of each feature migration so PRs remain reviewable.
+
+-   High level order of operations for a migration PR:
+    1.  Add a minimal `ProviderShim` under `src/providers/shims/` that preserves the current UI surface but delegates to a new store API (the shim can throw NotImplemented for advanced methods initially). This keeps consumers compiling while the store is developed.
+
+2.  Add a small skeleton `*StoreDB` class under the appropriate `src/stores/...` location implementing the minimal methods the shim needs (read/add/update/remove). Export the store's public types from `src/types/` as minimal contracts (see "Keeping type-checking" below).
+3.  Wire the shim to the new store in the app entry points, leaving the original provider file in place (or add it to the validator `frozenFiles` list while it is being replaced).
+4.  Incrementally move implementation logic from the provider into the store. Keep each PR focused: implement one small behavior at a time and ensure the shim API remains stable.
+5.  After the store implementation is feature-complete, replace the original provider (or remove the `frozenFiles` exception) and run a full type + lint pass to locate remaining inline `type` declarations and `typeof` usage.
+6.  Final step: centralize types. Move or create complete `export type` declarations under `src/types/` and replace any temporary/ad-hoc type shims. At this point, replace any remaining ad-hoc `typeof` checks with runtime guards in `src/types/typeGuards.ts`.
+
+-   Prefer small, focused PRs that leave the repo compilable and testable. If a single PR would be large, split it into a "skeleton" PR (shim + store skeleton + types stubs) followed by one or more implementation PRs.
+
+-   When you discover a general-purpose helper that operates over multiple data shapes, add a small, exported generic type under `src/types/` (or a helpful subfolder) that documents the helper's expected inputs/outputs (see the `sanitize` helpers for an example). Prefer a generic function signature (e.g. `<T>`) plus a runtime guard in `src/types/typeGuards.ts` instead of ad-hoc `any` casts. This centralizes contracts and makes downstream refactors safer.
+
+    Note: if a function accepts `unknown` (or an untyped parameter) and then immediately casts it (for example `const p = input as SomeType` inside the function), prefer adding a generic parameter or an explicit input type instead of internal casts. Use a signature like `function foo<T>(input: T)` or accept `unknown` and narrow with a runtime guard before returning a typed result — this makes callers opt into the concrete type and reduces unsafe casts inside implementations.
+
+Dependency-first rule
+
+-   When working through a migration, if you discover a shared helper, runtime guard, or type that must change for the migration to succeed, update that dependency first in a small, separate PR (or the first part of your PR): 1. Create the new helper/runtime guard/type under the correct `src/` location (prefer `src/utils/`, `src/types/`, or `src/providers/shims/` depending on intent) as a minimal, well-documented implementation or stub.
+
+2.  Prefer backwards-compatible implementations when it is low-cost (adapter/wrapper pattern) so existing callers continue to work while consumers migrate. Compatibility layers (shims/adapters) are optional — if keeping compatibility would add significant complexity, prefer a small, documented breaking change and provide a short migration plan or a minimal shim as an interim step.
+3.  Export a clear, minimal type from `src/types/` for the helper so other modules can import it and compile.
+4.  Add tests (unit) for the updated helper if it changes behavior surface, and run `tsc --noEmit` to confirm type stability.
+5.  Only after the dependency PR lands (or the first commit in a split PR) continue with the higher-level migration work that depends on it.
+
+This keeps migrations incremental and reduces churn: consumers can adopt the new helper quickly, and the final refactor step can concentrate on moving types and removing legacy code.
+
+Keeping type-checking during migration
+
+-   Create minimal type stubs in `src/types/` for any public surface you are exposing from a new store or shim. Example: if you add `BoardStoreDB.get(boardId)`, add a minimal `src/types/board.ts` with `export type BoardRecord = { id: string; ... }` so imports compile.
+-   Avoid scattering `type` declarations across feature files while migrating. If you must add a small local helper type temporarily, put a short `TODO: move to src/types/` comment above it and keep the declaration as small as possible.
+-   Prefer `as unknown as T` or small `// @ts-expect-error` annotations only as a last resort and document them with `TODO` comments linking to the migration task. Aim to remove these before finalizing the feature PR.
+-   Keep `tsc --noEmit` in your local verification loop and ensure CI runs `tsc --noEmit` as part of the merge checks. If type-errors are numerous during migration, use the `frozenFiles` mechanism (see below) to reduce noise while preserving correct types for new code.
+
+Frozen files and the migration sprint
+
+-   Use the validator's `frozenFiles` list for files that are intentionally being rewritten and would otherwise flood the validator with legacy issues. Files in `report.frozenFiles` are excluded from checks. Document each frozen file with a short PR comment describing why it was frozen and the expected removal timeframe.
+-   Do not leave files frozen indefinitely. Each migration PR should either remove a frozen entry or document the migration plan and a target milestone for unfrozen completion.
+
+Types policy (when to move/create types)
+
+-   New types introduced by a migration should live under `src/types/` immediately as minimal stubs (so consumers keep compiling). Mark them `// TODO: expand` where appropriate.
+-   When a type grows beyond a trivial shape, extract it fully into `src/types/` before adding additional code that depends on it.
+-   Never keep final or shared types inline in provider/feature files; move to `src/types/` before merging the PR.
+
 -   Prefer class-based Stores in `src/stores/` that wrap IndexedDB. Stores should expose a minimal public API and be importable.
 -   Provider implementations are being replaced by Provider Shims (`src/providers/*Shim.ts`) that delegate to Stores.
 -   No need for backwards-compatibility constraints — break the surface to simplify internals when necessary.
@@ -51,6 +103,8 @@ Testing & validator
 
 -   Unit tests are not required for every small change during an early migration, but new public behavior should be covered before landing.
 -   The validator `npm run validate:dev-guidelines` checks a small set of project invariants (types folder, stores folder, required file list, `any` occurrences, and multi-export files). Keep the validator up-to-date with new rules.
+
+-   Files listed in the validator's `frozenFiles` output are intentionally excluded from these checks; do not edit or fix those files — they are short-lived exceptions and will be removed during the migration process.
 
 Files & single-responsibility mapping
 

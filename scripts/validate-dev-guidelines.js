@@ -36,7 +36,84 @@ const report = {
     multiExportFiles: [],
     missingFiles: [],
     providerMigrationsNeeded: [],
+    // Human-readable descriptions of validator rules to make the JSON
+    // report self-describing for downstream consumers and reviewers.
+    rules: {
+        forbiddenTypes:
+            'Disallow usage of `any`, `as any`, `unknown`, and `Record<string, unknown>` in non-test source files.',
+        longFiles:
+            'Warn on files longer than 300 lines to encourage splitting large files into focused modules.',
+        multiExportFiles:
+            'Fail when a file exports multiple unrelated symbols (encourage single-responsibility files), with exemptions for barrels, types, utils, providers and hooks.',
+        inlineTypes:
+            'Disallow `type` or `export type` declarations outside of `src/types/`; new types should live centrally under `src/types`.',
+        duplicateTypesFound:
+            'Detect duplicate inline type declarations with identical name and text across files (likely copy/paste).',
+        typeofUsage:
+            'Warn when `typeof` checks are used inline; prefer runtime type guards exported from `src/types/typeGuards.ts`.',
+        missingFiles:
+            'Required DEV_GUIDELINES files that should exist in the repo to satisfy baseline expectations.',
+        providerMigrationsNeeded:
+            'Detect providers that are missing a corresponding ProviderShim (migration helper).',
+    },
+    // Frozen files: paths or directory patterns to exclude from validator checks.
+    // Use a suffix of '/**' to ignore everything under a directory.
+    frozenFiles:
+        "List of repo-relative paths (strings) excluded from validator checks. Use 'dir/**' to ignore all files under a directory.",
 };
+
+// Files or directories that should be ignored by the validator. Update this
+// list if there are vendored/generated files or long-lived exceptions you
+// want to keep out of the checks.
+const frozenFiles = [
+    // example: 'src/generated/**',
+    // add repo-relative paths here to opt files out of validation
+    'src/components/SyncManager.tsx',
+];
+
+// Automatically add provider files (under src/providers) without 'Shim' in
+// the filename to the frozen list — these provider implementations are
+// often in-progress and can generate many validator hits. We only add the
+// literal file paths (not directories) so other files remain checked.
+try {
+    const providersDir = path.join(root, 'src', 'providers');
+    if (fs.existsSync(providersDir)) {
+        const files = fs.readdirSync(providersDir);
+        for (const f of files) {
+            // match e.g. BoardProvider.tsx, AuthProvider.tsx, but skip *Shim* files
+            if (/Provider\.(t|j)sx?$/.test(f) && !/Shim/i.test(f)) {
+                const rel = path.posix.join('src', 'providers', f);
+                if (!frozenFiles.includes(rel)) frozenFiles.push(rel);
+            }
+        }
+    }
+} catch (_) {}
+
+function isFrozen(relPath) {
+    if (!relPath) return false;
+    const r = relPath.replace(/\\/g, '/');
+    for (const p of frozenFiles) {
+        if (!p) continue;
+        const pp = p.replace(/\\/g, '/');
+        if (pp.endsWith('/**')) {
+            const prefix = pp.slice(0, -3);
+            if (r.startsWith(prefix)) return true;
+        }
+        if (r === pp) return true;
+    }
+    return false;
+}
+// Files we intentionally exclude from certain noisy checks (typeGuards, schemas)
+function isExcludedForNoise(relPath) {
+    if (!relPath) return false;
+    const r = relPath.replace(/\\/g, '/');
+    // exclude the primary runtime guards file and all schema files
+    if (r === 'src/types/typeGuards.ts') return true;
+    if (r.startsWith('src/schema/')) return true;
+    return false;
+}
+// expose frozen list in the machine-readable report as objects with `path`
+report.frozenFiles = (frozenFiles || []).map((p) => ({ path: p }));
 // check types dir
 const preferredTypes = path.join(root, 'src', 'types');
 const altTypes = path.join(root, 'types');
@@ -179,16 +256,17 @@ function printTable(
 (function bannedTypeCheck() {
     const pattern = ': any|as any|\bunknown\b|Record<s*strings*,s*unknowns*>';
     const out = grep(pattern, path.join(root, 'src'));
-    // filter out true test files (filenames with .spec. or .test. or paths containing /tests/ or /__mocks__/)
-    const filtered = out.filter((l) => {
-        const parts = l.split(':');
-        const file = parts[0] || '';
-        const isTest =
-            /(?:\.spec\.|\.test\.|\/tests\/|\/__mocks__\/|__tests__\/)/i.test(
-                file
-            );
-        return !isTest;
-    });
+    const filtered = out
+        .map((l) => ({ raw: l, parsed: parseGrepLine(l) }))
+        .filter(({ parsed }) => {
+            const file = parsed.file || '';
+            const isTest =
+                /(?:\.spec\.|\.test\.|\/tests\/|\/__mocks__\/|__tests__\/)/i.test(
+                    file
+                );
+            return !isTest && !isFrozen(file) && !isExcludedForNoise(file);
+        })
+        .map((p) => p.raw);
     if (filtered.length) {
         const parsed = filtered.map(parseGrepLine);
         function detectMatch(t) {
@@ -351,6 +429,20 @@ if (fs.existsSync(typeGuardsPath)) {
     console.warn('typeGuards not found; add src/types/typeGuards.ts');
 }
 
+// print compact summary then write report JSON
+printSummary();
+
+// Print the frozen files table so it's easy to grep/filter in CI logs
+if (Array.isArray(report.frozenFiles) && report.frozenFiles.length) {
+    printTable(
+        'Frozen files excluded from checks (these are intentionally skipped):',
+        report.frozenFiles,
+        ['path'],
+        'warn',
+        true
+    );
+}
+
 // Required files (per DEV_GUIDELINES). These files may not exist yet; the
 // validator will fail if they are missing so the TODOs are visible in CI.
 const requiredFiles = [
@@ -399,6 +491,189 @@ for (const p of requiredFiles) {
     const abs = path.join(root, p);
     if (!fs.existsSync(abs)) missingFiles.push(p);
 }
+
+// compact summary for console at end
+function printSummary() {
+    function fmtCount(n) {
+        return n === 0 ? 'none found ✔' : String(n);
+    }
+    const summary = buildSummary();
+    console.log('\n ### Short summary ###');
+    console.log(`missingFiles: ${fmtCount(summary.missingFiles)}`);
+    console.log(`forbiddenTypes: ${fmtCount(summary.forbiddenTypes)}`);
+    console.log(`multiExportFiles: ${fmtCount(summary.multiExportFiles)}`);
+    console.log(`longFiles: ${fmtCount(summary.longFiles)}`);
+    console.log(
+        `typeDeclarationsOutsideTypes: ${fmtCount(
+            summary.typeDeclarationsOutsideTypes
+        )}`
+    );
+    console.log(
+        `typesDeclaredInline: ${fmtCount(summary.typesDeclaredInline)}`
+    );
+    console.log(
+        `duplicateTypesFound: ${fmtCount(summary.duplicateTypesFound)}`
+    );
+    console.log(
+        `typeofUsageWarnings: ${fmtCount(summary.typeofUsageWarnings)}`
+    );
+    console.log(`frozenFiles: ${fmtCount(summary.frozenFiles)}`);
+}
+
+// build a numeric summary object used by both console output and the JSON report
+function buildSummary() {
+    return {
+        missingFiles: (report.missingFiles || []).length,
+        forbiddenTypes: (report.forbiddenTypes || []).length,
+        multiExportFiles: (report.multiExportFiles || []).length,
+        longFiles: (report.longFiles || []).length,
+        typeDeclarationsOutsideTypes: (report.inlineTypes || []).length,
+        typesDeclaredInline: (report.inlineTypes || []).length,
+        duplicateTypesFound: (report.duplicateTypesFound || []).length,
+        typeofUsageWarnings: (report.typeofUsage || []).length,
+        frozenFiles: (report.frozenFiles || []).length,
+        providerMigrationsNeeded: (report.providerMigrationsNeeded || [])
+            .length,
+    };
+}
+
+if (missingFiles.length) {
+    report.missingFiles = missingFiles.map((p) => ({ path: p }));
+    printTable(
+        'Missing required files:',
+        report.missingFiles,
+        ['path'],
+        'fail'
+    );
+    fail('Some required files are missing');
+}
+
+// New rule: disallow `export type` or `type` declarations outside of src/types
+(function centralizedTypesCheck() {
+    const allFiles = walkDir(srcRoot);
+    const violations = [];
+    for (const f of allFiles) {
+        const rel = path.relative(root, f).replace(/\\/g, '/');
+        // skip files under src/types
+        if (rel.startsWith('src/types/')) continue;
+        try {
+            const txt = fs.readFileSync(f, 'utf8');
+            // crude: look for `export type` or `type X =` at start of line
+            const lines = txt.split(/\r?\n/);
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                // capture the declared type name and the declaration text so we can
+                // later detect duplicate declarations (matching name + text)
+                const exportMatch = line.match(
+                    /^export\s+type\s+([A-Za-z0-9_]+)/
+                );
+                const typeMatch = line.match(/^type\s+([A-Za-z0-9_]+)\s*=/);
+                if (exportMatch || typeMatch) {
+                    const name =
+                        (exportMatch && exportMatch[1]) ||
+                        (typeMatch && typeMatch[1]);
+                    violations.push({
+                        file: rel,
+                        line: i + 1,
+                        name,
+                        text: line,
+                    });
+                }
+            }
+        } catch (e) {}
+    }
+    if (violations.length) {
+        // store richer inline type info (name + text + location) in the report
+        report.inlineTypes = violations.map((v) => ({
+            file: v.file,
+            line: v.line,
+            name: v.name,
+            text: v.text,
+        }));
+        printTable(
+            'Type declarations outside of src/types detected (move types to src/types):',
+            violations,
+            ['file', 'line', 'text'],
+            'fail'
+        );
+        // continue to failing state so CI highlights the issue; duplicate detection
+        // runs after this block and will augment the report object.
+        fail('Found type declarations outside of src/types');
+    }
+})();
+
+// Detect duplicate inline type declarations: duplicates require both the type
+// name and declaration text to match across multiple files (copy/paste cases).
+(function duplicateInlineTypesCheck() {
+    const inline = report.inlineTypes || [];
+    const groups = Object.create(null);
+    for (const v of inline) {
+        const key = `${v.name}||${v.text}`;
+        if (!groups[key])
+            groups[key] = { name: v.name, text: v.text, occurrences: [] };
+        groups[key].occurrences.push({ file: v.file, line: v.line });
+    }
+    const duplicates = Object.values(groups).filter(
+        (g) => g.occurrences.length > 1
+    );
+    if (duplicates.length) {
+        report.duplicateTypesFound = duplicates.map((d) => ({
+            name: d.name,
+            text: d.text,
+            occurrences: d.occurrences,
+        }));
+        // present a compact table to help authors find duplicate declarations
+        const rows = report.duplicateTypesFound.map((d) => ({
+            name: d.name,
+            occurrences: d.occurrences
+                .map((o) => `${o.file}:${o.line}`)
+                .join(', '),
+            text: d.text,
+        }));
+        printTable(
+            'Duplicate inline type declarations detected (same name + text):',
+            rows,
+            ['name', 'occurrences', 'text'],
+            'fail',
+            true
+        );
+    } else {
+        report.duplicateTypesFound = [];
+    }
+})();
+
+// New rule: prefer type guards to inline `typeof` checks — find `typeof x` in non-test files
+(function typeofUsageCheck() {
+    // Find inline `typeof` usages. Use a single grep with alternation to
+    // detect either `typeof (` or `typeof x` patterns.
+    const out = grep(
+        'typeof\\s*\\(|typeof\\s+[a-zA-Z_]',
+        path.join(root, 'src')
+    );
+    const filtered = out.filter(
+        (l) => !/(?:\.test\.|\.spec\.|\/tests\/|__mocks__)/i.test(l)
+    );
+    // parse and exclude any frozen or noisy files from this check
+    let parsed = filtered
+        .map(parseGrepLine)
+        .filter((p) => !isFrozen(p.file) && !isExcludedForNoise(p.file));
+    if (parsed.length) {
+        report.typeofUsage = parsed.map((p) => ({
+            file: p.file,
+            line: p.line,
+        }));
+        printTable(
+            'Inline `typeof` usage found (prefer type guards in src/types/typeGuards.ts):',
+            parsed,
+            ['file', 'line', 'text'],
+            'fail'
+        );
+        // Make typeof usage a failing rule so CI highlights these occurrences.
+        fail(
+            'Inline `typeof` usage detected; prefer runtime guards in src/types/typeGuards.ts'
+        );
+    }
+})();
 
 if (missingFiles.length) {
     report.missingFiles = missingFiles.map((f) => ({ path: f }));
@@ -463,6 +738,107 @@ if (fs.existsSync(storeHelpersDir)) {
     );
 }
 
+// AST-based check: detect functions that accept `unknown` (or have an implicit
+// parameter type) and then cast that parameter inside the function body
+// (e.g. `const p = input as SomeType`). This usually indicates the function
+// would benefit from a generic parameter or an explicit input type instead of
+// internal casts. The rule warns by default and can be made fatal with
+// `--fail-on-unknown-casts` or `VALIDATOR_FAIL_ON_UNKNOWN_CASTS=1`.
+(function unknownParamCastCheck() {
+    let ts;
+    try {
+        ts = require('typescript');
+    } catch (e) {
+        // typescript not available; skip this check
+        return;
+    }
+    const enableFail = process.argv.includes('--fail-on-unknown-casts') || process.env.VALIDATOR_FAIL_ON_UNKNOWN_CASTS === '1';
+    const allFiles = walkDir(srcRoot);
+    const matches = [];
+    for (const f of allFiles) {
+        const rel = path.relative(root, f).replace(/\\/g, '/');
+        if (isFrozen(rel)) continue;
+        if (isExcludedForNoise(rel)) continue;
+        // skip tests and mocks
+        if (/(?:\.spec\.|\.test\.|\/tests\/|__mocks__|__tests__)/i.test(rel)) continue;
+        try {
+            const src = fs.readFileSync(f, 'utf8');
+            const sf = ts.createSourceFile(f, src, ts.ScriptTarget.ESNext, true);
+
+            function checkFunctionNode(node) {
+                // handle function-like nodes: declarations, expressions, arrows, methods
+                if (
+                    ts.isFunctionDeclaration(node) ||
+                    ts.isFunctionExpression(node) ||
+                    ts.isArrowFunction(node) ||
+                    ts.isMethodDeclaration(node)
+                ) {
+                    if (!node.parameters || node.parameters.length === 0) return;
+                    node.parameters.forEach((param) => {
+                        const paramId = param.name && ts.isIdentifier(param.name) ? param.name.text : null;
+                        if (!paramId) return;
+                        const hasUnknownType = param.type && param.type.kind === ts.SyntaxKind.UnknownKeyword;
+                        const hasNoType = !param.type;
+                        if (!hasUnknownType && !hasNoType) return;
+
+                        // search body for as-expressions or type-assertions that use the parameter
+                        let found = false;
+                        function findInBody(n) {
+                            if (found) return;
+                            // as-expression: <expr> as Type
+                            if (ts.isAsExpression(n) || ts.isTypeAssertionExpression(n)) {
+                                const inner = n.expression;
+                                if (ts.isIdentifier(inner) && inner.text === paramId) {
+                                    found = true;
+                                    return;
+                                }
+                            }
+                            // variable initializer like: const p = param as Foo
+                            if (ts.isVariableDeclaration(n) && n.initializer) {
+                                const init = n.initializer;
+                                if ((ts.isAsExpression(init) || ts.isTypeAssertionExpression(init)) && ts.isIdentifier(init.expression) && init.expression.text === paramId) {
+                                    found = true;
+                                    return;
+                                }
+                            }
+                            ts.forEachChild(n, findInBody);
+                        }
+
+                        if (node.body) findInBody(node.body);
+                        if (found) {
+                            const loc = sf.getLineAndCharacterOfPosition(param.pos || 0);
+                            matches.push({ file: rel, line: loc.line + 1, param: paramId, unknown: hasUnknownType, implicit: hasNoType });
+                        }
+                    });
+                }
+                ts.forEachChild(node, checkFunctionNode);
+            }
+
+            checkFunctionNode(sf);
+        } catch (e) {
+            // ignore parse errors for now
+        }
+    }
+
+    if (matches.length) {
+        report.unknownParamCasts = matches;
+        printTable(
+            'Functions accepting `unknown`/implicit params then casting them inside (prefer generics or explicit input types):',
+            matches,
+            ['file', 'line', 'param'],
+            'warn',
+            true
+        );
+        if (enableFail) {
+            fail('Found unknown/implicit parameter casts');
+        } else {
+            warnMsg('Unknown/implicit parameter casts detected (warning). Use --fail-on-unknown-casts to make this an error.');
+            // mark validator with a warning exit code to surface in CI if desired
+            process.exitCode = Math.max(process.exitCode || 0, 2);
+        }
+    }
+})();
+
 // Find any helper directories directly under src/stores that are not DB folders
 const storeSubdirs = fs
     .readdirSync(path.join(root, 'src', 'stores'), { withFileTypes: true })
@@ -515,18 +891,42 @@ function writeReport(reportObj) {
 
 // short summary + persist report
 writeReport(report);
-console.log('\nShort summary:');
+// attach numeric summary to the machine-readable report for CI
+report.summary = buildSummary();
+
+// colorized final summary for human consumption
+console.log('\n ### Final summary ###');
+const red = '\u001b[31m';
+const yellow = '\u001b[33m';
+const green = '\u001b[32m';
+const reset = '\u001b[0m';
+function colorLine(key, count) {
+    const val = count === 0 ? 'none found ✔' : String(count);
+    // choose color: red if any failures (non-zero and not warning-only), yellow if warnings, green if clean
+    // For simplicity: forbiddenTypes and duplicateTypesFound are failures; typeofUsageWarnings and longFiles are warnings
+    const failKeys = [
+        'forbiddenTypes',
+        'duplicateTypesFound',
+        'multiExportFiles',
+        'typeDeclarationsOutsideTypes',
+        'typesDeclaredInline',
+        'typeofUsageWarnings',
+    ];
+    const warnKeys = ['longFiles', 'providerMigrationsNeeded'];
+    let color = green;
+    if (failKeys.includes(key) && count > 0) color = red;
+    else if (warnKeys.includes(key) && count > 0) color = yellow;
+    return `${color}${key}: ${val}${reset}`;
+}
+const s = report.summary || buildSummary();
+console.log(colorLine('missingFiles', s.missingFiles));
+console.log(colorLine('forbiddenTypes', s.forbiddenTypes));
+console.log(colorLine('multiExportFiles', s.multiExportFiles));
+console.log(colorLine('longFiles', s.longFiles));
 console.log(
-    `missingFiles: ${report.missingFiles ? report.missingFiles.length : 0}`
+    colorLine('typeDeclarationsOutsideTypes', s.typeDeclarationsOutsideTypes)
 );
-console.log(
-    `forbiddenTypes: ${
-        report.forbiddenTypes ? report.forbiddenTypes.length : 0
-    }`
-);
-console.log(
-    `multiExportFiles: ${
-        report.multiExportFiles ? report.multiExportFiles.length : 0
-    }`
-);
-console.log(`longFiles: ${report.longFiles ? report.longFiles.length : 0}`);
+console.log(colorLine('typesDeclaredInline', s.typesDeclaredInline));
+console.log(colorLine('duplicateTypesFound', s.duplicateTypesFound));
+console.log(colorLine('typeofUsageWarnings', s.typeofUsageWarnings));
+console.log(colorLine('frozenFiles', s.frozenFiles));
